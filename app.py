@@ -5,10 +5,11 @@ st.set_page_config(layout="wide")
 from frota import pagina_frota
 from pedidos import pagina_pedidos
 from roteirizacao import pagina_roteirizacao
+from roteirizador import pagina_roteirizador  # Importar a nova página
 
 def main():
     st.sidebar.title("Menu")
-    pagina = st.sidebar.radio("Navegue pelas páginas:", ["Início", "Frota", "Pedidos", "Roteirização"])
+    pagina = st.sidebar.radio("Navegue pelas páginas:", ["Início", "Frota", "Pedidos", "Roteirização", "Roteirizador"])
 
     if pagina == "Início":
         st.title("Bem-vindo ao Roteirizador Inteligente")
@@ -47,6 +48,8 @@ def main():
         pagina_pedidos()
     elif pagina == "Roteirização":
         pagina_roteirizacao()
+    elif pagina == "Roteirizador":
+        pagina_roteirizador()  # Chamar a nova página
 
 if __name__ == "__main__":
     main()

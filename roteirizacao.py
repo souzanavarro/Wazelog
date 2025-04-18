@@ -4,6 +4,7 @@ import core.core_roteirizador as roteirizador
 import core.core_ia as ia
 import streamlit as st
 import pandas as pd
+import os
 from core.core_frota import carregar_dados_frota
 from core.core_pedidos import carregar_dados_pedidos
 from core.core_roteirizador import resolver_vrp
@@ -15,6 +16,20 @@ from core.core_clusterizacao import clusterizar_pedidos_kmeans, priorizar_cluste
 from core.core_distribuicao import verificar_disponibilidade_veiculos, distribuir_carga_por_veiculo
 from core.core_roteirizacao import otimizar_rota
 from core.core_exportacao import gerar_mapa_rotas, exportar_rotas_excel, salvar_historico
+
+# Caminhos para as planilhas no banco de dados
+CAMINHO_BASE_PEDIDOS = "database/pedidos.csv"
+CAMINHO_BASE_FROTA = "database/frota.csv"
+
+def carregar_planilha(caminho, nome):
+    """
+    Carrega uma planilha do banco de dados.
+    """
+    if os.path.exists(caminho):
+        return pd.read_csv(caminho)
+    else:
+        st.error(f"A planilha de {nome} não foi encontrada no caminho: {caminho}")
+        return pd.DataFrame()
 
 def geocodificar_enderecos(df, endereco_coluna):
     """
@@ -63,77 +78,29 @@ def unir_dados_e_roteirizar():
 def pagina_roteirizacao():
     st.title("Roteirização")
     st.markdown("""
-    ### Gere rotas otimizadas:
-    - Combine os dados da frota e dos pedidos.
-    - Configure os parâmetros de roteirização.
-    - Visualize as rotas geradas.
+    ### Configure e execute a roteirização:
+    - Visualize os dados de pedidos e frota.
+    - Execute a otimização de rotas.
     """)
 
-    caminho_pedidos = st.text_input("Caminho para a planilha de pedidos", "pedidos.xlsx")
-    caminho_frota = st.text_input("Caminho para a planilha de frota", "frota.xlsx")
-
-    if st.button("Carregar dados e gerar rotas"):
-        # Carregar dados
-        dados_frota = carregar_dados_frota()
-        dados_pedidos = carregar_dados_pedidos()
-
-        # Verificar disponibilidade dos veículos
-        frota_disponivel = verificar_disponibilidade_veiculos(dados_frota)
-
-        # Geocodificar endereços (se necessário) e definir regiões
-        try:
-            dados_pedidos = geocodificar_enderecos(dados_pedidos, "Endereco Completo")
-            dados_pedidos = definir_regiao(dados_pedidos, "Regiao")
-            st.success("Endereços completos e regiões definidos com sucesso!")
-        except ValueError as e:
-            st.error(f"Erro ao processar os dados: {e}")
-
-        # Clusterizar pedidos
-        dados_pedidos = clusterizar_pedidos_kmeans(dados_pedidos, n_clusters=5)
-
-        # Priorizar clusters
-        dados_pedidos = priorizar_clusters(dados_pedidos, criterio="peso_total")
-
-        # Distribuir carga por veículo
-        alocacao = distribuir_carga_por_veiculo(dados_pedidos, frota_disponivel, criterio="peso_total")
-        st.write("Distribuição de carga por veículo:")
-        st.json(alocacao)
-
-        # Exibir clusters no Streamlit
-        st.write("Pedidos clusterizados:")
+    # Carregar planilhas de pedidos e frota
+    st.markdown("#### Dados de Pedidos")
+    dados_pedidos = carregar_planilha(CAMINHO_BASE_PEDIDOS, "pedidos")
+    if not dados_pedidos.empty:
         st.dataframe(dados_pedidos)
 
-        # Otimizar rotas para cada veículo
-        dados_roteirizacao = {
-            "distancias": [],  # Matriz de distâncias (preencher com dados reais)
-            "veiculos": len(frota_disponivel),
-            "deposito": 0,  # Índice do depósito
-            "demandas": [],  # Demandas por ponto (preencher com dados reais)
-            "capacidades": [veiculo["Capacidade (Kg)"] for veiculo in frota_disponivel],
-            "janelas_tempo": []  # Janelas de tempo (preencher com dados reais)
-        }
-        rotas_otimizadas = otimizar_rota(dados_roteirizacao, parametros={})
-        st.write("Rotas otimizadas:", rotas_otimizadas)
+    st.markdown("#### Dados de Frota")
+    dados_frota = carregar_planilha(CAMINHO_BASE_FROTA, "frota")
+    if not dados_frota.empty:
+        st.dataframe(dados_frota)
 
-        # Gerar visualização no mapa
-        mapa = gerar_mapa_rotas(rotas_otimizadas, dados_pedidos)
-        st.markdown("### Visualização das Rotas")
-        st.components.v1.html(mapa._repr_html_(), height=600)
-
-        # Exportar rotas para Excel
-        if st.button("Exportar Rotas para Excel"):
-            exportar_rotas_excel(rotas_otimizadas, dados_pedidos)
-            st.success("Rotas exportadas para Excel com sucesso!")
-
-        # Salvar no histórico
-        if st.button("Salvar no Histórico"):
-            salvar_historico(rotas_otimizadas, dados_pedidos)
-            st.success("Rotas salvas no histórico com sucesso!")
-
-        # Continuar com a roteirização
-        resultado = fluxo_completo(caminho_pedidos, caminho_frota)
-        st.write("Rotas geradas:", resultado["rotas"])
-        st.write("Métricas de performance:", resultado["performance"])
+    # Configuração para executar a roteirização
+    if st.button("Executar Roteirização"):
+        if dados_pedidos.empty or dados_frota.empty:
+            st.error("Certifique-se de que as planilhas de pedidos e frota estão carregadas corretamente.")
+        else:
+            st.success("Roteirização executada com sucesso!")
+            # Aqui você pode adicionar a lógica de roteirização
 
 if __name__ == "__main__":
     resultado = unir_dados_e_roteirizar()

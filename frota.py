@@ -123,12 +123,12 @@ def pagina_frota():
                 transportador = st.text_input("Transportador", veiculo_selecionado["Transportador"])
                 descricao = st.text_input("Descrição do veículo", veiculo_selecionado["Descrição Veículo"])
                 capacidade_kg = st.number_input("Capacidade (Kg)", min_value=0, value=int(veiculo_selecionado["Capac. Kg"]))
-                disponivel = st.text_input("Disponível", veiculo_selecionado["Disponível"])
+                disponivel = st.selectbox("Disponível", ["Sim", "Não"], index=0 if veiculo_selecionado["Disponível"] == "Sim" else 1)
                 submit_editar = st.form_submit_button("Salvar Alterações")
 
                 if submit_editar:
-                    df_frota.loc[df_frota["Placa"] == placa_selecionada, :] = [
-                        placa_selecionada, transportador, descricao, capacidade_kg, disponivel
+                    df_frota.loc[df_frota["Placa"] == placa_selecionada, ["Transportador", "Descrição Veículo", "Capac. Kg", "Disponível"]] = [
+                        transportador, descricao, capacidade_kg, disponivel
                     ]
                     salvar_base_local(df_frota)
                     st.success("Alterações salvas com sucesso!")
@@ -142,11 +142,17 @@ def pagina_frota():
         transportador = st.text_input("Transportador")
         descricao = st.text_input("Descrição do veículo")
         capacidade_kg = st.number_input("Capacidade (Kg)", min_value=0)
-        disponivel = st.text_input("Disponível (ex: Sim/Não)")
+        disponivel = st.selectbox("Disponível (ex: Sim/Não)", ["Sim", "Não"])
         submit = st.form_submit_button("Salvar")
 
         if submit:
-            veiculo = cadastrar_veiculo(placa, transportador, descricao, capacidade_kg, disponivel)
+            veiculo = {
+                "Placa": placa,
+                "Transportador": transportador,
+                "Descrição Veículo": descricao,
+                "Capac. Kg": capacidade_kg,
+                "Disponível": disponivel
+            }
             df_frota = pd.concat([df_frota, pd.DataFrame([veiculo])], ignore_index=True).drop_duplicates(subset=["Placa"])
             salvar_base_local(df_frota)
             st.success(f"Veículo {veiculo['Placa']} cadastrado com sucesso!")
