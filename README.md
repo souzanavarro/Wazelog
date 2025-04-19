@@ -35,6 +35,30 @@ Bem-vindo ao **Roteirizador Inteligente**, uma aplicação para otimizar a logí
    - Reforço de rotas que funcionaram bem.
    - Ajustes baseados em feedback.
 
+## Funcionalidades Adicionais
+
+7. **Algoritmos Genéticos para TSP**:
+   - Implementação de algoritmos genéticos para resolver o problema do caixeiro viajante (TSP).
+   - Permite encontrar rotas otimizadas para entregas com base em heurísticas evolutivas.
+
+8. **Integração com APIs de Roteirização (OSRM)**:
+   - Consulta à API OSRM para obter matrizes de distância reais entre os pontos de entrega.
+   - Alternativa eficiente ao cálculo geodésico local.
+
+9. **Roteirização Manual**:
+   - Funcionalidade para edição manual de rotas diretamente na interface do Streamlit.
+   - Permite ajustes personalizados nas rotas geradas automaticamente.
+
+10. **Regras de Negócio Personalizadas**:
+    - Suporte a prioridades, como clientes VIP e entregas urgentes.
+    - Configuração de restrições específicas, como horários preferenciais e acessibilidade.
+
+11. **Restrições Avançadas no VRP**:
+    - Consideração de janelas de tempo para entregas.
+    - Respeito a capacidades específicas por veículo, como peso e volume.
+
+Essas funcionalidades tornam o **Roteirizador Inteligente** uma solução robusta e flexível para diferentes cenários logísticos.
+
 ## Tecnologias Utilizadas
 
 - **Frontend**: [Streamlit](https://streamlit.io/)
