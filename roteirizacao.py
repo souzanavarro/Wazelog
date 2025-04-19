@@ -95,13 +95,15 @@ def pagina_roteirizacao():
         st.markdown("#### Dados de Frota")
         dados_frota = carregar_planilha(CAMINHO_BASE_FROTA, "frota")
         if not dados_frota.empty:
-            st.dataframe(dados_frota, use_container_width=True)
+            # Filtrar veículos disponíveis
+            dados_frota_disponiveis = dados_frota[dados_frota["Disponível"] == "Sim"]
+            st.dataframe(dados_frota_disponiveis, use_container_width=True)
 
     with col2:
         st.markdown("#### Ações")
         if st.button("🚀 Executar Roteirização"):
-            if dados_pedidos.empty or dados_frota.empty:
-                st.error("Certifique-se de que as planilhas de pedidos e frota estão carregadas corretamente.")
+            if dados_pedidos.empty or dados_frota_disponiveis.empty:
+                st.error("Certifique-se de que as planilhas de pedidos e frota estão carregadas corretamente e que há veículos disponíveis.")
             else:
                 st.success("Roteirização executada com sucesso!")
 
