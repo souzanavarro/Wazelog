@@ -106,8 +106,9 @@ def pagina_roteirizador():
         )
         ponto_chegada = st.text_input(
             "Ponto de chegada (opcional)",
-            value=config_salvas.get("ponto_chegada", ""),
-            placeholder="Ex: Rua B, 456, São Paulo"
+            value=ponto_partida if ponto_partida else config_salvas.get("ponto_chegada", ""),
+            placeholder="Ex: Rua B, 456, São Paulo",
+            disabled=True  # Desabilitar o campo para evitar edição manual
         )
 
     st.markdown("---")
@@ -122,7 +123,7 @@ def pagina_roteirizador():
                 "janela_tempo": janela_tempo,
                 "capacidade": capacidade,
                 "ponto_partida": ponto_partida,
-                "ponto_chegada": ponto_chegada
+                "ponto_chegada": ponto_partida  # Ponto de chegada é igual ao ponto de partida
             }
             salvar_configuracoes(config)
             st.success("Configurações salvas com sucesso! Arquivo criado em `database/configuracoes_roteirizador.json`.")
