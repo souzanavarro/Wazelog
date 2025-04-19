@@ -61,7 +61,7 @@ def definir_regiao(df):
     return df
 
 def pagina_pedidos():
-    st.title("Cadastro de Pedidos")
+    st.title("📦 Cadastro de Pedidos")
     st.markdown("""
     ### Gerencie os pedidos disponíveis:
     - Faça upload de uma planilha de pedidos.
@@ -70,6 +70,28 @@ def pagina_pedidos():
 
     # Carregar base local
     df_pedidos = carregar_base_pedidos()
+
+    # Dividir a página em duas colunas para melhor organização
+    col1, col2 = st.columns([3, 1])
+
+    with col1:
+        st.markdown("#### Pedidos Cadastrados")
+        if not df_pedidos.empty:
+            st.dataframe(df_pedidos, use_container_width=True)
+        else:
+            st.info("Nenhum pedido cadastrado ainda.")
+
+    with col2:
+        st.markdown("#### Ações")
+        if st.button("➕ Adicionar Pedido"):
+            st.success("Ação de adicionar pedido em desenvolvimento.")
+        if st.button("✏️ Editar Pedido"):
+            st.success("Ação de editar pedido em desenvolvimento.")
+        if st.button("🗑️ Remover Pedido"):
+            st.warning("Ação de remover pedido em desenvolvimento.")
+
+    st.markdown("---")
+    st.info("💡 **Dica:** Certifique-se de que os pedidos estão corretos antes de iniciar a roteirização.")
 
     # Upload de planilha de pedidos
     st.markdown("#### Upload de Planilha de Pedidos")
@@ -101,10 +123,3 @@ def pagina_pedidos():
                     df_pedidos = df_upload  # Atualizar a variável para refletir os novos dados
             except Exception as e:
                 st.error(f"Erro ao carregar a planilha: {e}")
-
-    # Exibir cadastros existentes
-    st.markdown("#### Pedidos Cadastrados")
-    if not df_pedidos.empty:
-        st.dataframe(df_pedidos)
-    else:
-        st.info("Nenhum pedido cadastrado ainda.")

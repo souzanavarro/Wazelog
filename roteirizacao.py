@@ -76,31 +76,37 @@ def unir_dados_e_roteirizar():
     return resultado_final
 
 def pagina_roteirizacao():
-    st.title("Roteirização")
+    st.title("📍 Roteirização")
     st.markdown("""
     ### Configure e execute a roteirização:
     - Visualize os dados de pedidos e frota.
     - Execute a otimização de rotas.
     """)
 
-    # Carregar planilhas de pedidos e frota
-    st.markdown("#### Dados de Pedidos")
-    dados_pedidos = carregar_planilha(CAMINHO_BASE_PEDIDOS, "pedidos")
-    if not dados_pedidos.empty:
-        st.dataframe(dados_pedidos)
+    # Dividir a página em duas colunas para melhor organização
+    col1, col2 = st.columns([3, 1])
 
-    st.markdown("#### Dados de Frota")
-    dados_frota = carregar_planilha(CAMINHO_BASE_FROTA, "frota")
-    if not dados_frota.empty:
-        st.dataframe(dados_frota)
+    with col1:
+        st.markdown("#### Dados de Pedidos")
+        dados_pedidos = carregar_planilha(CAMINHO_BASE_PEDIDOS, "pedidos")
+        if not dados_pedidos.empty:
+            st.dataframe(dados_pedidos, use_container_width=True)
 
-    # Configuração para executar a roteirização
-    if st.button("Executar Roteirização"):
-        if dados_pedidos.empty or dados_frota.empty:
-            st.error("Certifique-se de que as planilhas de pedidos e frota estão carregadas corretamente.")
-        else:
-            st.success("Roteirização executada com sucesso!")
-            # Aqui você pode adicionar a lógica de roteirização
+        st.markdown("#### Dados de Frota")
+        dados_frota = carregar_planilha(CAMINHO_BASE_FROTA, "frota")
+        if not dados_frota.empty:
+            st.dataframe(dados_frota, use_container_width=True)
+
+    with col2:
+        st.markdown("#### Ações")
+        if st.button("🚀 Executar Roteirização"):
+            if dados_pedidos.empty or dados_frota.empty:
+                st.error("Certifique-se de que as planilhas de pedidos e frota estão carregadas corretamente.")
+            else:
+                st.success("Roteirização executada com sucesso!")
+
+    st.markdown("---")
+    st.info("💡 **Dica:** Certifique-se de que os dados de pedidos e frota estão corretos antes de executar a roteirização.")
 
 if __name__ == "__main__":
     resultado = unir_dados_e_roteirizar()

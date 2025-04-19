@@ -48,7 +48,7 @@ def validar_cabecalho_frota(df):
     return all(col in df.columns for col in cabecalhos_esperados)
 
 def pagina_frota():
-    st.title("Cadastro de Frota")
+    st.title("🚚 Cadastro de Frota")
     st.markdown("""
     ### Gerencie os veículos disponíveis:
     - Adicione novos veículos.
@@ -108,11 +108,30 @@ def pagina_frota():
             except Exception as e:
                 st.error(f"Erro ao carregar a planilha: {e}")
 
-    # Exibir cadastros existentes
-    st.markdown("#### Frota Cadastrada")
-    if not df_frota.empty:
-        st.dataframe(df_frota)
+    # Dividir a página em duas colunas para melhor organização
+    col1, col2 = st.columns([3, 1])
 
+    with col1:
+        st.markdown("#### Frota Cadastrada")
+        if not df_frota.empty:
+            st.dataframe(df_frota, use_container_width=True)
+        else:
+            st.info("Nenhum veículo cadastrado ainda.")
+
+    with col2:
+        st.markdown("#### Ações")
+        if st.button("➕ Adicionar Veículo"):
+            st.success("Ação de adicionar veículo em desenvolvimento.")
+        if st.button("✏️ Editar Veículo"):
+            st.success("Ação de editar veículo em desenvolvimento.")
+        if st.button("🗑️ Remover Veículo"):
+            st.warning("Ação de remover veículo em desenvolvimento.")
+
+    st.markdown("---")
+    st.info("💡 **Dica:** Certifique-se de que os dados da frota estão atualizados antes de realizar a roteirização.")
+
+    # Exibir cadastros existentes
+    if not df_frota.empty:
         # Formulário para editar um veículo
         st.markdown("#### Editar Veículo")
         placas = df_frota["Placa"].tolist()
@@ -132,8 +151,6 @@ def pagina_frota():
                     ]
                     salvar_base_local(df_frota)
                     st.success("Alterações salvas com sucesso!")
-    else:
-        st.info("Nenhum veículo cadastrado ainda.")
 
     # Formulário para cadastro manual
     st.markdown("#### Cadastro Manual de Veículos")
