@@ -365,16 +365,75 @@ def pagina_roteirizador():
     ### Configure os parâmetros para a roteirização:
     - Escolha o critério de otimização.
     - Defina restrições e preferências.
+    - Ative ou desative funcionalidades do core.
     """)
 
-    # Configurações de exemplo
-    criterio = st.selectbox("Critério de Otimização", ["Menor Distância", "Menor Tempo", "Menor Custo"])
-    janela_tempo = st.checkbox("Considerar Janelas de Tempo")
-    capacidade = st.checkbox("Respeitar Capacidade dos Veículos")
+    # Adicionar uma caixa de informações no topo
+    st.info("⚡ Configure os parâmetros abaixo para otimizar suas rotas de entrega.")
 
-    # Botão para salvar configurações
-    if st.button("Salvar Configurações"):
-        st.success("Configurações salvas com sucesso!")
+    # Carregar configurações salvas
+    config_salvas = carregar_configuracoes()
+
+    # Dividir a página em duas colunas para melhor organização
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### 🛠️ Critério de Otimização")
+        criterio = st.selectbox(
+            "Escolha o critério:",
+            ["Menor Distância", "Menor Tempo", "Menor Custo"],
+            index=["Menor Distância", "Menor Tempo", "Menor Custo"].index(config_salvas.get("criterio", "Menor Distância"))
+        )
+
+        st.markdown("#### 🔒 Restrições")
+        janela_tempo = st.checkbox("Considerar janelas de tempo", value=config_salvas.get("janela_tempo", False))
+        capacidade = st.checkbox("Respeitar capacidade dos veículos", value=config_salvas.get("capacidade", False))
+
+    with col2:
+        st.markdown("#### 📍 Preferências")
+        ponto_partida = st.text_input(
+            "Ponto de partida (endereço ou coordenadas)",
+            value=config_salvas.get("ponto_partida", ""),
+            placeholder="Ex: Rua A, 123, São Paulo"
+        )
+        ponto_chegada = st.text_input(
+            "Ponto de chegada (opcional)",
+            value=ponto_partida if ponto_partida else config_salvas.get("ponto_chegada", ""),
+            placeholder="Ex: Rua B, 456, São Paulo",
+            disabled=True  # Desabilitar o campo para evitar edição manual
+        )
+
+    st.markdown("---")
+    st.markdown("#### ⚙️ Funcionalidades do Core")
+    funcionalidades_core = {
+        "Clusterização": "core.core_clusterizacao",
+        "Distribuição": "core.core_distribuicao",
+        "IA": "core.core_ia",
+        "Mapas": "core.core_mapas",
+        "Regras de Negócio": "core.core_regras_negocio",
+        "Simulação": "core.core_simulacao"
+    }
+
+    ativacoes = {}
+    for nome, modulo in funcionalidades_core.items():
+        ativacoes[modulo] = st.toggle(f"Ativar {nome}", value=True)
+
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        salvar = st.button("Salvar Configurações")
+
+        if salvar:
+            config = {
+                "criterio": criterio,
+                "janela_tempo": janela_tempo,
+                "capacidade": capacidade,
+                "ponto_partida": ponto_partida,
+                "ponto_chegada": ponto_partida,  # Ponto de chegada é igual ao ponto de partida
+                "ativacoes": ativacoes
+            }
+            salvar_configuracoes(config)
+            st.success("Configurações salvas com sucesso!")
 
 def pagina_exportacao(rotas, dados_pedidos):
     """
