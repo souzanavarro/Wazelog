@@ -79,21 +79,36 @@ def pagina_roteirizador():
     # Adicionar uma caixa de informações no topo
     st.info("⚡ Configure os parâmetros abaixo para otimizar suas rotas de entrega.")
 
+    # Carregar configurações salvas
+    config_salvas = carregar_configuracoes()
+
     # Dividir a página em duas colunas para melhor organização
     col1, col2 = st.columns(2)
 
     with col1:
         st.markdown("#### 🛠️ Critério de Otimização")
-        criterio = st.selectbox("Escolha o critério:", ["Menor Distância", "Menor Tempo", "Menor Custo"])
+        criterio = st.selectbox(
+            "Escolha o critério:",
+            ["Menor Distância", "Menor Tempo", "Menor Custo"],
+            index=["Menor Distância", "Menor Tempo", "Menor Custo"].index(config_salvas.get("criterio", "Menor Distância"))
+        )
 
         st.markdown("#### 🔒 Restrições")
-        janela_tempo = st.checkbox("Considerar janelas de tempo")
-        capacidade = st.checkbox("Respeitar capacidade dos veículos")
+        janela_tempo = st.checkbox("Considerar janelas de tempo", value=config_salvas.get("janela_tempo", False))
+        capacidade = st.checkbox("Respeitar capacidade dos veículos", value=config_salvas.get("capacidade", False))
 
     with col2:
         st.markdown("#### 📍 Preferências")
-        ponto_partida = st.text_input("Ponto de partida (endereço ou coordenadas)", placeholder="Ex: Rua A, 123, São Paulo")
-        ponto_chegada = st.text_input("Ponto de chegada (opcional)", placeholder="Ex: Rua B, 456, São Paulo")
+        ponto_partida = st.text_input(
+            "Ponto de partida (endereço ou coordenadas)",
+            value=config_salvas.get("ponto_partida", ""),
+            placeholder="Ex: Rua A, 123, São Paulo"
+        )
+        ponto_chegada = st.text_input(
+            "Ponto de chegada (opcional)",
+            value=config_salvas.get("ponto_chegada", ""),
+            placeholder="Ex: Rua B, 456, São Paulo"
+        )
 
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 2, 1])
