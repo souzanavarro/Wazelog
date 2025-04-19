@@ -1,5 +1,7 @@
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
+import networkx as nx
+import random
 
 def otimizar_rota(dados, parametros):
     """
@@ -129,3 +131,56 @@ def integrar_dados_historicos(dados, historico):
         if pedido['id'] in historico:
             pedido['tempo_estimado'] = historico[pedido['id']]['tempo_medio']
     return dados
+
+def criar_grafo_tsp(pontos, matriz_distancias):
+    # Função para criar um grafo para o problema do TSP
+    G = nx.Graph()
+    for i, ponto in enumerate(pontos):
+        G.add_node(i, pos=ponto)
+    for i in range(len(pontos)):
+        for j in range(i + 1, len(pontos)):
+            G.add_edge(i, j, weight=matriz_distancias[i][j])
+    return G
+
+def resolver_tsp_genetico(matriz_distancias, num_geracoes=100, tamanho_populacao=50):
+    # Função para resolver o problema do TSP usando algoritmo genético
+    def fitness(caminho):
+        return sum(matriz_distancias[caminho[i]][caminho[i + 1]] for i in range(len(caminho) - 1)) + matriz_distancias[caminho[-1]][caminho[0]]
+
+    def crossover(pai1, pai2):
+        corte = random.randint(1, len(pai1) - 2)
+        filho = pai1[:corte] + [gene for gene in pai2 if gene not in pai1[:corte]]
+        return filho
+
+    def mutacao(caminho):
+        i, j = random.sample(range(len(caminho)), 2)
+        caminho[i], caminho[j] = caminho[j], caminho[i]
+
+    populacao = [random.sample(range(len(matriz_distancias)), len(matriz_distancias)) for _ in range(tamanho_populacao)]
+    for _ in range(num_geracoes):
+        populacao.sort(key=fitness)
+        nova_populacao = populacao[:10]
+        while len(nova_populacao) < tamanho_populacao:
+            pai1, pai2 = random.sample(populacao[:20], 2)
+            filho = crossover(pai1, pai2)
+            if random.random() < 0.1:
+                mutacao(filho)
+            nova_populacao.append(filho)
+        populacao = nova_populacao
+
+    return min(populacao, key=fitness)
+
+def tsp_nearest_neighbor(matriz_distancias):
+    # Função para resolver o problema do TSP usando o algoritmo do vizinho mais próximo
+    n = len(matriz_distancias)
+    visitados = [False] * n
+    caminho = [0]
+    visitados[0] = True
+
+    for _ in range(n - 1):
+        ultimo = caminho[-1]
+        proximo = min((dist, j) for j, dist in enumerate(matriz_distancias[ultimo]) if not visitados[j])[1]
+        caminho.append(proximo)
+        visitados[proximo] = True
+
+    return caminho + [0]

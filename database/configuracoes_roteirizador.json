@@ -3,5 +3,13 @@
     "janela_tempo": false,
     "capacidade": true,
     "ponto_partida": "-23,251501,-47,087135",
-    "ponto_chegada": "-23,251501,-47,087135"
+    "ponto_chegada": "-23,251501,-47,087135",
+    "ativacoes": {
+        "core.core_clusterizacao": true,
+        "core.core_distribuicao": true,
+        "core.core_ia": true,
+        "core.core_mapas": true,
+        "core.core_regras_negocio": true,
+        "core.core_simulacao": true
+    }
 }

@@ -1,4 +1,14 @@
 import requests
+import math
+
+def calcular_distancia(lat1, lon1, lat2, lon2):
+    # Função para calcular a distância geodésica entre dois pontos (em km)
+    R = 6371  # Raio da Terra em km
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
 
 def calcular_distancia_osrm(origem, destino, perfil="driving"):
     """
@@ -77,3 +87,14 @@ def calcular_distancia_tempo_origem_destino(origem, destino, api_key=None):
             raise ValueError("Nenhuma rota encontrada entre os pontos fornecidos.")
     else:
         raise ConnectionError(f"Erro ao acessar a API do OpenStreetMap: {response.status_code}")
+
+def get_osrm_distance_matrix(locations, profile="driving"): 
+    # Função para consultar a API OSRM e obter matrizes de distância
+    base_url = "http://router.project-osrm.org/table/v1/"
+    coords = ";".join([f"{lon},{lat}" for lat, lon in locations])
+    url = f"{base_url}{profile}/{coords}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()["durations"]
+    else:
+        raise Exception(f"Erro na API OSRM: {response.status_code}")

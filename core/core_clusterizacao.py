@@ -1,6 +1,13 @@
 import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans, DBSCAN
+from sklearn.cluster import KMeans
+
+def agrupar_por_regiao(coordenadas, num_clusters):
+    # Função para agrupar coordenadas geográficas em clusters
+    kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+    kmeans.fit(coordenadas)
+    return kmeans.labels_
 
 def clusterizar_pedidos_kmeans(pedidos, n_clusters=5):
     """
