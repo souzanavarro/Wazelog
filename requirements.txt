@@ -19,4 +19,4 @@ streamlit-extras
 streamlit-lottie
 streamlit-analytics
 streamlit-plotly-events
-
+transformers

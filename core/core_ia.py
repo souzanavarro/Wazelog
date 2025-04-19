@@ -3,6 +3,27 @@ import pandas as pd
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.linear_model import LinearRegression
 import numpy as np
+from transformers import pipeline
+
+class ModeloIA:
+    def __init__(self):
+        """
+        Inicializa um modelo de IA gratuito usando a biblioteca Hugging Face Transformers.
+        """
+        self.modelo = pipeline("text-classification", model="distilbert-base-uncased")
+
+    def ajustar_dados(self, dados):
+        """
+        Ajusta os dados de roteirização com base em previsões do modelo de IA.
+
+        :param dados: Dicionário com dados de pedidos e veículos.
+        :return: Dados ajustados com base nas previsões do modelo de IA.
+        """
+        for pedido in dados['pedidos']:
+            texto = f"Prioridade: {pedido['prioridade']}, Volume: {pedido['volume']}, Distância: {pedido['distancia']}"
+            previsao = self.modelo(texto)[0]
+            pedido['ajuste_ia'] = previsao['label']
+        return dados
 
 def simulated_annealing(dados, parametros):
     """
