@@ -52,3 +52,28 @@ def calcular_distancia_google_maps(origem, destino, api_key, modo="driving"):
     except Exception as e:
         print(f"Erro ao calcular distância: {e}")
         return None
+
+def calcular_distancia_tempo_origem_destino(origem, destino, api_key=None):
+    """
+    Calcula a distância e o tempo de viagem entre dois pontos usando a API do OpenStreetMap (gratuita).
+
+    :param origem: Tupla com latitude e longitude do ponto de origem (ex: (lat, lon)).
+    :param destino: Tupla com latitude e longitude do ponto de destino (ex: (lat, lon)).
+    :param api_key: Não é necessário para OpenStreetMap.
+    :return: Dicionário com distância (em metros) e tempo (em segundos).
+    """
+    url = f"http://router.project-osrm.org/route/v1/driving/{origem[1]},{origem[0]};{destino[1]},{destino[0]}?overview=false"
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        dados = response.json()
+        if dados.get("routes"):
+            rota = dados["routes"][0]
+            return {
+                "distancia": rota["distance"],  # em metros
+                "tempo": rota["duration"]       # em segundos
+            }
+        else:
+            raise ValueError("Nenhuma rota encontrada entre os pontos fornecidos.")
+    else:
+        raise ConnectionError(f"Erro ao acessar a API do OpenStreetMap: {response.status_code}")

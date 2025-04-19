@@ -141,7 +141,7 @@ def pagina_frota():
             with st.form("form_editar_veiculo"):
                 transportador = st.text_input("Transportador", veiculo_selecionado["Transportador"])
                 descricao = st.text_input("Descrição do veículo", veiculo_selecionado["Descrição Veículo"])
-                capacidade_kg = st.number_input("Capacidade (Kg)", min_value=0, value=int(veiculo_selecionado["Capac. Kg"]))
+                capacidade_kg = st.number_input("Capac. Kg", min_value=0, value=int(veiculo_selecionado["Capac. Kg"]))
                 disponivel = st.selectbox("Disponível", ["Sim", "Não"], index=0 if veiculo_selecionado["Disponível"] == "Sim" else 1)
                 submit_editar = st.form_submit_button("Salvar Alterações")
 
@@ -158,7 +158,7 @@ def pagina_frota():
         placa = st.text_input("Placa do veículo")
         transportador = st.text_input("Transportador")
         descricao = st.text_input("Descrição do veículo")
-        capacidade_kg = st.number_input("Capacidade (Kg)", min_value=0)
+        capacidade_kg = st.number_input("Capac. Kg", min_value=0)
         disponivel = st.selectbox("Disponível (ex: Sim/Não)", ["Sim", "Não"])
         submit = st.form_submit_button("Salvar")
 

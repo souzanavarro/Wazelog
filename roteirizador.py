@@ -6,6 +6,8 @@ from streamlit_folium import folium_static
 import folium
 import random
 from core.core_clusterizacao import clusterizar_pedidos_kmeans, clusterizar_pedidos_dbscan, priorizar_clusters
+from core.core_exportacao import exportar_rotas_json, exportar_rotas_excel
+from core.core_feedback import registrar_feedback, carregar_feedback
 
 def carregar_configuracoes():
     """
@@ -94,7 +96,7 @@ def preparar_dados_para_roteirizacao(pedidos, frota, config):
 
     # Aplicar restrições e preferências
     if config.get("capacidade"):
-        pedidos_validos = pedidos_validos[pedidos_validos["Peso dos Itens"] <= frota_disponivel["Capacidade (Kg)"].max()]
+        pedidos_validos = pedidos_validos[pedidos_validos["Peso dos Itens"] <= frota_disponivel["Capac. Kg"].max()]
 
     # Separar pedidos por região/clusterização
     metodo_clusterizacao = config.get("metodo_clusterizacao", "kmeans")
@@ -211,6 +213,99 @@ def calcular_metricas_desempenho(rotas, pedidos):
     distancia_media = sum(len(rota) - 1 for rota in rotas) / len(rotas)  # Número de arestas por rota
     st.write(f"**Total de Pedidos Atendidos:** {total_pedidos}")
     st.write(f"**Distância Média por Veículo:** {distancia_media:.2f} unidades")
+
+def calcular_tempo_estimado_entrega(rotas, dados_pedidos):
+    """
+    Calcula o tempo estimado de entrega para cada rota com base em dados históricos e distâncias.
+
+    :param rotas: Lista de rotas otimizadas.
+    :param dados_pedidos: DataFrame com informações dos pedidos, incluindo tempos históricos.
+    :return: Dicionário com tempos estimados por rota.
+    """
+    tempos_estimados = {}
+    for i, rota in enumerate(rotas):
+        tempo_total = 0
+        for j in range(len(rota) - 1):
+            origem = rota[j]
+            destino = rota[j + 1]
+            tempo_historico = dados_pedidos.loc[(dados_pedidos['origem'] == origem) & (dados_pedidos['destino'] == destino), 'tempo_historico']
+            if not tempo_historico.empty:
+                tempo_total += tempo_historico.iloc[0]
+            else:
+                # Estimativa padrão caso não haja histórico
+                tempo_total += 10  # Exemplo: 10 minutos por entrega
+        tempos_estimados[f"Rota {i + 1}"] = tempo_total
+    return tempos_estimados
+
+def gerar_relatorio_roteirizacao(rotas, custos, tempos_estimados):
+    """
+    Gera um relatório detalhado da roteirização, incluindo custos, tempos e métricas de desempenho.
+
+    :param rotas: Lista de rotas otimizadas.
+    :param custos: Dicionário com custos por rota.
+    :param tempos_estimados: Dicionário com tempos estimados por rota.
+    :return: String formatada com o relatório.
+    """
+    relatorio = "Relatório de Roteirização\n"
+    relatorio += "=" * 30 + "\n"
+    for i, rota in enumerate(rotas):
+        relatorio += f"Rota {i + 1}:\n"
+        relatorio += f"  Paradas: {', '.join(map(str, rota))}\n"
+        relatorio += f"  Custo: {custos.get(f'Rota {i + 1}', 'N/A')}\n"
+        relatorio += f"  Tempo Estimado: {tempos_estimados.get(f'Rota {i + 1}', 'N/A')} minutos\n"
+        relatorio += "-" * 30 + "\n"
+    return relatorio
+
+def salvar_relatorio_em_arquivo(relatorio, caminho="relatorios/relatorio_roteirizacao.txt"):
+    """
+    Salva o relatório de roteirização em um arquivo de texto.
+
+    :param relatorio: String com o conteúdo do relatório.
+    :param caminho: Caminho do arquivo onde o relatório será salvo.
+    """
+    import os
+    os.makedirs(os.path.dirname(caminho), exist_ok=True)
+    with open(caminho, "w") as arquivo:
+        arquivo.write(relatorio)
+
+def validar_dados_entrada(pedidos, frota):
+    """
+    Valida os dados de entrada para garantir que estão completos e consistentes.
+
+    :param pedidos: DataFrame com dados dos pedidos.
+    :param frota: DataFrame com dados da frota.
+    :return: Boolean indicando se os dados são válidos.
+    """
+    if pedidos.empty:
+        raise ValueError("A lista de pedidos está vazia.")
+    if frota.empty:
+        raise ValueError("A frota está vazia.")
+    if not all(col in pedidos.columns for col in ["Latitude", "Longitude", "Peso"]):
+        raise ValueError("Os dados dos pedidos estão incompletos.")
+    if not all(col in frota.columns for col in ["Capac. Kg", "Disponível"]):
+        raise ValueError("Os dados da frota estão incompletos.")
+    return True
+
+def calcular_emissoes_carbono(rotas, dados_pedidos, fator_emissao=0.21):
+    """
+    Calcula as emissões de carbono para cada rota com base na distância total percorrida.
+
+    :param rotas: Lista de rotas otimizadas.
+    :param dados_pedidos: DataFrame com informações dos pedidos, incluindo distâncias.
+    :param fator_emissao: Fator de emissão em kg CO2 por km.
+    :return: Dicionário com emissões de carbono por rota.
+    """
+    emissoes = {}
+    for i, rota in enumerate(rotas):
+        distancia_total = 0
+        for j in range(len(rota) - 1):
+            origem = rota[j]
+            destino = rota[j + 1]
+            distancia = dados_pedidos.loc[(dados_pedidos['origem'] == origem) & (dados_pedidos['destino'] == destino), 'distancia']
+            if not distancia.empty:
+                distancia_total += distancia.iloc[0]
+        emissoes[f"Rota {i + 1}"] = distancia_total * fator_emissao
+    return emissoes
 
 def resolver_customizado_genetico(pedidos, ponto_partida, num_veiculos, num_geracoes=100, populacao_inicial=50):
     """
@@ -331,3 +426,60 @@ def pagina_roteirizador():
                     st.dataframe(pedidos_validos)
                     st.markdown("#### Frota Disponível")
                     st.dataframe(frota_disponivel)
+
+def pagina_exportacao(rotas, dados_pedidos):
+    """
+    Página para exportar rotas otimizadas em diferentes formatos.
+
+    :param rotas: Lista de rotas otimizadas.
+    :param dados_pedidos: DataFrame com informações dos pedidos.
+    """
+    st.title("📤 Exportação de Rotas")
+    st.markdown("Escolha o formato para exportar as rotas otimizadas:")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("Exportar para JSON"):
+            exportar_rotas_json(rotas, dados_pedidos, caminho="rotas_exportadas.json")
+            st.success("Rotas exportadas para JSON com sucesso!")
+
+    with col2:
+        if st.button("Exportar para Excel"):
+            exportar_rotas_excel(rotas, dados_pedidos, caminho="rotas_exportadas.xlsx")
+            st.success("Rotas exportadas para Excel com sucesso!")
+
+def pagina_feedback(rotas_executadas):
+    """
+    Página para registrar e visualizar feedbacks sobre as rotas executadas.
+
+    :param rotas_executadas: Lista de rotas realmente executadas.
+    """
+    st.title("📝 Feedback das Rotas")
+    st.markdown("Forneça feedback sobre as rotas executadas para melhorar futuras roteirizações.")
+
+    feedbacks = []
+
+    for i, rota in enumerate(rotas_executadas):
+        st.markdown(f"### Rota {i + 1}")
+        atraso = st.number_input(f"Atraso (minutos) - Rota {i + 1}", min_value=0, step=1, key=f"atraso_{i}")
+        desvio = st.number_input(f"Desvios (número de paradas alteradas) - Rota {i + 1}", min_value=0, step=1, key=f"desvio_{i}")
+        comentario = st.text_area(f"Comentários adicionais - Rota {i + 1}", key=f"comentario_{i}")
+
+        feedbacks.append({
+            "atraso": atraso,
+            "desvio": desvio,
+            "comentario": comentario
+        })
+
+    if st.button("Salvar Feedback"):
+        registrar_feedback(rotas_executadas, feedbacks)
+        st.success("Feedback salvo com sucesso!")
+
+    st.markdown("---")
+    st.markdown("### Feedbacks Registrados")
+    feedback_registrado = carregar_feedback()
+    if feedback_registrado:
+        st.json(feedback_registrado)
+    else:
+        st.info("Nenhum feedback registrado até o momento.")

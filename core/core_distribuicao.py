@@ -17,7 +17,7 @@ def distribuir_carga_por_veiculo(pedidos, frota, criterio="peso_total"):
     :return: Dicionário com a alocação de pedidos por veículo.
     """
     alocacao = {veiculo["Placa"]: [] for veiculo in frota}
-    capacidade_restante = {veiculo["Placa"]: veiculo["Capacidade (Kg)"] for veiculo in frota}
+    capacidade_restante = {veiculo["Placa"]: veiculo["Capac. Kg"] for veiculo in frota}
 
     for cluster_id in pedidos["cluster"].unique():
         pedidos_cluster = pedidos[pedidos["cluster"] == cluster_id].sort_values(by=criterio, ascending=False)

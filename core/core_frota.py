@@ -20,7 +20,7 @@ def cadastrar_veiculo(placa, transportador, descricao, capacidade_kg, capacidade
         "Placa": placa,
         "Transportador": transportador,
         "Descrição Veículo": descricao,
-        "Capacidade (Kg)": capacidade_kg,
+        "Capac. Kg": capacidade_kg,
         "Capacidade (m³)": capacidade_m3,
         "Tipo": tipo,
         "Custo por Km": custo_km,

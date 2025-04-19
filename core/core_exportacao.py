@@ -1,5 +1,6 @@
 import folium
 import pandas as pd
+import json
 
 def gerar_mapa_rotas(rotas, dados_pedidos):
     """
@@ -40,6 +41,30 @@ def exportar_rotas_excel(rotas, dados_pedidos, caminho="rotas.xlsx"):
 
     df_rotas = pd.DataFrame(rotas_exportadas)
     df_rotas.to_excel(caminho, index=False)
+    print(f"Rotas exportadas para {caminho}")
+
+def exportar_rotas_json(rotas, dados_pedidos, caminho="rotas.json"):
+    """
+    Exporta as rotas otimizadas para um arquivo JSON.
+
+    :param rotas: Lista de rotas otimizadas (índices dos pedidos).
+    :param dados_pedidos: DataFrame com informações dos pedidos.
+    :param caminho: Caminho para salvar o arquivo JSON.
+    """
+    rotas_exportadas = []
+    for veiculo_id, rota in enumerate(rotas):
+        rota_detalhada = {
+            "veiculo": f"Veículo {veiculo_id + 1}",
+            "pedidos": []
+        }
+        for ordem, pedido_idx in enumerate(rota):
+            pedido = dados_pedidos.iloc[pedido_idx].to_dict()
+            pedido["ordem"] = ordem + 1
+            rota_detalhada["pedidos"].append(pedido)
+        rotas_exportadas.append(rota_detalhada)
+
+    with open(caminho, "w") as arquivo:
+        json.dump(rotas_exportadas, arquivo, indent=4)
     print(f"Rotas exportadas para {caminho}")
 
 def salvar_historico(rotas, dados_pedidos, caminho="historico_rotas.xlsx"):
