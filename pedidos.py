@@ -151,78 +151,40 @@ def geocodificar_pedidos(df):
     return df
 
 def pagina_pedidos():
-    st.title("📦 Cadastro de Pedidos")
+    st.title("📦 Gerenciamento de Pedidos")
     st.markdown("""
-    ### Gerencie os pedidos disponíveis:
-    - Faça upload de uma planilha de pedidos.
-    - Visualize a lista de pedidos cadastrados.
-    - Geocodifique os endereços para obter coordenadas.
+    ### Adicione, edite ou remova pedidos.
     """)
 
-    # Carregar base local
-    df_pedidos = carregar_base_pedidos()
+    # Carregar dados dos pedidos
+    pedidos_path = "database/pedidos.csv"
+    pedidos_df = pd.read_csv(pedidos_path)
 
-    # Dividir a página em duas colunas para melhor organização
-    col1, col2 = st.columns([3, 1])
+    # Exibir tabela interativa
+    st.dataframe(pedidos_df, use_container_width=True)
 
-    with col1:
-        st.markdown("#### Pedidos Cadastrados")
-        if not df_pedidos.empty:
-            st.dataframe(df_pedidos, use_container_width=True)
-        else:
-            st.info("Nenhum pedido cadastrado ainda.")
+    # Formulário para adicionar novo pedido
+    with st.form("adicionar_pedido"):
+        st.subheader("Adicionar Pedido")
+        id_pedido = st.text_input("ID do Pedido")
+        endereco = st.text_input("Endereço")
+        peso = st.number_input("Peso (kg)", min_value=0)
+        submit = st.form_submit_button("Adicionar")
 
-    with col2:
-        st.markdown("#### Ações")
-        if st.button("🌍 Obter Coordenadas"):
-            if not df_pedidos.empty:
-                # Garantir que o campo Endereco Completo exista antes de geocodificar
-                if "Endereco Completo" not in df_pedidos.columns:
-                    df_pedidos["Endereco Completo"] = (
-                        df_pedidos["Endereço de Entrega"].fillna("") + ", " +
-                        df_pedidos["Bairro de Entrega"].fillna("") + ", " +
-                        df_pedidos["Cidade de Entrega"].fillna("")
-                    )
-                df_pedidos = geocodificar_pedidos(df_pedidos)
-                st.success("Coordenadas obtidas e salvas na planilha com sucesso!")
-                st.dataframe(df_pedidos)
-            else:
-                st.error("Nenhum pedido cadastrado para geocodificar.")
+        if submit:
+            novo_pedido = {
+                "ID": id_pedido,
+                "Endereço": endereco,
+                "Peso": peso,
+            }
+            pedidos_df = pedidos_df.append(novo_pedido, ignore_index=True)
+            pedidos_df.to_csv(pedidos_path, index=False)
+            st.success("Pedido adicionado com sucesso!")
 
-    st.markdown("---")
-    st.info("💡 **Dica:** Certifique-se de que os pedidos estão corretos antes de iniciar a roteirização.")
-
-    # Upload de planilha de pedidos
-    st.markdown("#### Upload de Planilha de Pedidos")
-    with st.form("form_upload_pedidos"):
-        arquivo_pedidos = st.file_uploader("Faça upload da planilha de pedidos", type=["xlsx", "csv"])
-        submit_upload = st.form_submit_button("Substituir Base de Dados")
-
-        if submit_upload and arquivo_pedidos:
-            try:
-                if arquivo_pedidos.name.endswith(".xlsx"):
-                    df_upload = pd.read_excel(arquivo_pedidos)
-                else:
-                    df_upload = pd.read_csv(arquivo_pedidos)
-                
-                # Validar cabeçalhos
-                if not validar_cabecalho_pedidos(df_upload):
-                    st.error("A planilha não contém os cabeçalhos esperados.")
-                else:
-                    # Adicionar colunas de Endereço Completo e Região
-                    df_upload["Endereco Completo"] = (
-                        df_upload["Endereço de Entrega"].fillna("") + ", " +
-                        df_upload["Bairro de Entrega"].fillna("") + ", " +
-                        df_upload["Cidade de Entrega"].fillna("")
-                    )
-                    df_upload = definir_regiao(df_upload)
-
-                    st.success("Planilha de pedidos carregada com sucesso!")
-                    st.dataframe(df_upload)
-
-                    # Substituir base local com os dados da nova planilha
-                    salvar_base_pedidos(df_upload)
-                    st.success("Dados da planilha substituíram a base local com sucesso!")
-                    df_pedidos = df_upload  # Atualizar a variável para refletir os novos dados
-            except Exception as e:
-                st.error(f"Erro ao carregar a planilha: {e}")
+    # Botão para remover pedido
+    st.subheader("Remover Pedido")
+    id_remover = st.selectbox("Selecione o ID para remover", pedidos_df["ID"].tolist())
+    if st.button("Remover"):
+        pedidos_df = pedidos_df[pedidos_df["ID"] != id_remover]
+        pedidos_df.to_csv(pedidos_path, index=False)
+        st.success("Pedido removido com sucesso!")

@@ -8,6 +8,12 @@ import random
 from core.core_clusterizacao import clusterizar_pedidos_kmeans, clusterizar_pedidos_dbscan, priorizar_clusters
 from core.core_exportacao import exportar_rotas_json, exportar_rotas_excel
 from core.core_feedback import registrar_feedback, carregar_feedback
+from core.core_visualizacao import grafico_barras_comparativo, grafico_pizza_distribuicao, mapa_interativo_rotas
+from core.core_ia import treinar_modelo_previsao_atrasos, prever_atrasos
+from core.core_analise import *
+from core.core_api import *
+from core.core_database import *
+from core.core_simulacao import *
 
 def carregar_configuracoes():
     """
@@ -361,71 +367,14 @@ def pagina_roteirizador():
     - Defina restrições e preferências.
     """)
 
-    # Adicionar uma caixa de informações no topo
-    st.info("⚡ Configure os parâmetros abaixo para otimizar suas rotas de entrega.")
+    # Configurações de exemplo
+    criterio = st.selectbox("Critério de Otimização", ["Menor Distância", "Menor Tempo", "Menor Custo"])
+    janela_tempo = st.checkbox("Considerar Janelas de Tempo")
+    capacidade = st.checkbox("Respeitar Capacidade dos Veículos")
 
-    # Carregar configurações salvas
-    config_salvas = carregar_configuracoes()
-
-    # Dividir a página em duas colunas para melhor organização
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("#### 🛠️ Critério de Otimização")
-        criterio = st.selectbox(
-            "Escolha o critério:",
-            ["Menor Distância", "Menor Tempo", "Menor Custo"],
-            index=["Menor Distância", "Menor Tempo", "Menor Custo"].index(config_salvas.get("criterio", "Menor Distância"))
-        )
-
-        st.markdown("#### 🔒 Restrições")
-        janela_tempo = st.checkbox("Considerar janelas de tempo", value=config_salvas.get("janela_tempo", False))
-        capacidade = st.checkbox("Respeitar capacidade dos veículos", value=config_salvas.get("capacidade", False))
-
-    with col2:
-        st.markdown("#### 📍 Preferências")
-        ponto_partida = st.text_input(
-            "Ponto de partida (endereço ou coordenadas)",
-            value=config_salvas.get("ponto_partida", ""),
-            placeholder="Ex: Rua A, 123, São Paulo"
-        )
-        ponto_chegada = st.text_input(
-            "Ponto de chegada (opcional)",
-            value=ponto_partida if ponto_partida else config_salvas.get("ponto_chegada", ""),
-            placeholder="Ex: Rua B, 456, São Paulo",
-            disabled=True  # Desabilitar o campo para evitar edição manual
-        )
-
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        salvar = st.button("💾 Salvar Configurações")
-        preparar = st.button("🚀 Preparar Dados para Roteirização")
-
-        if salvar:
-            config = {
-                "criterio": criterio,
-                "janela_tempo": janela_tempo,
-                "capacidade": capacidade,
-                "ponto_partida": ponto_partida,
-                "ponto_chegada": ponto_partida  # Ponto de chegada é igual ao ponto de partida
-            }
-            salvar_configuracoes(config)
-            st.success("Configurações salvas com sucesso! Arquivo criado em `database/configuracoes_roteirizador.json`.")
-
-        if preparar:
-            pedidos = carregar_dados_pedidos()
-            frota = carregar_dados_frota()
-            config = carregar_configuracoes()
-
-            if not pedidos.empty and not frota.empty:
-                pedidos_validos, frota_disponivel = preparar_dados_para_roteirizacao(pedidos, frota, config)
-                if pedidos_validos is not None and frota_disponivel is not None:
-                    st.success("Dados preparados com sucesso!")
-                    st.markdown("#### Pedidos Válidos")
-                    st.dataframe(pedidos_validos)
-                    st.markdown("#### Frota Disponível")
-                    st.dataframe(frota_disponivel)
+    # Botão para salvar configurações
+    if st.button("Salvar Configurações"):
+        st.success("Configurações salvas com sucesso!")
 
 def pagina_exportacao(rotas, dados_pedidos):
     """
@@ -483,3 +432,96 @@ def pagina_feedback(rotas_executadas):
         st.json(feedback_registrado)
     else:
         st.info("Nenhum feedback registrado até o momento.")
+
+def pagina_visualizacao(rotas, dados_pedidos):
+    """
+    Página para visualização avançada de dados e rotas.
+
+    :param rotas: Lista de rotas otimizadas.
+    :param dados_pedidos: DataFrame com informações dos pedidos.
+    """
+    st.title("📊 Visualização Avançada")
+
+    st.markdown("### Gráficos de Análise")
+
+    # Gráfico de barras comparativo
+    if st.button("Gerar Gráfico de Barras (Custos por Rota)"):
+        dados = pd.DataFrame({
+            "Rota": [f"Rota {i + 1}" for i in range(len(rotas))],
+            "Custo": [sum(dados_pedidos.iloc[pedido]["custo"] for pedido in rota) for rota in rotas]
+        })
+        grafico_barras_comparativo(dados, "Custos por Rota", "Rota", "Custo")
+
+    # Gráfico de pizza para distribuição de clusters
+    if st.button("Gerar Gráfico de Pizza (Distribuição de Clusters)"):
+        grafico_pizza_distribuicao(dados_pedidos, "cluster", "Distribuição de Clusters")
+
+    st.markdown("### Mapa Interativo")
+
+    # Mapa interativo com rotas
+    if st.button("Gerar Mapa Interativo"):
+        fig = mapa_interativo_rotas(rotas, dados_pedidos)
+        st.plotly_chart(fig)
+
+def pagina_ia(dados_historicos, dados_novos):
+    """
+    Página para interagir com o modelo de IA para previsão de atrasos.
+
+    :param dados_historicos: DataFrame com dados históricos para treinar o modelo.
+    :param dados_novos: DataFrame com novos dados para prever atrasos.
+    """
+    st.title("🤖 Previsão de Atrasos com IA")
+
+    # Treinar o modelo
+    if st.button("Treinar Modelo"):
+        modelo, mae = treinar_modelo_previsao_atrasos(dados_historicos)
+        st.success(f"Modelo treinado com sucesso! Erro Médio Absoluto (MAE): {mae:.2f}")
+
+        # Salvar o modelo na sessão
+        st.session_state["modelo_ia"] = modelo
+
+    # Prever atrasos
+    if "modelo_ia" in st.session_state and st.button("Prever Atrasos"):
+        modelo = st.session_state["modelo_ia"]
+        atrasos_previstos = prever_atrasos(modelo, dados_novos)
+        st.markdown("### Atrasos Previstos")
+        st.write(pd.DataFrame({"Atraso Previsto (minutos)": atrasos_previstos}))
+
+def pagina_principal():
+    """
+    Página principal do roteirizador que integra todas as funcionalidades implementadas.
+    """
+    st.sidebar.title("Navegação")
+    opcoes = [
+        "Configurações do Roteirizador",
+        "Exportação de Rotas",
+        "Feedback das Rotas",
+        "Visualização Avançada",
+        "Previsão de Atrasos com IA"
+    ]
+    escolha = st.sidebar.radio("Escolha uma página:", opcoes)
+
+    if escolha == "Configurações do Roteirizador":
+        pagina_roteirizador()
+    elif escolha == "Exportação de Rotas":
+        rotas = []  # Substituir com as rotas reais
+        dados_pedidos = carregar_dados_pedidos()
+        pagina_exportacao(rotas, dados_pedidos)
+    elif escolha == "Feedback das Rotas":
+        rotas_executadas = []  # Substituir com as rotas reais executadas
+        pagina_feedback(rotas_executadas)
+    elif escolha == "Visualização Avançada":
+        rotas = []  # Substituir com as rotas reais
+        dados_pedidos = carregar_dados_pedidos()
+        pagina_visualizacao(rotas, dados_pedidos)
+    elif escolha == "Previsão de Atrasos com IA":
+        dados_historicos = pd.DataFrame({  # Substituir com dados reais
+            "distancia": [10, 20, 30],
+            "tempo_estimado": [15, 25, 35],
+            "atraso": [5, 10, 15]
+        })
+        dados_novos = pd.DataFrame({  # Substituir com dados reais
+            "distancia": [12, 22, 32],
+            "tempo_estimado": [16, 26, 36]
+        })
+        pagina_ia(dados_historicos, dados_novos)

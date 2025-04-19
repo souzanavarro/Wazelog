@@ -2,6 +2,9 @@ import random
 import pandas as pd
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
 import numpy as np
 from transformers import pipeline
 
@@ -120,3 +123,46 @@ def aprendizado_regras_negocio(dados_historicos):
     # Determinar o horário preferido para cada cliente
     preferencias = {cliente: max(horarios, key=horarios.get) for cliente, horarios in regras.items()}
     return preferencias
+
+def treinar_modelo_previsao_atrasos(dados_historicos):
+    """
+    Treina um modelo de aprendizado de máquina para prever atrasos nas rotas.
+
+    :param dados_historicos: DataFrame com dados históricos contendo as colunas 'distancia', 'tempo_estimado' e 'atraso'.
+    :return: Modelo treinado e erro médio absoluto (MAE).
+    """
+    # Verificar se as colunas necessárias estão presentes
+    colunas_necessarias = ['distancia', 'tempo_estimado', 'atraso']
+    if not all(col in dados_historicos.columns for col in colunas_necessarias):
+        raise ValueError(f"O DataFrame deve conter as colunas: {colunas_necessarias}")
+
+    # Dividir os dados em recursos (X) e alvo (y)
+    X = dados_historicos[['distancia', 'tempo_estimado']]
+    y = dados_historicos['atraso']
+
+    # Dividir os dados em conjuntos de treino e teste
+    X_treino, X_teste, y_treino, y_teste = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Treinar o modelo
+    modelo = RandomForestRegressor(random_state=42)
+    modelo.fit(X_treino, y_treino)
+
+    # Avaliar o modelo
+    previsoes = modelo.predict(X_teste)
+    mae = mean_absolute_error(y_teste, previsoes)
+
+    return modelo, mae
+
+def prever_atrasos(modelo, dados_novos):
+    """
+    Usa o modelo treinado para prever atrasos em novos dados.
+
+    :param modelo: Modelo treinado.
+    :param dados_novos: DataFrame com as colunas 'distancia' e 'tempo_estimado'.
+    :return: Série com os atrasos previstos.
+    """
+    colunas_necessarias = ['distancia', 'tempo_estimado']
+    if not all(col in dados_novos.columns for col in colunas_necessarias):
+        raise ValueError(f"O DataFrame deve conter as colunas: {colunas_necessarias}")
+
+    return modelo.predict(dados_novos)

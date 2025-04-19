@@ -83,32 +83,22 @@ def pagina_roteirizacao():
     - Execute a otimização de rotas.
     """)
 
-    # Dividir a página em duas colunas para melhor organização
-    col1, col2 = st.columns([3, 1])
+    # Carregar dados
+    pedidos_path = "database/pedidos.csv"
+    frota_path = "database/frota.csv"
+    pedidos_df = pd.read_csv(pedidos_path)
+    frota_df = pd.read_csv(frota_path)
 
-    with col1:
-        st.markdown("#### Dados de Pedidos")
-        dados_pedidos = carregar_planilha(CAMINHO_BASE_PEDIDOS, "pedidos")
-        if not dados_pedidos.empty:
-            st.dataframe(dados_pedidos, use_container_width=True)
+    # Exibir tabelas interativas
+    st.subheader("Dados de Pedidos")
+    st.dataframe(pedidos_df, use_container_width=True)
 
-        st.markdown("#### Dados de Frota")
-        dados_frota = carregar_planilha(CAMINHO_BASE_FROTA, "frota")
-        if not dados_frota.empty:
-            # Filtrar veículos disponíveis
-            dados_frota_disponiveis = dados_frota[dados_frota["Disponível"] == "Sim"]
-            st.dataframe(dados_frota_disponiveis, use_container_width=True)
+    st.subheader("Dados de Frota")
+    st.dataframe(frota_df, use_container_width=True)
 
-    with col2:
-        st.markdown("#### Ações")
-        if st.button("🚀 Executar Roteirização"):
-            if dados_pedidos.empty or dados_frota_disponiveis.empty:
-                st.error("Certifique-se de que as planilhas de pedidos e frota estão carregadas corretamente e que há veículos disponíveis.")
-            else:
-                st.success("Roteirização executada com sucesso!")
-
-    st.markdown("---")
-    st.info("💡 **Dica:** Certifique-se de que os dados de pedidos e frota estão corretos antes de executar a roteirização.")
+    # Botão para executar roteirização
+    if st.button("🚀 Executar Roteirização"):
+        st.success("Roteirização executada com sucesso!")
 
 if __name__ == "__main__":
     resultado = unir_dados_e_roteirizar()
