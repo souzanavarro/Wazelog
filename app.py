@@ -1,11 +1,15 @@
 # Configurar o modo "Wide" no Streamlit
 import streamlit as st
+import core.core_ia as ia
+
 st.set_page_config(layout="wide", page_title="Roteirizador Inteligente", page_icon="🗺️")
 
 from frota import pagina_frota
 from pedidos import pagina_pedidos
 from roteirizacao import pagina_roteirizacao
 from roteirizador import pagina_roteirizador
+from transformers import pipeline
+
 
 def main():
     st.sidebar.title("📋 Menu")

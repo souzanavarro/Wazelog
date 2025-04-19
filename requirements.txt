@@ -20,3 +20,5 @@ streamlit-lottie
 streamlit-analytics
 streamlit-plotly-events
 transformers
+fuzzywuzzy
+pipeline
