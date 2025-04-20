@@ -427,33 +427,10 @@ def extrair_janelas_tempo(pedidos):
         return [(None, None)] * len(pedidos)
 
 def menu_explicativo_algoritmos():
-    st.markdown("""
-    ## ℹ️ Menu de Algoritmos de Otimização
-    
-    **TSP (Caixeiro Viajante)**  
-    Resolve o problema do caixeiro viajante, onde um único veículo deve visitar todos os pontos/pedidos e retornar ao ponto de origem, minimizando a distância total percorrida.  
-    **Quando usar:** Quando há apenas um veículo e todos os pedidos devem ser atendidos em uma única rota.
-
-    **VRP (Roteirização de Veículos)**  
-    Resolve o problema de roteirização de veículos, onde múltiplos veículos partem de um depósito para atender pedidos, minimizando a distância total.  
-    **Quando usar:** Quando há vários veículos disponíveis, mas sem restrições de capacidade.
-
-    **CVRP (VRP com Capacidade)**  
-    Variante do VRP que considera a capacidade máxima de carga de cada veículo (peso ou volume). Os pedidos são alocados respeitando essa limitação.  
-    **Quando usar:** Quando os veículos têm limites de peso/volume e é necessário garantir que nenhuma rota exceda a capacidade.
-
-    **VRPTW (VRP com Janelas de Tempo)**  
-    Variante do VRP que, além da capacidade, considera janelas de tempo para entrega/retirada em cada pedido. Cada cliente só pode ser atendido dentro de um intervalo de tempo específico.  
-    **Quando usar:** Quando há restrições de horários para entrega/retirada nos pedidos.
-
-    **Genético Customizado**  
-    Utiliza algoritmos genéticos (ou outras metaheurísticas, como simulated annealing) para encontrar soluções customizadas para problemas de roteirização, podendo incluir regras de negócio específicas, prioridades, ou restrições não convencionais.  
-    **Quando usar:** Quando as restrições ou objetivos são muito específicos e não se encaixam nos modelos clássicos, ou para buscar soluções alternativas/experimentais.
-    """)
+    pass  # Função agora vazia, menu removido
 
 # Interface para seleção e execução dos algoritmos no Streamlit
 def pagina_roteirizador():
-    menu_explicativo_algoritmos()
     st.title("⚙️ Configurações do Roteirizador")
     st.markdown("""
     ### Configure os parâmetros para a roteirização:
@@ -527,6 +504,15 @@ def pagina_roteirizador():
         'VRPTW (VRP com Janelas de Tempo)',
         'Genético Customizado'
     ])
+
+    st.markdown("""
+    **Resumo dos Algoritmos:**
+    - **TSP (Caixeiro Viajante):** Um único veículo visita todos os pontos e retorna à origem, minimizando a distância.
+    - **VRP:** Múltiplos veículos atendem pedidos a partir de um depósito, minimizando a distância total.
+    - **CVRP:** Igual ao VRP, mas respeitando a capacidade máxima de cada veículo.
+    - **VRPTW:** Igual ao CVRP, mas cada pedido só pode ser atendido dentro de uma janela de tempo.
+    - **Genético Customizado:** Algoritmo flexível para restrições e regras de negócio específicas.
+    """)
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:

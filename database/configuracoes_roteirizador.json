@@ -1,9 +1,8 @@
 {
+    "tipo_roteirizacao": "VRP (M\u00faltiplos Ve\u00edculos)",
     "criterio": "Menor Custo",
     "janela_tempo": false,
     "capacidade": true,
-    "capacidade_maxima": 1000,
-    "prioridade": "regiao",
     "ponto_partida": "-23,251501,-47,087135",
     "ponto_chegada": "-23,251501,-47,087135",
     "ativacoes": {
