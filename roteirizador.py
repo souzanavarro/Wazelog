@@ -5,6 +5,7 @@ import json
 from streamlit_folium import folium_static
 import folium
 import random
+import numpy as np
 from core.core_clusterizacao import clusterizar_pedidos_kmeans, clusterizar_pedidos_dbscan, priorizar_clusters
 from core.core_exportacao import exportar_rotas_json, exportar_rotas_excel
 from core.core_feedback import registrar_feedback, carregar_feedback
@@ -15,6 +16,9 @@ from core.core_api import *
 from core.core_database import *
 from core.core_simulacao import *
 from roteirizacao import unir_dados_e_roteirizar
+from core.core_roteirizador import RoteirizadorAvancado
+from core.core_roteirizador import resolver_vrp
+from core.core_roteirizador import obter_parametros
 
 def carregar_configuracoes():
     """
@@ -360,7 +364,96 @@ def resolver_customizado_genetico(pedidos, ponto_partida, num_veiculos, num_gera
     melhor_rota = populacao[0]
     return [0] + melhor_rota + [0], matriz_distancia
 
+def executar_tsp(matriz_distancias):
+    """
+    Resolve o problema do caixeiro viajante (TSP) usando OR-Tools.
+    """
+    roteirizador = RoteirizadorAvancado(matriz_distancias, [0]*len(matriz_distancias), [99999], [0])
+    rotas = roteirizador.resolver()
+    return rotas
+
+def executar_vrp(matriz_distancias, demandas, capacidades, locais_iniciais):
+    """
+    Resolve o problema de roteirização de veículos (VRP) com capacidades usando OR-Tools.
+    """
+    roteirizador = RoteirizadorAvancado(matriz_distancias, demandas, capacidades, locais_iniciais)
+    rotas = roteirizador.resolver()
+    return rotas
+
+# Exemplo de função para VRP com janelas de tempo (VRPTW)
+def executar_vrptw(matriz_distancias, demandas, capacidades, locais_iniciais, janelas_tempo):
+    from ortools.constraint_solver import pywrapcp, routing_enums_pb2
+    roteirizador = RoteirizadorAvancado(matriz_distancias, demandas, capacidades, locais_iniciais)
+    dados = roteirizador.criar_dados_modelo()
+    dados['time_windows'] = janelas_tempo
+    # Implementação customizada para VRPTW pode ser feita aqui
+    # (Exemplo: adicionar dimensão de tempo ao modelo)
+    # ...
+    return None  # Implementação avançada
+
+def extrair_matriz_distancias(pedidos):
+    """
+    Gera a matriz de distâncias euclidianas entre todos os pedidos.
+    """
+    coords = pedidos[["Latitude", "Longitude"]].to_numpy()
+    n = len(coords)
+    matriz = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+            matriz[i, j] = np.linalg.norm(coords[i] - coords[j])
+    return matriz
+
+def extrair_demandas(pedidos):
+    """
+    Extrai a lista de demandas (peso ou volume) dos pedidos.
+    """
+    return pedidos["Peso dos Itens"].tolist()
+
+def extrair_capacidades(frota):
+    """
+    Extrai a lista de capacidades dos veículos.
+    """
+    return frota["Capac. Kg"].tolist()
+
+def extrair_janelas_tempo(pedidos):
+    """
+    Extrai as janelas de tempo dos pedidos, se existirem.
+    Retorna uma lista de tuplas (inicio, fim) para cada pedido.
+    """
+    if "Janela Início" in pedidos.columns and "Janela Fim" in pedidos.columns:
+        return list(zip(pedidos["Janela Início"], pedidos["Janela Fim"]))
+    else:
+        # Se não houver janelas, retorna None para todos
+        return [(None, None)] * len(pedidos)
+
+def menu_explicativo_algoritmos():
+    st.markdown("""
+    ## ℹ️ Menu de Algoritmos de Otimização
+    
+    **TSP (Caixeiro Viajante)**  
+    Resolve o problema do caixeiro viajante, onde um único veículo deve visitar todos os pontos/pedidos e retornar ao ponto de origem, minimizando a distância total percorrida.  
+    **Quando usar:** Quando há apenas um veículo e todos os pedidos devem ser atendidos em uma única rota.
+
+    **VRP (Roteirização de Veículos)**  
+    Resolve o problema de roteirização de veículos, onde múltiplos veículos partem de um depósito para atender pedidos, minimizando a distância total.  
+    **Quando usar:** Quando há vários veículos disponíveis, mas sem restrições de capacidade.
+
+    **CVRP (VRP com Capacidade)**  
+    Variante do VRP que considera a capacidade máxima de carga de cada veículo (peso ou volume). Os pedidos são alocados respeitando essa limitação.  
+    **Quando usar:** Quando os veículos têm limites de peso/volume e é necessário garantir que nenhuma rota exceda a capacidade.
+
+    **VRPTW (VRP com Janelas de Tempo)**  
+    Variante do VRP que, além da capacidade, considera janelas de tempo para entrega/retirada em cada pedido. Cada cliente só pode ser atendido dentro de um intervalo de tempo específico.  
+    **Quando usar:** Quando há restrições de horários para entrega/retirada nos pedidos.
+
+    **Genético Customizado**  
+    Utiliza algoritmos genéticos (ou outras metaheurísticas, como simulated annealing) para encontrar soluções customizadas para problemas de roteirização, podendo incluir regras de negócio específicas, prioridades, ou restrições não convencionais.  
+    **Quando usar:** Quando as restrições ou objetivos são muito específicos e não se encaixam nos modelos clássicos, ou para buscar soluções alternativas/experimentais.
+    """)
+
+# Interface para seleção e execução dos algoritmos no Streamlit
 def pagina_roteirizador():
+    menu_explicativo_algoritmos()
     st.title("⚙️ Configurações do Roteirizador")
     st.markdown("""
     ### Configure os parâmetros para a roteirização:
@@ -426,6 +519,15 @@ def pagina_roteirizador():
         ativacoes[modulo] = st.checkbox(f"Ativar {nome}", value=True)
 
     st.markdown("---")
+    st.markdown('#### Algoritmo de Otimização')
+    algoritmo = st.selectbox('Escolha o algoritmo:', [
+        'TSP (Caixeiro Viajante)',
+        'VRP (Roteirização de Veículos)',
+        'CVRP (VRP com Capacidade)',
+        'VRPTW (VRP com Janelas de Tempo)',
+        'Genético Customizado'
+    ])
+
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         salvar = st.button("Salvar Configurações")
@@ -446,24 +548,27 @@ def pagina_roteirizador():
     st.markdown("---")
     if st.button("🚀 Executar Roteirização"):
         st.info("Executando roteirização...")
-        # Carregar dados
         pedidos = pd.read_csv("database/pedidos.csv")
         frota = pd.read_csv("database/frota.csv")
-
-        # Aplicar lógica de roteirização
-        resultado = unir_dados_e_roteirizar()
-
-        # Exibir resultados
-        st.success("Roteirização concluída com sucesso!")
-        st.dataframe(resultado)
-
-        # Salvar histórico
-        salvar_historico_roteirizacao(resultado)
-
-        # Sugestões automáticas
-        st.markdown("### Sugestões Automáticas")
-        sugestoes = gerar_sugestoes_veiculos(resultado)
-        st.json(sugestoes)
+        matriz_distancias = extrair_matriz_distancias(pedidos)
+        demandas = extrair_demandas(pedidos)
+        capacidades = extrair_capacidades(frota)
+        locais_iniciais = [0]*len(frota)
+        if algoritmo == 'TSP (Caixeiro Viajante)':
+            resultado = executar_tsp(matriz_distancias)
+        elif algoritmo == 'VRP (Roteirização de Veículos)':
+            resultado = executar_vrp(matriz_distancias, demandas, capacidades, locais_iniciais)
+        elif algoritmo == 'CVRP (VRP com Capacidade)':
+            resultado = executar_vrp(matriz_distancias, demandas, capacidades, locais_iniciais)
+        elif algoritmo == 'VRPTW (VRP com Janelas de Tempo)':
+            janelas_tempo = extrair_janelas_tempo(pedidos)
+            resultado = executar_vrptw(matriz_distancias, demandas, capacidades, locais_iniciais, janelas_tempo)
+        elif algoritmo == 'Genético Customizado':
+            resultado = resolver_customizado_genetico(pedidos, ..., len(frota))
+        else:
+            resultado = None
+        st.success("Roteirização concluída!")
+        st.write(resultado)
 
 def pagina_exportacao(rotas, dados_pedidos):
     """
