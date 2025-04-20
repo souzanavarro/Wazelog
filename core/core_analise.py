@@ -29,3 +29,33 @@ def analisar_performance(rotas_planejadas, rotas_executadas, tempos_estimados, t
         })
 
     return pd.DataFrame(analise)
+
+def sugestao_veiculos(historico, regiao):
+    """
+    Sugere veículos para uma região com base no histórico de roteirizações.
+    """
+    historico_regiao = historico[historico["regiao"] == regiao]
+
+    if historico_regiao.empty:
+        return "Nenhuma sugestão disponível para esta região."
+
+    sugestao = historico_regiao["veiculo"].mode()[0]
+    return sugestao
+
+def analisar_configuracoes(rotas, configuracoes):
+    """
+    Analisa a eficiência das configurações de roteirização.
+    """
+    analise = []
+
+    for rota in rotas:
+        capacidade_utilizada = sum([pedido["peso"] for pedido in rota["pedidos"]])
+        capacidade_maxima = configuracoes.get("capacidade_maxima", 0)
+        eficiencia = (capacidade_utilizada / capacidade_maxima) * 100 if capacidade_maxima > 0 else 0
+
+        analise.append({
+            "Veiculo": rota["veiculo"],
+            "Capacidade Utilizada (%)": eficiencia
+        })
+
+    return pd.DataFrame(analise)

@@ -67,3 +67,13 @@ def priorizar_clusters(pedidos, criterio="volume_total"):
     prioridades = pedidos.groupby("cluster")[criterio].sum().sort_values(ascending=False)
     pedidos["prioridade_cluster"] = pedidos["cluster"].map(prioridades.rank(ascending=True))
     return pedidos
+
+def agrupar_por_cidade(pedidos):
+    """
+    Agrupa pedidos por cidade ou bairro com base nos dados fornecidos.
+    """
+    if "cidade" not in pedidos.columns or "bairro" not in pedidos.columns:
+        raise ValueError("Os dados de pedidos devem conter as colunas 'cidade' e 'bairro'.")
+
+    agrupamento = pedidos.groupby(["cidade", "bairro"]).size().reset_index(name="quantidade")
+    return agrupamento

@@ -2,6 +2,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import plotly.express as px
+import streamlit as st
+import folium
+from streamlit_folium import st_folium
 
 def grafico_barras_comparativo(dados, titulo, eixo_x, eixo_y):
     """
@@ -66,3 +69,17 @@ def mapa_interativo_rotas(rotas, dados_pedidos):
         ).data[0])
 
     return fig
+
+def visualizar_pedidos_mapa(pedidos):
+    """
+    Exibe os pedidos em um mapa interativo usando Folium.
+    """
+    mapa = folium.Map(location=[-23.55052, -46.633308], zoom_start=12)
+
+    for _, pedido in pedidos.iterrows():
+        folium.Marker(
+            location=[pedido["latitude"], pedido["longitude"]],
+            popup=f"Pedido ID: {pedido['id']}\nCliente: {pedido['cliente']}\nEndereço: {pedido['endereco']}"
+        ).add_to(mapa)
+
+    st_folium(mapa, width=700, height=500)

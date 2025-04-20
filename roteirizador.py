@@ -14,6 +14,7 @@ from core.core_analise import *
 from core.core_api import *
 from core.core_database import *
 from core.core_simulacao import *
+from roteirizacao import unir_dados_e_roteirizar
 
 def carregar_configuracoes():
     """
@@ -378,6 +379,13 @@ def pagina_roteirizador():
     col1, col2 = st.columns(2)
 
     with col1:
+        st.markdown("#### 🛠️ Tipo de Roteirização")
+        tipo_roteirizacao = st.radio(
+            "Escolha o tipo de roteirização:",
+            ["VRP (Múltiplos Veículos)", "TSP (Único Veículo)"],
+            index=0 if config_salvas.get("tipo_roteirizacao", "VRP") == "VRP" else 1
+        )
+
         st.markdown("#### 🛠️ Critério de Otimização")
         criterio = st.selectbox(
             "Escolha o critério:",
@@ -398,9 +406,8 @@ def pagina_roteirizador():
         )
         ponto_chegada = st.text_input(
             "Ponto de chegada (opcional)",
-            value=ponto_partida if ponto_partida else config_salvas.get("ponto_chegada", ""),
-            placeholder="Ex: Rua B, 456, São Paulo",
-            disabled=True  # Desabilitar o campo para evitar edição manual
+            value=config_salvas.get("ponto_chegada", ""),
+            placeholder="Ex: Rua B, 456, São Paulo"
         )
 
     st.markdown("---")
@@ -416,7 +423,7 @@ def pagina_roteirizador():
 
     ativacoes = {}
     for nome, modulo in funcionalidades_core.items():
-        ativacoes[modulo] = st.toggle(f"Ativar {nome}", value=True)
+        ativacoes[modulo] = st.checkbox(f"Ativar {nome}", value=True)
 
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -425,15 +432,38 @@ def pagina_roteirizador():
 
         if salvar:
             config = {
+                "tipo_roteirizacao": tipo_roteirizacao,
                 "criterio": criterio,
                 "janela_tempo": janela_tempo,
                 "capacidade": capacidade,
                 "ponto_partida": ponto_partida,
-                "ponto_chegada": ponto_partida,  # Ponto de chegada é igual ao ponto de partida
+                "ponto_chegada": ponto_chegada,
                 "ativacoes": ativacoes
             }
             salvar_configuracoes(config)
             st.success("Configurações salvas com sucesso!")
+
+    st.markdown("---")
+    if st.button("🚀 Executar Roteirização"):
+        st.info("Executando roteirização...")
+        # Carregar dados
+        pedidos = pd.read_csv("database/pedidos.csv")
+        frota = pd.read_csv("database/frota.csv")
+
+        # Aplicar lógica de roteirização
+        resultado = unir_dados_e_roteirizar()
+
+        # Exibir resultados
+        st.success("Roteirização concluída com sucesso!")
+        st.dataframe(resultado)
+
+        # Salvar histórico
+        salvar_historico_roteirizacao(resultado)
+
+        # Sugestões automáticas
+        st.markdown("### Sugestões Automáticas")
+        sugestoes = gerar_sugestoes_veiculos(resultado)
+        st.json(sugestoes)
 
 def pagina_exportacao(rotas, dados_pedidos):
     """

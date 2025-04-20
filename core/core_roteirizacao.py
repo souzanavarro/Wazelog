@@ -2,6 +2,7 @@ from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 import networkx as nx
 import random
+import pandas as pd
 
 def otimizar_rota(dados, parametros):
     """
@@ -184,3 +185,44 @@ def tsp_nearest_neighbor(matriz_distancias):
         visitados[proximo] = True
 
     return caminho + [0]
+
+def roteirizacao_automatica(pedidos, frota):
+    """
+    Realiza a roteirização automática considerando restrições de capacidade.
+    """
+    rotas = []
+
+    for _, veiculo in frota.iterrows():
+        capacidade_restante = veiculo["capacidade"]
+        rota = []
+
+        for _, pedido in pedidos.iterrows():
+            if pedido["peso"] <= capacidade_restante:
+                rota.append(pedido["id"])
+                capacidade_restante -= pedido["peso"]
+
+        rotas.append({"veiculo": veiculo["id"], "pedidos": rota})
+
+    return rotas
+
+def roteirizacao_automatica_com_configuracoes(pedidos, frota, capacidade_maxima=None, prioridade=None):
+    """
+    Realiza a roteirização automática considerando configurações adicionais como capacidade máxima e prioridade de alocação.
+    """
+    rotas = []
+
+    for _, veiculo in frota.iterrows():
+        capacidade_restante = capacidade_maxima if capacidade_maxima else veiculo["capacidade"]
+        rota = []
+
+        for _, pedido in pedidos.iterrows():
+            if pedido["peso"] <= capacidade_restante:
+                rota.append(pedido["id"])
+                capacidade_restante -= pedido["peso"]
+
+        if prioridade == "regiao":
+            rota.sort(key=lambda x: pedidos.loc[pedidos["id"] == x, "regiao"].values[0])
+
+        rotas.append({"veiculo": veiculo["id"], "pedidos": rota})
+
+    return rotas

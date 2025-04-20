@@ -1,5 +1,7 @@
 import requests
 import math
+import pandas as pd
+from geopy.geocoders import Nominatim
 
 def calcular_distancia(lat1, lon1, lat2, lon2):
     # Função para calcular a distância geodésica entre dois pontos (em km)
@@ -98,3 +100,31 @@ def get_osrm_distance_matrix(locations, profile="driving"):
         return response.json()["durations"]
     else:
         raise Exception(f"Erro na API OSRM: {response.status_code}")
+
+def geocodificar_endereco(endereco, cache_path="database/cache_coordenadas.csv"):
+    """
+    Geocodifica um endereço e utiliza cache para evitar chamadas repetidas à API.
+    """
+    # Carregar cache existente
+    try:
+        cache = pd.read_csv(cache_path)
+    except FileNotFoundError:
+        cache = pd.DataFrame(columns=["endereco", "latitude", "longitude"])
+
+    # Verificar se o endereço já está no cache
+    if endereco in cache["endereco"].values:
+        coordenadas = cache.loc[cache["endereco"] == endereco, ["latitude", "longitude"]].iloc[0]
+        return coordenadas["latitude"], coordenadas["longitude"]
+
+    # Geocodificar usando Nominatim
+    geolocator = Nominatim(user_agent="roteirizador")
+    location = geolocator.geocode(endereco)
+
+    if location:
+        # Salvar no cache
+        novo_registro = {"endereco": endereco, "latitude": location.latitude, "longitude": location.longitude}
+        cache = pd.concat([cache, pd.DataFrame([novo_registro])], ignore_index=True)
+        cache.to_csv(cache_path, index=False)
+        return location.latitude, location.longitude
+
+    raise ValueError(f"Não foi possível geocodificar o endereço: {endereco}")

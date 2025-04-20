@@ -4,6 +4,86 @@ from datetime import datetime
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 
+class RoteirizadorAvancado:
+    def __init__(self, matriz_distancias, demandas, capacidade_veiculos, locais_iniciais):
+        self.matriz_distancias = matriz_distancias
+        self.demandas = demandas
+        self.capacidade_veiculos = capacidade_veiculos
+        self.locais_iniciais = locais_iniciais
+
+    def criar_dados_modelo(self):
+        dados = {
+            'distance_matrix': self.matriz_distancias,
+            'demands': self.demandas,
+            'vehicle_capacities': self.capacidade_veiculos,
+            'num_vehicles': len(self.capacidade_veiculos),
+            'starts': self.locais_iniciais,
+            'ends': self.locais_iniciais,
+        }
+        return dados
+
+    def resolver(self):
+        dados = self.criar_dados_modelo()
+
+        # Criar o gerenciador de índices
+        gerenciador = pywrapcp.RoutingIndexManager(
+            len(dados['distance_matrix']),
+            dados['num_vehicles'],
+            dados['starts'],
+            dados['ends']
+        )
+
+        # Criar o modelo de roteirização
+        roteirizador = pywrapcp.RoutingModel(gerenciador)
+
+        # Função de custo (distância)
+        def funcao_custo(from_index, to_index):
+            from_node = gerenciador.IndexToNode(from_index)
+            to_node = gerenciador.IndexToNode(to_index)
+            return dados['distance_matrix'][from_node][to_node]
+
+        transit_callback_index = roteirizador.RegisterTransitCallback(funcao_custo)
+        roteirizador.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+
+        # Restrições de capacidade
+        def demanda_callback(from_index):
+            from_node = gerenciador.IndexToNode(from_index)
+            return dados['demands'][from_node]
+
+        demanda_callback_index = roteirizador.RegisterUnaryTransitCallback(demanda_callback)
+        roteirizador.AddDimensionWithVehicleCapacity(
+            demanda_callback_index,
+            0,  # sem capacidade extra
+            dados['vehicle_capacities'],
+            True,  # capacidade inicial deve ser respeitada
+            'Capacity'
+        )
+
+        # Configurar parâmetros de busca
+        parametros_busca = pywrapcp.DefaultRoutingSearchParameters()
+        parametros_busca.first_solution_strategy = (
+            routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
+
+        # Resolver o problema
+        solucao = roteirizador.SolveWithParameters(parametros_busca)
+
+        if solucao:
+            return self.extrair_solucao(gerenciador, roteirizador, solucao)
+        else:
+            return None
+
+    def extrair_solucao(self, gerenciador, roteirizador, solucao):
+        rotas = []
+        for veiculo_id in range(roteirizador.vehicles()):
+            indice = roteirizador.Start(veiculo_id)
+            rota = []
+            while not roteirizador.IsEnd(indice):
+                node_index = gerenciador.IndexToNode(indice)
+                rota.append(node_index)
+                indice = solucao.Value(roteirizador.NextVar(indice))
+            rotas.append(rota)
+        return rotas
+
 def resolver_vrp(dados, parametros):
     """
     Resolve o problema de roteirização de veículos (VRP) usando Google OR-Tools.
@@ -157,3 +237,15 @@ def fluxo_principal_roteirizador(dados, pesos_multi_objetivo):
     salvar_historico_roteirizacao(rotas_otimizadas, custos, tempos)
 
     return rotas_otimizadas
+
+def obter_parametros():
+    """
+    Função para obter os parâmetros necessários para a roteirização.
+    Retorna um dicionário com os parâmetros configurados.
+    """
+    parametros = {
+        "distancia_maxima": 100,  # Exemplo de parâmetro
+        "tempo_maximo": 8,       # Exemplo de parâmetro
+        "numero_maximo_paradas": 10  # Exemplo de parâmetro
+    }
+    return parametros
