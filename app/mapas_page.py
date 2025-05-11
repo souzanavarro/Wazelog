@@ -187,7 +187,7 @@ def show():
                             pontos = pontos.sort_values('Sequencia')
 
                         # --- Limitação de pontos enviados ao OSRM ---
-                        MAX_PONTOS_OSRM = 20
+                        MAX_PONTOS_OSRM = 30
                         coords = [[depot_lat, depot_lon]]
                         coords += pontos[["Latitude", "Longitude"]].values.tolist()
                         if len(coords) > 2 and (coords[-1] != coords[0]):
@@ -215,6 +215,7 @@ def show():
                         else:
                             import requests
                             progress_bar = st.progress(0, text="Calculando rota otimizada no mapa...")
+                            rota_ok = False
                             try:
                                 coords_osrm = ";".join([f"{lon},{lat}" for lat, lon in coords])
                                 url = f"{OSRM_SERVER_URL}/route/v1/driving/{coords_osrm}?overview=full&geometries=geojson"
@@ -230,15 +231,14 @@ def show():
                                         ).add_to(m)
                                         distancia_total_km = route.get('distance', 0) / 1000
                                         tempo_total_min = route.get('duration', 0) / 60
-                                    else:
-                                        distancia_total_km = 0
-                                        tempo_total_min = 0
-                                else:
-                                    st.error(f"Erro ao requisitar rota ao OSRM: {resp.status_code}")
+                                        rota_ok = True
+                                if not rota_ok:
+                                    st.warning("Não foi possível calcular/desenhar a linha da rota no momento (OSRM indisponível ou resposta inválida). Os pontos das entregas estão visíveis no mapa.")
                                     distancia_total_km = 0
                                     tempo_total_min = 0
+                                # Não interrompe o mapa, apenas não mostra a linha
                             except Exception as osrm_err:
-                                st.error(f"Erro ao requisitar rota ao OSRM: {osrm_err}")
+                                st.warning(f"Não foi possível calcular/desenhar a linha da rota devido a erro ou lentidão do serviço OSRM. Os pontos das entregas estão visíveis no mapa.\nDetalhe: {osrm_err}")
                                 distancia_total_km = 0
                                 tempo_total_min = 0
                             progress_bar.empty()
@@ -250,23 +250,65 @@ def show():
 
                         # Exibir métricas organizadas em 2 colunas, separadas por '-'
                         with st.container():
-                            col_esq, col_dir = st.columns(2)
-                            with col_esq:
-                                st.metric("Placa do Veículo", placa_selecionada)
-                                st.markdown("<div style='font-size:1.2rem;text-align:center;'>-</div>", unsafe_allow_html=True)
-                                st.metric("Pedidos Empenhados", qtd_pedidos)
-                                st.markdown("<div style='font-size:1.2rem;text-align:center;'>-</div>", unsafe_allow_html=True)
-                                st.metric("Distância Total (km)", f"{distancia_total_km:.1f}")
-                            with col_dir:
-                                st.metric("Capacidade do Veículo (Kg)", f"{capacidade_veiculo:,.1f}" if capacidade_veiculo is not None else "N/A")
-                                st.markdown("<div style='font-size:1.2rem;text-align:center;'>-</div>", unsafe_allow_html=True)
-                                st.metric("Peso Empenhado (Kg)", f"{peso_total:,.1f}")
-                                st.markdown("<div style='font-size:1.2rem;text-align:center;'>-</div>", unsafe_allow_html=True)
-                                # Exibir tempo estimado no formato hh:mm
+                            # --- NOVO: Cards com visual igual aos cards de resumo ---
+                            card_style = """
+                                background: #fff;
+                                border-radius: 16px;
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+                                padding: 1.2rem 1.5rem 1.2rem 1.5rem;
+                                margin-bottom: 0.5rem;
+                                text-align: center;
+                                min-width: 180px;
+                                display: flex;
+                                flex-direction: column;
+                                align-items: center;
+                            """
+                            col1, col2, col3, col4, col5, col6 = st.columns(6)
+                            with col1:
+                                st.markdown(f"""
+                                    <div style='{card_style}'>
+                                        <div style='font-size:0.95rem;color:#888;'>Placa do Veículo</div>
+                                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{placa_selecionada}</div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            with col2:
+                                st.markdown(f"""
+                                    <div style='{card_style}'>
+                                        <div style='font-size:0.95rem;color:#888;'>Capacidade do Veículo (Kg)</div>
+                                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{capacidade_veiculo:,.1f if capacidade_veiculo is not None else 'N/A'}</div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            with col3:
+                                st.markdown(f"""
+                                    <div style='{card_style}'>
+                                        <div style='font-size:0.95rem;color:#888;'>Pedidos Empenhados</div>
+                                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{qtd_pedidos}</div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            with col4:
+                                st.markdown(f"""
+                                    <div style='{card_style}'>
+                                        <div style='font-size:0.95rem;color:#888;'>Peso Empenhado (Kg)</div>
+                                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{peso_total:,.1f}</div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            with col5:
+                                st.markdown(f"""
+                                    <div style='{card_style}'>
+                                        <div style='font-size:0.95rem;color:#888;'>Distância Total (km)</div>
+                                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{distancia_total_km:.1f}</div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            with col6:
                                 horas = int(tempo_total_min // 60) if tempo_total_min else 0
                                 minutos = int(round(tempo_total_min % 60)) if tempo_total_min else 0
                                 tempo_formatado = f"{horas}:{minutos:02d}"
-                                st.metric("Tempo Estimado (h)", tempo_formatado)
+                                st.markdown(f"""
+                                    <div style='{card_style}'>
+                                        <div style='font-size:0.95rem;color:#888;'>Tempo Estimado (h)</div>
+                                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{tempo_formatado}</div>
+                                    </div>
+                                """, unsafe_allow_html=True)
                     else:
                         st.info("Não há coordenadas válidas para exibir o trajeto.")
                 else:

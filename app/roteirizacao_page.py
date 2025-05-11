@@ -21,9 +21,9 @@ from routing.distancias import calcular_matriz_distancias, INFINITE_VALUE
 from pedidos import obter_coordenadas # Para geocodificação do endereço de partida
 
 # Constantes para endereço de partida padrão
-DEFAULT_ENDERECO_PARTIDA = "Avenida Antonio Ortega, 3604 - Pinhal, Cabreúva - SP, 13315-000"
-DEFAULT_LAT_PARTIDA = -23.251501
-DEFAULT_LON_PARTIDA = -47.084560
+DEFAULT_ENDERECO_PARTIDA = "Rua Antonio Ortega, 3604, Cabreuva, São Paulo"
+DEFAULT_LAT_PARTIDA = -23.307500
+DEFAULT_LON_PARTIDA = -47.132780
 
 def show():
     # Inicializa o estado da sessão para cenários, se necessário
@@ -37,9 +37,9 @@ def show():
     # Variáveis para armazenar dados carregados e coordenadas de partida
     pedidos = None
     frota = None
-    lat_partida = None
-    lon_partida = None
-    endereco_partida = None
+    lat_partida = DEFAULT_LAT_PARTIDA
+    lon_partida = DEFAULT_LON_PARTIDA
+    endereco_partida = DEFAULT_ENDERECO_PARTIDA
     pedidos_nao_alocados = pd.DataFrame() # Inicializa vazio
 
     try:
@@ -384,27 +384,73 @@ def show():
         # --- Resumo dos Dados para Roteirização ---
         with st.container(border=True): # Adiciona borda ao container
             st.markdown("##### Resumo para Cálculo")
-            # Primeira linha: Pedidos com Coordenadas | Peso Total (Kg)
-            col1_sum, col2_sum = st.columns(2)
-            # pedidos_validos já foi definido acima
-            with col1_sum:
-                st.metric("Pedidos com Coordenadas", len(pedidos_validos))
-            with col2_sum:
-                peso_total = pedidos_validos['Peso dos Itens'].sum() if 'Peso dos Itens' in pedidos_validos.columns else 0
-                st.metric("Peso Total (Kg)", f"{peso_total:,.1f}")
-            # Segunda linha: Veículos Disponíveis | Capacidade Total (Kg)
-            col3_sum, col4_sum = st.columns(2)
-            with col3_sum:
-                st.metric("Veículos Disponíveis", len(frota))
-            with col4_sum:
-                capacidade_total_kg = frota['Capacidade (Kg)'].sum() if 'Capacidade (Kg)' in frota.columns and not frota.empty else 0
-                st.metric("Capacidade Total (Kg)", f"{capacidade_total_kg:,.1f}")
-            # Adicionar outras métricas relevantes se necessário (e.g., Volume Total)
+            # --- NOVO: Cards com visual igual aos cards de resumo ---
+            card_style = """
+                background: #fff;
+                border-radius: 16px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+                padding: 1.2rem 1.5rem 1.2rem 1.5rem;
+                margin-bottom: 0.5rem;
+                text-align: center;
+                min-width: 180px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            """
+            pedidos_coord = len(pedidos_validos)
+            peso_total = pedidos_validos['Peso dos Itens'].sum() if 'Peso dos Itens' in pedidos_validos.columns else 0
+            veiculos_disp = len(frota)
+            capacidade_total = frota['Capacidade (Kg)'].sum() if 'Capacidade (Kg)' in frota.columns and not frota.empty else 0
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.markdown(f"""
+                    <div style='{card_style}'>
+                        <div style='font-size:0.95rem;color:#888;'>Pedidos com Coordenadas</div>
+                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{pedidos_coord}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                    <div style='{card_style}'>
+                        <div style='font-size:0.95rem;color:#888;'>Peso Total (Kg)</div>
+                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{peso_total:,.1f}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col3:
+                st.markdown(f"""
+                    <div style='{card_style}'>
+                        <div style='font-size:0.95rem;color:#888;'>Veículos Disponíveis</div>
+                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{veiculos_disp}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col4:
+                st.markdown(f"""
+                    <div style='{card_style}'>
+                        <div style='font-size:0.95rem;color:#888;'>Capacidade Total (Kg)</div>
+                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{capacidade_total:,.1f}</div>
+                    </div>
+                """, unsafe_allow_html=True)
 
         st.divider()
 
         # --- Botão de Cálculo e Execução ---
         if st.button("Calcular Rotas Otimizadas", type="primary", use_container_width=True, key="calcular_rotas_btn"):
+            # Validação prévia de coordenadas do depósito e dos pedidos
+            from routing.utils import validar_coordenadas_dataframe
+            # Valida depósito
+            depot_coord = (lat_partida, lon_partida)
+            depot_df = pd.DataFrame([{"Latitude": lat_partida, "Longitude": lon_partida}])
+            depot_ok, depot_msg, depot_invalidos = validar_coordenadas_dataframe(depot_df, lat_col="Latitude", lon_col="Longitude", nome_df="Depósito")
+            # Valida pedidos
+            pedidos_ok, pedidos_msg, pedidos_invalidos = validar_coordenadas_dataframe(pedidos_validos, lat_col="Latitude", lon_col="Longitude", nome_df="Pedidos válidos")
+            if not depot_ok:
+                st.error(f"Erro: Coordenadas do depósito inválidas. {depot_msg}")
+                st.dataframe(depot_invalidos, use_container_width=True)
+                return
+            if not pedidos_ok:
+                st.error(f"Erro: Existem pedidos com coordenadas inválidas. {pedidos_msg}")
+                st.dataframe(pedidos_invalidos, use_container_width=True)
+                return
             # Validações antes de prosseguir
             if lat_partida is None or lon_partida is None:
                 st.error("Erro: Coordenadas de partida inválidas. Verifique a configuração do endereço de partida.")

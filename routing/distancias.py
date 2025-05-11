@@ -164,16 +164,11 @@ def calcular_matriz_distancias(pontos, provider="osrm", metrica="duration", prog
     final_matrix = np.full((n, n), INFINITE_VALUE, dtype=int) # Usar int para tempos/distâncias
     np.fill_diagonal(final_matrix, 0)
 
-    # --- AJUSTE PARA USO NO OSRM PÚBLICO/LOCAL ---
-    # Se estiver usando o OSRM público, mantém 1 (seguro, mas lento). Se local, permite lotes maiores.
-    if "project-osrm.org" in OSRM_SERVER_URL:
-        max_coords_per_request = 1  # OSRM público: seguro, mas muito lento para grandes volumes
-        if n > 50:
-            logging.warning(f"Você está usando o OSRM público com {n} pontos. O cálculo pode ser extremamente lento ou falhar (timeout/erro 504). Considere usar uma instância local do OSRM para grandes volumes.")
-    else:
-        max_coords_per_request = 100  # OSRM local: pode aumentar conforme a capacidade do servidor
-        if n > 1000:
-            logging.warning(f"Você está tentando calcular matriz com {n} pontos em OSRM local. Certifique-se de que seu servidor suporta esse volume.")
+    # --- AJUSTE: Permitir lotes maiores mesmo no OSRM público (NÃO RECOMENDADO para produção) ---
+    # ATENÇÃO: O OSRM público pode bloquear seu IP se abusar. Use local para produção!
+    max_coords_per_request = 100  # Força lote grande para qualquer servidor
+    if n > 1000:
+        logging.warning(f"Você está tentando calcular matriz com {n} pontos. Certifique-se de que seu servidor suporta esse volume.")
     # ------------------
     num_batches = (n + max_coords_per_request - 1) // max_coords_per_request
     batches = [list(range(i * max_coords_per_request, min((i + 1) * max_coords_per_request, n))) for i in range(num_batches)]
