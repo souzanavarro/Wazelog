@@ -3,7 +3,7 @@ import logging
 import os
 
 # URL do servidor OSRM local (primeira opção)
-OSRM_LOCAL_URL = "http://localhost:5000" 
+OSRM_LOCAL_URL = "https://router.project-osrm.org" # Alterado para URL pública
 # URL do servidor OSRM público (segunda opção)
 OSRM_PUBLIC_URL = "https://router.project-osrm.org"
 
@@ -76,17 +76,20 @@ def consultar_osrm_route(coordenadas, osrm_url=None):  # Exemplo: [(lat, lon), (
     """
     Consulta rota real por ruas usando OSRM local.
     Args:
-        coordenadas (list): Lista de tuplas (lat, lon) na ordem da rota.
-        osrm_url (str): URL base do OSRM local (ex: http://localhost:5000).
+        coordenadas (list): Lista de tuplas (latitude, longitude).
+        osrm_url (str): URL base do OSRM local (ex: https://router.project-osrm.org).
+
     Returns:
         dict: Resposta da API OSRM ou None em caso de erro.
     """
     # Determina qual URL OSRM usar
     if OSRM_SERVER_PREFERENCE == "local":
         osrm_url_to_use = OSRM_LOCAL_URL
-    # Se a preferência for "public" ou "auto" (ou qualquer outra coisa não "local"), usa o público.
-    # A lógica de fallback para "auto" é tratada na seção except.
-    else: 
+    elif OSRM_SERVER_PREFERENCE == "public":
+        osrm_url_to_use = OSRM_PUBLIC_URL
+    elif OSRM_SERVER_PREFERENCE == "auto":
+        osrm_url_to_use = OSRM_LOCAL_URL # Tenta o local primeiro para "auto"
+    else: # Fallback para público se preferência não reconhecida
         osrm_url_to_use = OSRM_PUBLIC_URL
 
     # Se uma URL específica for passada como argumento para a função, ela tem prioridade máxima.
@@ -103,7 +106,7 @@ def consultar_osrm_route(coordenadas, osrm_url=None):  # Exemplo: [(lat, lon), (
     
     try:
         logging.info(f"Consultando OSRM Route em: {url}")
-        resp = requests.get(url, params=params, timeout=10) # Timeout de 10 segundos
+        resp = requests.get(url, params=params, timeout=30) # Timeout aumentado para 30 segundos
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException as e:
@@ -113,7 +116,7 @@ def consultar_osrm_route(coordenadas, osrm_url=None):  # Exemplo: [(lat, lon), (
             logging.info(f"Falha no OSRM local ({OSRM_LOCAL_URL}) com preferência 'auto', tentando OSRM público: {OSRM_PUBLIC_URL}")
             url_public = f"{OSRM_PUBLIC_URL}/route/v1/driving/{coords_str}"
             try:
-                resp_public = requests.get(url_public, params=params, timeout=15) # Timeout maior para o público
+                resp_public = requests.get(url_public, params=params, timeout=45) # Timeout maior para o público (30 * 1.5)
                 resp_public.raise_for_status()
                 return resp_public.json()
             except requests.exceptions.RequestException as e_public:
@@ -126,16 +129,20 @@ def consultar_osrm_table(coordenadas, osrm_url=None):  # Matriz de distâncias/t
     """
     Consulta matriz de distâncias e tempos usando OSRM local.
     Args:
-        coordenadas (list): Lista de tuplas (lat, lon).
-        osrm_url (str): URL base do OSRM local.
+        coordenadas (list): Lista de tuplas (latitude, longitude).
+        osrm_url (str): URL base do OSRM local (ex: https://router.project-osrm.org).
+
     Returns:
         dict: Resposta da API OSRM ou None em caso de erro.
     """
     # Determina qual URL OSRM usar
     if OSRM_SERVER_PREFERENCE == "local":
         osrm_url_to_use = OSRM_LOCAL_URL
-    # Se a preferência for "public" ou "auto" (ou qualquer outra coisa não "local"), usa o público.
-    else:
+    elif OSRM_SERVER_PREFERENCE == "public":
+        osrm_url_to_use = OSRM_PUBLIC_URL
+    elif OSRM_SERVER_PREFERENCE == "auto":
+        osrm_url_to_use = OSRM_LOCAL_URL # Tenta o local primeiro para "auto"
+    else: # Fallback para público se preferência não reconhecida
         osrm_url_to_use = OSRM_PUBLIC_URL
 
     # Se uma URL específica for passada como argumento para a função, ela tem prioridade máxima.
@@ -152,7 +159,7 @@ def consultar_osrm_table(coordenadas, osrm_url=None):  # Matriz de distâncias/t
 
     try:
         logging.info(f"Consultando OSRM Table em: {url}")
-        resp = requests.get(url, params=params, timeout=20) # Timeout de 20 segundos
+        resp = requests.get(url, params=params, timeout=60) # Timeout aumentado para 60 segundos
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException as e:
@@ -162,7 +169,7 @@ def consultar_osrm_table(coordenadas, osrm_url=None):  # Matriz de distâncias/t
             logging.info(f"Falha no OSRM local ({OSRM_LOCAL_URL}) com preferência 'auto', tentando OSRM público: {OSRM_PUBLIC_URL}")
             url_public = f"{OSRM_PUBLIC_URL}/table/v1/driving/{coords_str}"
             try:
-                resp_public = requests.get(url_public, params=params, timeout=30) # Timeout maior para o público
+                resp_public = requests.get(url_public, params=params, timeout=90) # Timeout maior para o público (60 * 1.5)
                 resp_public.raise_for_status()
                 return resp_public.json()
             except requests.exceptions.RequestException as e_public:

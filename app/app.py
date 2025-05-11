@@ -32,7 +32,7 @@ with st.sidebar:
         .menu-title {display: none !important;}
         </style>
     """, unsafe_allow_html=True)
-    theme_mode = st.radio('', options=['🌞 Claro', '🌙 Escuro'], horizontal=True, key='theme_mode')
+    theme_mode = st.radio('Selecionar tema', options=['🌞 Claro', '🌙 Escuro'], horizontal=True, key='theme_mode', label_visibility="collapsed")
 
 # --- CSS para tema light e dark com vermelho Streamlit ---
 streamlit_red = "#FF4B4B"

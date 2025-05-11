@@ -47,6 +47,10 @@ def show():
         pedidos = carregar_pedidos()
         frota = carregar_frota()
 
+        # Padronização da coluna 'Região' nos pedidos carregados
+        if pedidos is not None and not pedidos.empty and 'Região' in pedidos.columns:
+            pedidos['Região'] = pedidos['Região'].astype(str).str.strip().str.title()
+
         # Processamento da Frota
         if frota is not None and not frota.empty:
              frota = frota.loc[:, ~frota.columns.duplicated()] # Remove colunas duplicadas
@@ -311,13 +315,6 @@ def show():
         <li><b>merge</b>: Tenta unir rotas de veículos diferentes, reduzindo o número de veículos utilizados quando possível.</li>
         <li><b>split</b>: Divide rotas longas em sub-rotas menores, útil para limitar o número de paradas por veículo.</li>
         </ul>
-        <b>Outras opções:</b><br>
-        <ul>
-        <li><b>Reservar veículos para regiões críticas</b>: Garante que regiões com muitos pedidos tenham veículos dedicados.</li>
-        <li><b>Heurística de vizinhança</b>: Move pedidos para veículos que já atendem clientes próximos, otimizando a proximidade geográfica.</li>
-        <li><b>Aprendizado de máquina (ML)</b>: Sugere agrupamentos de pedidos com base em histórico de roteirizações (experimental).</li>
-        <li><b>Balanceamento automático de carga</b>: Distribui os pedidos de forma mais equilibrada entre os veículos, considerando peso, paradas e região.</li>
-        </ul>
         """, unsafe_allow_html=True)
         aplicar_pos = st.checkbox("Aplicar heurística de pós-processamento nas rotas (2-opt, merge, split)", value=False, help="Refina as rotas após o solver para tentar reduzir a distância total ou o número de veículos.")
         tipo_heuristica = st.selectbox(
@@ -352,10 +349,19 @@ def show():
             value=False,
             help="Move pedidos para veículos que já atendem clientes próximos, minimizando distância incremental."
         )
+
         usar_ml = st.checkbox(
             "Sugerir agrupamento por aprendizado de máquina (experimental)",
             value=False,
             help="Sugere agrupamento de pedidos com base em histórico de roteirizações (placeholder)."
+        )
+
+        # --- Opção para configurar o raio máximo de realocação de pedidos restritos ---
+        st.subheader("Configuração de Raio para Realocação de Pedidos Restritos")
+        raio_max_km = st.number_input(
+            "Raio máximo para realocação de pedidos restritos (km)",
+            min_value=1, max_value=100, value=20, step=1,
+            help="Pedidos marcados como restritos só serão realocados para veículos/regiões vizinhas dentro deste raio. Valor padrão: 20 km."
         )
 
         # --- Opção de Balanceamento de Carga ---
@@ -549,20 +555,115 @@ def show():
                             st.warning("\n**Diagnóstico automático para problema inviável:**\n\n- Verifique se algum pedido tem demanda maior que a capacidade máxima dos veículos.\n- Revise as janelas de tempo dos veículos e pedidos (se existirem).\n- Confira se todos os pedidos possuem coordenadas válidas e não há outliers muito distantes.\n- Certifique-se de que a frota é suficiente para atender todos os pedidos.\n- Tente relaxar restrições (aumentar janelas, frota, capacidade) e rode novamente.\n\nSe o problema persistir, revise os dados de entrada e tente com um conjunto menor de pedidos.")
 
                     if rotas_df is not None and not rotas_df.empty:
+                        # --- MOVIDO PARA CÁ: Adicionar 'Região' e coordenadas ao rotas_df ANTES do pós-processamento ---
+                        # Garante que a coluna 'Região' existe em rotas_df
+                        if 'Região' not in rotas_df.columns:
+                            rotas_df['Região'] = None
+
+                        # Propaga a coluna 'Região' dos pedidos para rotas_df, se existir
+                        if 'Pedido_Index_DF' in rotas_df.columns and 'Região' in pedidos_validos.columns:
+                            try:
+                                regioes_to_merge = pedidos_validos.reset_index(drop=True).reset_index()[['index', 'Região']].copy()
+                                regioes_to_merge = regioes_to_merge.rename(columns={'index': 'Pedido_Index_DF'})
+                                rotas_df = pd.merge(
+                                    rotas_df,
+                                    regioes_to_merge,
+                                    on='Pedido_Index_DF',
+                                    how='left',
+                                    suffixes=(None, '_pedido') # Suffixes para evitar conflito se 'Região' já existir
+                                )
+                                # Se houve merge e criou 'Região_pedido', renomeia para 'Região' se 'Região' original era None ou não existia
+                                if 'Região_pedido' in rotas_df.columns:
+                                    if 'Região' not in rotas_df.columns or rotas_df['Região'].isnull().all():
+                                        rotas_df['Região'] = rotas_df['Região_pedido']
+                                    # Remove a coluna duplicada/sufixada se a original já foi preenchida ou criada
+                                    if 'Região' in rotas_df.columns and rotas_df['Região'].notnull().any():
+                                         rotas_df = rotas_df.drop(columns=['Região_pedido'], errors='ignore')
+
+
+                            except Exception as merge_reg_err:
+                                st.warning(f"Não foi possível adicionar a coluna 'Região' ao DataFrame de rotas: {merge_reg_err}")
+
+                        if 'Pedido_Index_DF' in rotas_df.columns and not pedidos_validos.empty:
+                            try:
+                                coords_to_merge = pedidos_validos.reset_index(drop=True).reset_index()[['index', 'Latitude', 'Longitude']].copy()
+                                coords_to_merge = coords_to_merge.rename(columns={'index': 'Pedido_Index_DF'})
+                                rotas_df = pd.merge(
+                                    rotas_df,
+                                    coords_to_merge,
+                                    on='Pedido_Index_DF',
+                                    how='left',
+                                    suffixes=(None, '_pedido') # Suffixes para evitar conflito
+                                )
+                                # Similar ao 'Região', prioriza colunas originais se existirem e não forem nulas
+                                if 'Latitude_pedido' in rotas_df.columns:
+                                    if 'Latitude' not in rotas_df.columns or rotas_df['Latitude'].isnull().all():
+                                        rotas_df['Latitude'] = rotas_df['Latitude_pedido']
+                                    if 'Latitude' in rotas_df.columns and rotas_df['Latitude'].notnull().any():
+                                        rotas_df = rotas_df.drop(columns=['Latitude_pedido'], errors='ignore')
+                                if 'Longitude_pedido' in rotas_df.columns:
+                                    if 'Longitude' not in rotas_df.columns or rotas_df['Longitude'].isnull().all():
+                                        rotas_df['Longitude'] = rotas_df['Longitude_pedido']
+                                    if 'Longitude' in rotas_df.columns and rotas_df['Longitude'].notnull().any():
+                                        rotas_df = rotas_df.drop(columns=['Longitude_pedido'], errors='ignore')
+
+                                st.info("Coordenadas adicionadas ao DataFrame de rotas.")
+                            except Exception as merge_err:
+                                st.warning(f"Não foi possível adicionar coordenadas ao DataFrame de rotas: {merge_err}")
+                        else:
+                             st.warning("Não foi possível adicionar coordenadas ao DataFrame de rotas (coluna 'Pedido_Index_DF' ou 'pedidos_validos' ausente/vazio).")
+
+                        # --- Ajuste: Garantir que 'ID Pedido' seja igual ao 'Nº Pedido' do pedido original ---
+                        if 'Pedido_Index_DF' in rotas_df.columns and not pedidos_validos.empty and 'Nº Pedido' in pedidos_validos.columns:
+                            try:
+                                num_pedidos_to_merge = pedidos_validos.reset_index(drop=True).reset_index()[['index', 'Nº Pedido']].copy()
+                                num_pedidos_to_merge = num_pedidos_to_merge.rename(columns={'index': 'Pedido_Index_DF', 'Nº Pedido': 'Nº Pedido Original'})
+                                rotas_df = pd.merge(
+                                    rotas_df,
+                                    num_pedidos_to_merge,
+                                    on='Pedido_Index_DF',
+                                    how='left',
+                                    suffixes=(None, '_pedido')
+                                )
+                                # Substitui 'ID Pedido' pelo valor correto de 'Nº Pedido Original' se disponível
+                                if 'Nº Pedido Original' in rotas_df.columns:
+                                    rotas_df['ID Pedido'] = rotas_df['Nº Pedido Original']
+                                    rotas_df = rotas_df.drop(columns=['Nº Pedido Original'], errors='ignore')
+                            except Exception as merge_id_err:
+                                st.warning(f"Não foi possível ajustar o campo 'ID Pedido' para o valor correto do pedido original: {merge_id_err}")
+                        # --- FIM DO AJUSTE DE ID PEDIDO ---
+                        # --- FIM DA MOVIMENTAÇÃO ---
+
+
                         from routing.pos_processamento import balanceamento_iterativo, reservar_veiculos_para_regioes, mover_para_vizinho_proximo, sugerir_agrupamento_ml
+                        from routing.pos_processamento import realocar_pedidos_restritos
 
 
                         # Priorizar regiões preferidas da frota (restrição dura)
 
-                        from routing.pos_processamento import priorizar_regioes_preferidas, restringir_1_regiao_por_veiculo, realocar_pedidos_restritos
-                        # Ajuste do raio máximo pode ser feito aqui:
-                        raio_max_km = 20  # Altere conforme necessidade operacional
-                        rotas_df, n_realocados = priorizar_regioes_preferidas(rotas_df, frota, pedidos_validos)
-                        if n_realocados > 0:
-                            st.info(f"{n_realocados} pedidos foram realocados para veículos com regiões preferidas.")
+                        from routing.pos_processamento import alocar_1_veiculo_por_regiao, alocar_veiculos_por_capacidade_regiao
+                        # 1º: Garante 1 veículo por região
+                        rotas_df = alocar_1_veiculo_por_regiao(rotas_df, frota, pedidos_validos)
 
-                        # Restringir cada veículo a até 2 regiões próximas
-                        rotas_df = restringir_1_regiao_por_veiculo(rotas_df, raio_km=raio_max_km, pedidos=pedidos_validos)
+                        # --- AJUSTE: Desaloca veículos de regiões com excesso de carga ---
+                        id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
+                        capacidades = frota.set_index(id_col)['Capacidade (Kg)'].to_dict() if 'Capacidade (Kg)' in frota.columns else {}
+                        if 'Veículo' in rotas_df.columns and 'Demanda' in rotas_df.columns and 'Região' in rotas_df.columns:
+                            for veic, grupo in rotas_df.groupby('Veículo'):
+                                cap = capacidades.get(veic, None)
+                                if cap is None:
+                                    continue
+                                demanda_total = grupo['Demanda'].sum()
+                                if demanda_total > cap:
+                                    # Desaloca todos os pedidos desse veículo para forçar redistribuição
+                                    rotas_df.loc[grupo.index, 'Veículo'] = None
+
+                        # 2º: Garante veículos suficientes por capacidade
+                        rotas_df = alocar_veiculos_por_capacidade_regiao(rotas_df, frota, pedidos_validos)
+                        # Garante a existência da coluna 'Alocacao_Restrita' (inicializa como False se não existir)
+                        if 'Alocacao_Restrita' not in rotas_df.columns:
+                            rotas_df['Alocacao_Restrita'] = False
+                        st.info("Aplicada restrição: 1 veículo por região e capacidade máxima respeitada.")
                         n_restritos = rotas_df['Alocacao_Restrita'].sum() if 'Alocacao_Restrita' in rotas_df.columns else 0
                         if n_restritos > 0:
                             st.warning(f"{n_restritos} pedidos estão fora das regiões permitidas do veículo e foram marcados como restritos.")
@@ -600,42 +701,25 @@ def show():
                             for veic, demanda, cap in excesso_final:
                                 st.warning(f"Veículo {veic}: {demanda:.1f} kg (limite: {cap:.1f} kg)")
 
-                        # Garante que a coluna 'Região' existe em rotas_df
-                        if 'Região' not in rotas_df.columns:
-                            rotas_df['Região'] = None
+                        # NÃO reaplicar alocar_1_veiculo_por_regiao aqui!
+                        # Isso causava excesso de carga pois concentrava tudo em um só veículo por região.
+                        # Se quiser garantir que cada região tenha pelo menos 1 veículo, faça isso só no início do pipeline.
 
-                        # Propaga a coluna 'Região' dos pedidos para rotas_df, se existir
-                        if 'Pedido_Index_DF' in rotas_df.columns and 'Região' in pedidos_validos.columns:
+                        # Adicionar data e hora da roteirização e salvar CSV
+                        if rotas_df is not None and not rotas_df.empty:
+                            from datetime import datetime
+                            import os # Adicionado para os.makedirs
+                            now = datetime.now()
+                            rotas_df['Data_Roteirizacao'] = now.strftime("%Y-%m-%d")
+                            rotas_df['Hora_Roteirizacao'] = now.strftime("%H:%M:%S")
+
+                            path_roteirizacao_csv = "c:\\\\Users\\\\Orlando\\\\Desktop\\\\Wazelog-main\\\\data\\\\Roteirizacao.csv"
                             try:
-                                regioes_to_merge = pedidos_validos.reset_index(drop=True).reset_index()[['index', 'Região']].copy()
-                                regioes_to_merge = regioes_to_merge.rename(columns={'index': 'Pedido_Index_DF'})
-                                rotas_df = pd.merge(
-                                    rotas_df,
-                                    regioes_to_merge,
-                                    on='Pedido_Index_DF',
-                                    how='left',
-                                    suffixes=(None, '_pedido')
-                                )
-                            except Exception as merge_reg_err:
-                                st.warning(f"Não foi possível adicionar a coluna 'Região' ao DataFrame de rotas: {merge_reg_err}")
-
-                        if 'Pedido_Index_DF' in rotas_df.columns and not pedidos_validos.empty:
-                            try:
-                                coords_to_merge = pedidos_validos.reset_index(drop=True).reset_index()[['index', 'Latitude', 'Longitude']].copy()
-                                coords_to_merge = coords_to_merge.rename(columns={'index': 'Pedido_Index_DF'})
-                                rotas_df = pd.merge(
-                                    rotas_df,
-                                    coords_to_merge,
-                                    on='Pedido_Index_DF',
-                                    how='left',
-                                    suffixes=(None, '_pedido')
-                                )
-                                st.info("Coordenadas adicionadas ao DataFrame de rotas.")
-                            except Exception as merge_err:
-                                st.warning(f"Não foi possível adicionar coordenadas ao DataFrame de rotas: {merge_err}")
-                        else:
-                             st.warning("Não foi possível adicionar coordenadas ao DataFrame de rotas (coluna 'Pedido_Index_DF' ou 'pedidos_validos' ausente/vazio).")
-
+                                os.makedirs(os.path.dirname(path_roteirizacao_csv), exist_ok=True)
+                                rotas_df.to_csv(path_roteirizacao_csv, index=False, encoding='utf-8')
+                                st.success(f"Arquivo Roteirizacao.csv salvo em {path_roteirizacao_csv}")
+                            except Exception as e_csv:
+                                st.error(f"Erro ao salvar Roteirizacao.csv: {e_csv}")
                         with st.expander("Visualizar Tabela de Rotas Geradas (com Coordenadas)", expanded=True):
                             st.dataframe(rotas_df, use_container_width=True)
 
@@ -844,7 +928,7 @@ Se necessário, revise os dados de entrada, relaxe restrições ou tente com um 
                 st.markdown("### Relatório Automático")
                 if st.button("Gerar Relatório HTML deste Cenário", key="btn_relatorio_html"):
                     html = gerar_relatorio_html(cenario_selecionado)
-                    rel_path = f"/workspaces/Wazelog/data/Relatorio_{cenario_selecionado.get('data','').replace(':','-').replace(' ','_')}.html"
+                    rel_path = f"/workspaces/WazeLog/data/Relatorio_{cenario_selecionado.get('data','').replace(':','-').replace(' ','_')}.html"
                     with open(rel_path, "w", encoding="utf-8") as f:
                         f.write(html)
                     st.success(f"Relatório gerado em {rel_path}")

@@ -18,8 +18,29 @@ key_cycle = itertools.cycle(OPENCAGE_KEYS)
 def definir_regiao(row):
     cidade = str(row.get("Cidade de Entrega", "")).strip()
     bairro = str(row.get("Bairro de Entrega", "")).strip()
-    if cidade.lower() == "são paulo" and bairro:
-        return f"{bairro} - São Paulo"
+    # Dicionário básico de bairros para zonas de SP (pode ser expandido conforme necessidade)
+    bairro_zona = {
+        # Zona Sul
+        "santo amaro": "Zona Sul", "campo belo": "Zona Sul", "jardim são luís": "Zona Sul", "capão redondo": "Zona Sul", "vila mariana": "Zona Sul", "morumbi": "Zona Sul", "sacomã": "Zona Sul", "jabaquara": "Zona Sul", "ipiranga": "Zona Sul", "saúde": "Zona Sul", "cursino": "Zona Sul", "vila andrade": "Zona Sul", "cidade ademar": "Zona Sul", "pedreira": "Zona Sul", "socorro": "Zona Sul", "grajaú": "Zona Sul", "parelheiros": "Zona Sul",
+        # Zona Norte
+        "santana": "Zona Norte", "tucuruvi": "Zona Norte", "jaçanã": "Zona Norte", "cachoeirinha": "Zona Norte", "casa verde": "Zona Norte", "freguesia do ó": "Zona Norte", "limão": "Zona Norte", "lauzane paulista": "Zona Norte", "mandaqui": "Zona Norte", "vila medeiros": "Zona Norte", "tremembé": "Zona Norte", "vila maria": "Zona Norte", "vila guilherme": "Zona Norte", "vila gustavo": "Zona Norte", "vila nova cachoeirinha": "Zona Norte",
+        # Zona Leste
+        "penha": "Zona Leste", "tatuapé": "Zona Leste", "mooca": "Zona Leste", "vila prudente": "Zona Leste", "itaquera": "Zona Leste", "são mateus": "Zona Leste", "são miguel": "Zona Leste", "artur alvim": "Zona Leste", "vila matilde": "Zona Leste", "vila formosa": "Zona Leste", "aricanduva": "Zona Leste", "cidade tiradentes": "Zona Leste", "guaianases": "Zona Leste", "er melino matarazzo": "Zona Leste", "carrão": "Zona Leste", "brás": "Zona Leste",
+        # Zona Oeste
+        "lapa": "Zona Oeste", "perdizes": "Zona Oeste", "pinheiros": "Zona Oeste", "butantã": "Zona Oeste", "vila leopoldina": "Zona Oeste", "vila sonia": "Zona Oeste", "rio pequeno": "Zona Oeste", "jaguaré": "Zona Oeste", "jaraguá": "Zona Oeste", "pirituba": "Zona Oeste", "freguesia do ó": "Zona Oeste", "morumbi": "Zona Oeste", "cidade jardim": "Zona Oeste",
+        # Centro
+        "sé": "Centro", "república": "Centro", "bela vista": "Centro", "liberdade": "Centro", "santa cecília": "Centro", "consolação": "Centro", "brás": "Centro", "bom retiro": "Centro", "cambuci": "Centro", "pari": "Centro"
+    }
+
+    if cidade.lower() == "são paulo":
+        bairro_lower = bairro.lower()
+        zona = bairro_zona.get(bairro_lower)
+        if zona:
+            return f"{zona} - São Paulo"
+        elif bairro:
+            return f"Zona Desconhecida - São Paulo"
+        else:
+            return "Zona Desconhecida - São Paulo"
     elif cidade:
         return cidade
     # fallback: tenta extrair do endereço completo
@@ -27,7 +48,12 @@ def definir_regiao(row):
     partes = [p.strip() for p in endereco.split(",") if p.strip()]
     if len(partes) >= 2:
         if "são paulo" in partes[-2].lower() and len(partes) >= 3:
-            return f"{partes[-3]} - São Paulo"
+            bairro_fallback = partes[-3].lower()
+            zona = bairro_zona.get(bairro_fallback)
+            if zona:
+                return f"{zona} - São Paulo"
+            else:
+                return "Zona Desconhecida - São Paulo"
         return partes[-2]
     return "N/A"
 
@@ -359,12 +385,18 @@ def processar_pedidos(arquivo, max_linhas=None, tamanho_lote=60, delay_lote=10):
     df = df.dropna(subset=colunas_essenciais_dropna)
 
     # --- Agrupamento automático por KMeans nas coordenadas ---
-    if 'Latitude' in df.columns and 'Longitude' in df.columns:
-        from routing.utils import clusterizar_pedidos_por_regiao_ou_kmeans
+    # --- Agrupamento/Clusterização por Região ---
+    if 'Região' in df.columns and df['Região'].notnull().any():
+        regioes_unicas = df['Região'].fillna('N/A').astype(str).unique()
+        regiao_para_cluster = {regiao: idx for idx, regiao in enumerate(sorted(regioes_unicas))}
+        df['Cluster'] = df['Região'].map(regiao_para_cluster)
+    # fallback: se não houver coluna Região, tenta clusterizar por coordenadas
+    elif 'Latitude' in df.columns and 'Longitude' in df.columns:
+        from routing.utils import clusterizar_pedidos
         n_clusters = 1
         if 'frota' in st.session_state and st.session_state['frota'] is not None:
             n_clusters = max(1, len(st.session_state['frota']))
-        df['Cluster'] = clusterizar_pedidos_por_regiao_ou_kmeans(df, n_clusters=n_clusters)
+        df['Cluster'] = clusterizar_pedidos(df, n_clusters=n_clusters)
 
     # Reorganizar colunas na ordem desejada (adapta se colunas não existirem)
     colunas_ordem_base = [

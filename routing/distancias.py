@@ -14,8 +14,8 @@ import os # Adicionado para ler variáveis de ambiente
 OSRM_SERVER_URL = os.environ.get("OSRM_BASE_URL", "https://router.project-osrm.org")
 MAX_RETRIES = 3
 # --- AJUSTE AQUI ---
-RETRY_DELAY = 15 # Segundos entre retentativas
-DEFAULT_TIMEOUT = 180 # Timeout para cada requisição OSRM em segundos
+RETRY_DELAY = 20 # Segundos entre retentativas
+DEFAULT_TIMEOUT = 240 # Timeout para cada requisição OSRM em segundos
 # -------------------
 INFINITE_VALUE = 9999999 # Valor para representar "infinito" ou falha
 
@@ -164,9 +164,17 @@ def calcular_matriz_distancias(pontos, provider="osrm", metrica="duration", prog
     final_matrix = np.full((n, n), INFINITE_VALUE, dtype=int) # Usar int para tempos/distâncias
     np.fill_diagonal(final_matrix, 0)
 
-    # --- AJUSTE AQUI ---
-    max_coords_per_request = 15 # Reduzido de 20 para 15
-    # -------------------
+    # --- AJUSTE PARA USO NO OSRM PÚBLICO/LOCAL ---
+    # Se estiver usando o OSRM público, mantém 1 (seguro, mas lento). Se local, permite lotes maiores.
+    if "project-osrm.org" in OSRM_SERVER_URL:
+        max_coords_per_request = 1  # OSRM público: seguro, mas muito lento para grandes volumes
+        if n > 50:
+            logging.warning(f"Você está usando o OSRM público com {n} pontos. O cálculo pode ser extremamente lento ou falhar (timeout/erro 504). Considere usar uma instância local do OSRM para grandes volumes.")
+    else:
+        max_coords_per_request = 100  # OSRM local: pode aumentar conforme a capacidade do servidor
+        if n > 1000:
+            logging.warning(f"Você está tentando calcular matriz com {n} pontos em OSRM local. Certifique-se de que seu servidor suporta esse volume.")
+    # ------------------
     num_batches = (n + max_coords_per_request - 1) // max_coords_per_request
     batches = [list(range(i * max_coords_per_request, min((i + 1) * max_coords_per_request, n))) for i in range(num_batches)]
     total_requests = num_batches * num_batches
@@ -206,15 +214,29 @@ def calcular_matriz_distancias(pontos, provider="osrm", metrica="duration", prog
 
 
                 # --- Requisição OSRM com Pontos Válidos ---
-                # Não faz requisição se houver menos de 2 pontos válidos em sources ou destinations
-                if len(osrm_sources_indices) < 2 or len(osrm_destinations_indices) < 2:
-                    logging.warning(f"Lote ignorado: menos de 2 pontos em sources ou destinations (sources={len(osrm_sources_indices)}, destinations={len(osrm_destinations_indices)}). Pulando requisição OSRM.")
+                # Não faz requisição se houver menos de 2 pontos válidos no lote que será enviado ao OSRM
+                if len(osrm_points_coords) < 2:
+                    logging.warning(f"Lote ignorado: menos de 2 coordenadas válidas no lote combinado ({len(osrm_points_coords)} pontos). Pulando requisição OSRM. Req {request_count}")
+                    # Preenche a submatriz correspondente com INFINITE_VALUE para os pares válidos que estariam neste lote
+                    # Isso evita que a matriz final fique incompleta ou com zeros indevidos se um lote inteiro falhar aqui.
+                    for r_global_idx in batch_origem_indices_validos_global:
+                        for c_global_idx in batch_destino_indices_validos_global:
+                            if r_global_idx != c_global_idx: # Não sobrescrever a diagonal
+                                final_matrix[r_global_idx, c_global_idx] = INFINITE_VALUE
                     if progress_callback:
                         progress_callback(request_count / total_requests)
                     continue
 
-                if not osrm_points_coords or len(osrm_points_coords) < 1 or not osrm_sources_indices or not osrm_destinations_indices:
-                     logging.warning(f"Nenhum ponto válido ou nenhuma origem/destino válido no lote combinado (Req {request_count}). Pulando requisição OSRM.")
+                # Verifica se há sources e destinations válidos após o filtro.
+                # Se osrm_points_coords tem >= 2 pontos, mas os sources/destinations específicos para este batch não existem,
+                # então não há o que pedir para esta combinação específica de sources/destinations.
+                if not osrm_sources_indices or not osrm_destinations_indices:
+                     logging.warning(f"Nenhuma origem/destino válido no lote combinado para os parâmetros sources/destinations (Req {request_count}). Fontes: {len(osrm_sources_indices)}, Destinos: {len(osrm_destinations_indices)}. Pulando requisição OSRM.")
+                     # Similar ao acima, preenche com INFINITE_VALUE
+                     for r_global_idx in batch_origem_indices_validos_global:
+                        for c_global_idx in batch_destino_indices_validos_global:
+                            if r_global_idx != c_global_idx:
+                                final_matrix[r_global_idx, c_global_idx] = INFINITE_VALUE
                      if progress_callback:
                         progress_callback(request_count / total_requests)
                      continue
@@ -260,6 +282,9 @@ def calcular_matriz_distancias(pontos, provider="osrm", metrica="duration", prog
                 # Atualiza progresso
                 if progress_callback:
                     progress_callback(request_count / total_requests)
+                
+                # Adiciona um delay maior para não sobrecarregar o servidor público
+                time.sleep(1.0) # Aumentado para 1s
                 # --- Fim Preenchimento ---
 
         logging.info(f"Matriz de '{metrica}' ({final_matrix.shape}) calculada com sucesso usando lotes.")

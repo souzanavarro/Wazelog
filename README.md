@@ -93,7 +93,7 @@ A maneira mais fácil de iniciar todos os componentes do Wazelog (Servidor OSRM,
 Para garantir que o sistema utilize o OSRM Local (em vez do serviço público), defina a variável de ambiente antes de iniciar o backend:
 
 ```bash
-export OSRM_BASE_URL="http://localhost:5000"
+export OSRM_BASE_URL="https://router.project-osrm.org"
 ```
 
 Depois, inicie normalmente o backend FastAPI e o frontend Streamlit. O sistema detectará automaticamente o OSRM Local.

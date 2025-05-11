@@ -186,7 +186,8 @@ def show():
                         if 'Sequencia' in pontos.columns:
                             pontos = pontos.sort_values('Sequencia')
 
-                        # --- OTIMIZAÇÃO: Requisição única OSRM para toda a rota ---
+                        # --- Limitação de pontos enviados ao OSRM ---
+                        MAX_PONTOS_OSRM = 20
                         coords = [[depot_lat, depot_lon]]
                         coords += pontos[["Latitude", "Longitude"]].values.tolist()
                         if len(coords) > 2 and (coords[-1] != coords[0]):
@@ -206,37 +207,41 @@ def show():
                                 icon=folium.Icon(color='red', icon='info-sign')
                             ).add_to(marker_cluster)
 
-                        # --- Requisição OSRM otimizada (multi-point) ---
-                        import requests
-                        progress_bar = st.progress(0, text="Calculando rota otimizada no mapa...")
-                        try:
-                            # Monta string de coordenadas para OSRM
-                            coords_osrm = ";".join([f"{lon},{lat}" for lat, lon in coords])
-                            url = f"{OSRM_SERVER_URL}/route/v1/driving/{coords_osrm}?overview=full&geometries=geojson"
-                            resp = requests.get(url, timeout=30)
-                            if resp.status_code == 200:
-                                data = resp.json()
-                                if data.get('routes'):
-                                    route = data['routes'][0]
-                                    geometry = route['geometry']
-                                    folium.PolyLine(
-                                        locations=[(lat, lon) for lon, lat in geometry['coordinates']],
-                                        color='red', weight=4, opacity=0.8
-                                    ).add_to(m)
-                                    distancia_total_km = route.get('distance', 0) / 1000
-                                    tempo_total_min = route.get('duration', 0) / 60
-                                else:
-                                    distancia_total_km = 0
-                                    tempo_total_min = 0
-                            else:
-                                st.error(f"Erro ao requisitar rota ao OSRM: {resp.status_code}")
-                                distancia_total_km = 0
-                                tempo_total_min = 0
-                        except Exception as osrm_err:
-                            st.error(f"Erro ao requisitar rota ao OSRM: {osrm_err}")
+                        # --- Limita o número de pontos enviados ao OSRM ---
+                        if len(coords) > MAX_PONTOS_OSRM:
+                            st.warning(f"A rota possui muitos pontos ({len(coords)}). Por limitação do serviço de rotas, a linha da rota não será desenhada. Os marcadores dos pedidos continuam visíveis no mapa.")
                             distancia_total_km = 0
                             tempo_total_min = 0
-                        progress_bar.empty()
+                        else:
+                            import requests
+                            progress_bar = st.progress(0, text="Calculando rota otimizada no mapa...")
+                            try:
+                                coords_osrm = ";".join([f"{lon},{lat}" for lat, lon in coords])
+                                url = f"{OSRM_SERVER_URL}/route/v1/driving/{coords_osrm}?overview=full&geometries=geojson"
+                                resp = requests.get(url, timeout=30)
+                                if resp.status_code == 200:
+                                    data = resp.json()
+                                    if data.get('routes'):
+                                        route = data['routes'][0]
+                                        geometry = route['geometry']
+                                        folium.PolyLine(
+                                            locations=[(lat, lon) for lon, lat in geometry['coordinates']],
+                                            color='red', weight=4, opacity=0.8
+                                        ).add_to(m)
+                                        distancia_total_km = route.get('distance', 0) / 1000
+                                        tempo_total_min = route.get('duration', 0) / 60
+                                    else:
+                                        distancia_total_km = 0
+                                        tempo_total_min = 0
+                                else:
+                                    st.error(f"Erro ao requisitar rota ao OSRM: {resp.status_code}")
+                                    distancia_total_km = 0
+                                    tempo_total_min = 0
+                            except Exception as osrm_err:
+                                st.error(f"Erro ao requisitar rota ao OSRM: {osrm_err}")
+                                distancia_total_km = 0
+                                tempo_total_min = 0
+                            progress_bar.empty()
 
                         # Chave dinâmica para o mapa
                         safe_selecao = "".join(c for c in selecao if c.isalnum() or c in ('_'))
@@ -244,7 +249,6 @@ def show():
                         st_folium(m, width=None, height=500, key=map_key)
 
                         # Exibir métricas organizadas em 2 colunas, separadas por '-'
-                        # <<< GARANTIR INDENTAÇÃO CORRETA AQUI >>>
                         with st.container():
                             col_esq, col_dir = st.columns(2)
                             with col_esq:
