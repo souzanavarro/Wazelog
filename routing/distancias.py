@@ -164,131 +164,115 @@ def calcular_matriz_distancias(pontos, provider="osrm", metrica="duration", prog
     final_matrix = np.full((n, n), INFINITE_VALUE, dtype=int) # Usar int para tempos/distâncias
     np.fill_diagonal(final_matrix, 0)
 
-    # --- AJUSTE: Permitir lotes maiores mesmo no OSRM público (NÃO RECOMENDADO para produção) ---
-    # ATENÇÃO: O OSRM público pode bloquear seu IP se abusar. Use local para produção!
-    max_coords_per_request = 100  # Força lote grande para qualquer servidor
-    if n > 1000:
-        logging.warning(f"Você está tentando calcular matriz com {n} pontos. Certifique-se de que seu servidor suporta esse volume.")
-    # ------------------
-    num_batches = (n + max_coords_per_request - 1) // max_coords_per_request
-    batches = [list(range(i * max_coords_per_request, min((i + 1) * max_coords_per_request, n))) for i in range(num_batches)]
-    total_requests = num_batches * num_batches
+    # Estratégia de fallback: tenta lotes decrescentes se houver erro 504
+    lote_sizes = [100, 50, 25, 10]
+    for max_coords_per_request in lote_sizes:
+        num_batches = (n + max_coords_per_request - 1) // max_coords_per_request
+        batches = [list(range(i * max_coords_per_request, min((i + 1) * max_coords_per_request, n))) for i in range(num_batches)]
+        total_requests = num_batches * num_batches
 
-    logging.info(f"Dividindo {n} pontos em {num_batches} lotes (máx {max_coords_per_request} por lote). Total de {total_requests} requisições OSRM.")
-    request_count = 0
+        logging.info(f"Dividindo {n} pontos em {num_batches} lotes (máx {max_coords_per_request} por lote). Total de {total_requests} requisições OSRM.")
+        request_count = 0
+        erro_504_detectado = False
 
-    try:
-        for r_idx, batch_origem_indices_global in enumerate(batches):
-            for c_idx, batch_destino_indices_global in enumerate(batches):
-                request_count += 1
-                logging.info(f"Calculando submatriz Lote {r_idx+1}/{num_batches} -> Lote {c_idx+1}/{num_batches} (Req {request_count}/{total_requests})")
+        try:
+            for r_idx, batch_origem_indices_global in enumerate(batches):
+                for c_idx, batch_destino_indices_global in enumerate(batches):
+                    request_count += 1
+                    logging.info(f"Calculando submatriz Lote {r_idx+1}/{num_batches} -> Lote {c_idx+1}/{num_batches} (Req {request_count}/{total_requests})")
 
-                # --- Validação dos Pontos do Lote Combinado ---
-                # Combina índices globais de origem e destino, removendo duplicatas e mantendo a ordem
-                combined_indices_global = sorted(list(set(batch_origem_indices_global + batch_destino_indices_global)))
-                pontos_lote_combinado = [pontos[i] for i in combined_indices_global]
+                    # --- Validação dos Pontos do Lote Combinado ---
+                    combined_indices_global = sorted(list(set(batch_origem_indices_global + batch_destino_indices_global)))
+                    pontos_lote_combinado = [pontos[i] for i in combined_indices_global]
+                    osrm_points_coords, indices_validos_no_lote_combinado = _validar_coordenadas(pontos_lote_combinado)
+                    indices_globais_validos = [combined_indices_global[i] for i in indices_validos_no_lote_combinado]
+                    map_global_to_osrm_idx = {osrm_idx: global_idx for osrm_idx, global_idx in enumerate(indices_globais_validos)}
+                    batch_origem_indices_validos_global = [idx for idx in batch_origem_indices_global if idx in map_global_to_osrm_idx]
+                    batch_destino_indices_validos_global = [idx for idx in batch_destino_indices_global if idx in map_global_to_osrm_idx]
+                    osrm_sources_indices = [map_global_to_osrm_idx[idx] for idx in batch_origem_indices_validos_global]
+                    osrm_destinations_indices = [map_global_to_osrm_idx[idx] for idx in batch_destino_indices_validos_global]
 
-                # Valida as coordenadas *deste lote combinado*
-                osrm_points_coords, indices_validos_no_lote_combinado = _validar_coordenadas(pontos_lote_combinado)
+                    # --- Requisição OSRM com Pontos Válidos ---
+                    if len(osrm_points_coords) < 2:
+                        logging.warning(f"Lote ignorado: menos de 2 coordenadas válidas no lote combinado ({len(osrm_points_coords)} pontos). Pulando requisição OSRM. Req {request_count}")
+                        for r_global_idx in batch_origem_indices_validos_global:
+                            for c_global_idx in batch_destino_indices_validos_global:
+                                if r_global_idx != c_global_idx:
+                                    final_matrix[r_global_idx, c_global_idx] = INFINITE_VALUE
+                        if progress_callback:
+                            progress_callback(request_count / total_requests)
+                        continue
 
-                # Mapeia índices válidos no lote combinado de volta para índices globais
-                indices_globais_validos = [combined_indices_global[i] for i in indices_validos_no_lote_combinado]
+                    if not osrm_sources_indices or not osrm_destinations_indices:
+                        logging.warning(f"Nenhuma origem/destino válido no lote combinado para os parâmetros sources/destinations (Req {request_count}). Fontes: {len(osrm_sources_indices)}, Destinos: {len(osrm_destinations_indices)}. Pulando requisição OSRM.")
+                        for r_global_idx in batch_origem_indices_validos_global:
+                            for c_global_idx in batch_destino_indices_validos_global:
+                                if r_global_idx != c_global_idx:
+                                    final_matrix[r_global_idx, c_global_idx] = INFINITE_VALUE
+                        if progress_callback:
+                            progress_callback(request_count / total_requests)
+                        continue
 
-                # Mapeia índices globais de origem/destino para índices *dentro da lista de pontos válidos* (osrm_points_coords)
-                # que será enviada ao OSRM. Cria um dicionário para busca rápida.
-                map_global_to_osrm_idx = {osrm_idx: global_idx for osrm_idx, global_idx in enumerate(indices_globais_validos)}
+                    batch_coords_str = ";".join([f"{lon},{lat}" for lat, lon in osrm_points_coords])
+                    sources_param = ";".join(map(str, osrm_sources_indices))
+                    destinations_param = ";".join(map(str, osrm_destinations_indices))
+                    params_com_indices = {"sources": sources_param, "destinations": destinations_param}
 
-                # Filtra os índices globais de origem/destino para incluir apenas os que são válidos
-                batch_origem_indices_validos_global = [idx for idx in batch_origem_indices_global if idx in map_global_to_osrm_idx]
-                batch_destino_indices_validos_global = [idx for idx in batch_destino_indices_global if idx in map_global_to_osrm_idx]
+                    # Chama a função _get_osrm_table_batch
+                    partial_matrix_raw = _get_osrm_table_batch(url_base, batch_coords_str, metrica, timeout=DEFAULT_TIMEOUT, extra_params=params_com_indices)
 
-                # Obtém os índices correspondentes na lista que vai para o OSRM
-                osrm_sources_indices = [map_global_to_osrm_idx[idx] for idx in batch_origem_indices_validos_global]
-                osrm_destinations_indices = [map_global_to_osrm_idx[idx] for idx in batch_destino_indices_validos_global]
-                # --- Fim Validação ---
+                    # Detecta erro 504 analisando o log de erro da função auxiliar
+                    if partial_matrix_raw is None:
+                        # Verifica se o último erro foi 504 (Gateway Timeout)
+                        # Como não temos acesso direto ao status, analisamos o log (ou poderíamos modificar _get_osrm_table_batch para retornar código de erro)
+                        # Aqui, como workaround, se for None, consideramos que pode ser 504 e tentamos fallback
+                        logging.error(f"Falha ao obter dados do OSRM para o lote (Req {request_count}/{total_requests}). Tentando fallback para lote menor, se possível.")
+                        erro_504_detectado = True
+                        break
 
+                    # --- Preenchimento da Matriz Final ---
+                    expected_rows = len(osrm_sources_indices)
+                    expected_cols = len(osrm_destinations_indices)
+                    actual_rows = len(partial_matrix_raw) if partial_matrix_raw is not None else 0
+                    actual_cols = len(partial_matrix_raw[0]) if actual_rows > 0 and partial_matrix_raw[0] is not None else 0
 
-                # --- Requisição OSRM com Pontos Válidos ---
-                # Não faz requisição se houver menos de 2 pontos válidos no lote que será enviado ao OSRM
-                if len(osrm_points_coords) < 2:
-                    logging.warning(f"Lote ignorado: menos de 2 coordenadas válidas no lote combinado ({len(osrm_points_coords)} pontos). Pulando requisição OSRM. Req {request_count}")
-                    # Preenche a submatriz correspondente com INFINITE_VALUE para os pares válidos que estariam neste lote
-                    # Isso evita que a matriz final fique incompleta ou com zeros indevidos se um lote inteiro falhar aqui.
-                    for r_global_idx in batch_origem_indices_validos_global:
-                        for c_global_idx in batch_destino_indices_validos_global:
-                            if r_global_idx != c_global_idx: # Não sobrescrever a diagonal
-                                final_matrix[r_global_idx, c_global_idx] = INFINITE_VALUE
+                    if actual_rows != expected_rows or actual_cols != expected_cols:
+                        logging.error(f"Erro: Dimensões da matriz OSRM ({actual_rows}x{actual_cols}) "
+                                      f"não correspondem aos índices de origem/destino enviados ({expected_rows}x{expected_cols}). Req {request_count}")
+                    else:
+                        for i, source_global_idx in enumerate(batch_origem_indices_validos_global):
+                            for j, dest_global_idx in enumerate(batch_destino_indices_validos_global):
+                                value = partial_matrix_raw[i][j]
+                                final_matrix[source_global_idx, dest_global_idx] = int(value) if value is not None else INFINITE_VALUE
+
                     if progress_callback:
                         progress_callback(request_count / total_requests)
-                    continue
+                    time.sleep(1.0)
 
-                # Verifica se há sources e destinations válidos após o filtro.
-                # Se osrm_points_coords tem >= 2 pontos, mas os sources/destinations específicos para este batch não existem,
-                # então não há o que pedir para esta combinação específica de sources/destinations.
-                if not osrm_sources_indices or not osrm_destinations_indices:
-                     logging.warning(f"Nenhuma origem/destino válido no lote combinado para os parâmetros sources/destinations (Req {request_count}). Fontes: {len(osrm_sources_indices)}, Destinos: {len(osrm_destinations_indices)}. Pulando requisição OSRM.")
-                     # Similar ao acima, preenche com INFINITE_VALUE
-                     for r_global_idx in batch_origem_indices_validos_global:
-                        for c_global_idx in batch_destino_indices_validos_global:
-                            if r_global_idx != c_global_idx:
-                                final_matrix[r_global_idx, c_global_idx] = INFINITE_VALUE
-                     if progress_callback:
-                        progress_callback(request_count / total_requests)
-                     continue
+                if erro_504_detectado:
+                    break
+            if erro_504_detectado:
+                break
 
-                batch_coords_str = ";".join([f"{lon},{lat}" for lat, lon in osrm_points_coords])
+            # Se chegou até aqui, não houve erro 504 neste tamanho de lote
+            logging.info(f"Matriz de '{metrica}' ({final_matrix.shape}) calculada com sucesso usando lotes de até {max_coords_per_request} pontos.")
+            return final_matrix
 
-                # Adiciona os parâmetros sources e destinations
-                sources_param = ";".join(map(str, osrm_sources_indices))
-                destinations_param = ";".join(map(str, osrm_destinations_indices))
-                params_com_indices = {"sources": sources_param, "destinations": destinations_param}
+        except Exception as e:
+            logging.error(f"Erro inesperado durante cálculo da matriz OSRM em lote: {e}")
+            logging.error(traceback.format_exc())
+            return None
 
-                # --- AJUSTE AQUI: Usar extra_params ---
-                # Chama a função _get_osrm_table_batch passando a URL base e os parâmetros extras
-                partial_matrix_raw = _get_osrm_table_batch(url_base, batch_coords_str, metrica, timeout=DEFAULT_TIMEOUT, extra_params=params_com_indices)
-                # --------------------------------------
+        # Se erro 504 detectado, tenta próximo tamanho de lote
+        if erro_504_detectado:
+            logging.warning(f"Erro 504 detectado com lote de {max_coords_per_request} pontos. Tentando novamente com lote menor...")
+            continue
+        else:
+            break
 
-
-                if partial_matrix_raw is None:
-                    # O log de erro detalhado já acontece dentro de _get_osrm_table_batch
-                    logging.error(f"Falha crítica ao obter dados do OSRM para o lote (Req {request_count}/{total_requests}). Abortando cálculo da matriz.")
-                    return None # Aborta se a requisição falhar após retentativas
-
-                # --- Preenchimento da Matriz Final ---
-                # A matriz retornada pelo OSRM com sources/destinations tem shape (len(sources), len(destinations))
-                # Iteramos sobre os resultados e colocamos na matriz final usando os índices globais válidos
-                expected_rows = len(osrm_sources_indices)
-                expected_cols = len(osrm_destinations_indices)
-                actual_rows = len(partial_matrix_raw) if partial_matrix_raw is not None else 0
-                actual_cols = len(partial_matrix_raw[0]) if actual_rows > 0 and partial_matrix_raw[0] is not None else 0
-
-                if actual_rows != expected_rows or actual_cols != expected_cols:
-                     logging.error(f"Erro: Dimensões da matriz OSRM ({actual_rows}x{actual_cols}) "
-                                   f"não correspondem aos índices de origem/destino enviados ({expected_rows}x{expected_cols}). Req {request_count}")
-                     # Considerar isso um erro crítico também? Por enquanto, loga e continua, pode preencher errado.
-                     # return None # Descomentar para abortar
-                else:
-                    for i, source_global_idx in enumerate(batch_origem_indices_validos_global):
-                        for j, dest_global_idx in enumerate(batch_destino_indices_validos_global):
-                            value = partial_matrix_raw[i][j]
-                            # OSRM retorna null para rotas impossíveis
-                            final_matrix[source_global_idx, dest_global_idx] = int(value) if value is not None else INFINITE_VALUE
-
-                # Atualiza progresso
-                if progress_callback:
-                    progress_callback(request_count / total_requests)
-                
-                # Adiciona um delay maior para não sobrecarregar o servidor público
-                time.sleep(1.0) # Aumentado para 1s
-                # --- Fim Preenchimento ---
-
-        logging.info(f"Matriz de '{metrica}' ({final_matrix.shape}) calculada com sucesso usando lotes.")
-        return final_matrix
-
-    except Exception as e:
-        logging.error(f"Erro inesperado durante cálculo da matriz OSRM em lote: {e}")
-        logging.error(traceback.format_exc()) # Log completo do traceback
-        return None
+    # Se chegou aqui, todos os tamanhos de lote falharam
+    logging.error("Falha crítica: O servidor público do OSRM não suporta grandes volumes de pontos/lotes mesmo com lotes pequenos. Para roteirização de muitos pedidos, é necessário rodar o OSRM local. Consulte a documentação para instalar e configurar o OSRM local.")
+    return None
 
 def calcular_distancia(ponto_a, ponto_b, provider="osrm", metrica="duration"):
     """

@@ -441,23 +441,27 @@ def show():
             depot_coord = (lat_partida, lon_partida)
             depot_df = pd.DataFrame([{"Latitude": lat_partida, "Longitude": lon_partida}])
             depot_ok, depot_msg, depot_invalidos = validar_coordenadas_dataframe(depot_df, lat_col="Latitude", lon_col="Longitude", nome_df="Depósito")
-            # Valida pedidos
+            # Valida pedidos (apenas coordenadas realmente válidas)
             pedidos_ok, pedidos_msg, pedidos_invalidos = validar_coordenadas_dataframe(pedidos_validos, lat_col="Latitude", lon_col="Longitude", nome_df="Pedidos válidos")
             if not depot_ok:
                 st.error(f"Erro: Coordenadas do depósito inválidas. {depot_msg}")
                 st.dataframe(depot_invalidos, use_container_width=True)
                 return
+            # Filtra pedidos para manter só os realmente válidos
             if not pedidos_ok:
-                st.error(f"Erro: Existem pedidos com coordenadas inválidas. {pedidos_msg}")
+                st.warning(f"{len(pedidos_invalidos)} pedidos removidos por coordenadas inválidas. {pedidos_msg}")
                 st.dataframe(pedidos_invalidos, use_container_width=True)
+            pedidos_validos = pedidos_validos.drop(index=pedidos_invalidos.index)
+            if pedidos_validos.empty:
+                st.error("Erro: Nenhum pedido com coordenadas válidas encontrado para roteirizar.")
                 return
             # Validações antes de prosseguir
             if lat_partida is None or lon_partida is None:
                 st.error("Erro: Coordenadas de partida inválidas. Verifique a configuração do endereço de partida.")
-            elif pedidos_validos.empty:
-                st.error("Erro: Nenhum pedido com coordenadas válidas encontrado para roteirizar.")
+                return
             elif frota.empty:
                  st.error(f"Erro: A frota está vazia, não é possível calcular rotas para {tipo}.")
+                 return
             else:
                 # --- Validações adicionais antes de calcular matrizes ---
                 if tipo == "CVRP":
@@ -730,6 +734,7 @@ def show():
                         if usar_reserva_regioes:
                             rotas_df = reservar_veiculos_para_regioes(rotas_df, frota, pedidos_validos, n_reservas=min(2, len(frota)))
                             st.info("Reserva de veículos para regiões críticas aplicada.")
+
                         # Balanceamento iterativo (peso, paradas, região)
                         if balanceamento_auto:
                             rotas_df = balanceamento_iterativo(rotas_df, frota, pedidos_validos, matriz_distancias)
@@ -739,11 +744,29 @@ def show():
                             rotas_df = mover_para_vizinho_proximo(rotas_df, matriz_distancias)
                             st.info("Heurística de vizinhança aplicada após balanceamento.")
 
+                        # --- NOVO: Garantir ocupação mínima dos veículos ---
+                        # --- Slider para ocupação mínima ---
+                        if 'ocupacao_min_pct' not in st.session_state:
+                            st.session_state['ocupacao_min_pct'] = 70
+                        ocupacao_min_pct = st.slider(
+                            "Ocupação mínima por veículo (%)",
+                            min_value=10, max_value=100, value=st.session_state['ocupacao_min_pct'], step=5,
+                            help="Apenas veículos com carga igual ou superior a este percentual da capacidade serão utilizados. Os demais serão desconsiderados."
+                        )
+                        st.session_state['ocupacao_min_pct'] = ocupacao_min_pct
+                        from routing.pos_processamento import garantir_ocupacao_minima
+                        rotas_df, veiculos_abaixo_min = garantir_ocupacao_minima(rotas_df, frota, ocupacao_min_pct=ocupacao_min_pct)
+                        if veiculos_abaixo_min:
+                            st.warning(f"Os seguintes veículos não atingiram o mínimo de {ocupacao_min_pct}% de ocupação e foram desconsiderados:")
+                            for veic, demanda, cap in veiculos_abaixo_min:
+                                st.info(f"Veículo {veic}: {demanda:.1f} kg (capacidade: {cap:.1f} kg)")
+
+
                         # --- Checagem de excesso de carga (ajuste conforme slider) ---
                         from routing.pos_processamento import checar_e_corrigir_excesso_carga
                         rotas_df, excesso_final = checar_e_corrigir_excesso_carga(rotas_df, frota, limite_pct=ajuste_capacidade_pct)
                         if excesso_final:
-                            st.error(f"Atenção: Alguns veículos ultrapassaram o limite de {ajuste_capacidade_pct}% da capacidade após o balanceamento!")
+                            st.error(f"Atenção: Alguns veículos ultrapassaram o limite de {ajuste_capacidade_pct}% da capacidade após o balanceamento e ocupação mínima!")
                             for veic, demanda, cap in excesso_final:
                                 st.warning(f"Veículo {veic}: {demanda:.1f} kg (limite: {cap:.1f} kg)")
 

@@ -1,3 +1,54 @@
+def garantir_ocupacao_minima(rotas_df, frota, ocupacao_min_pct=70):
+    """
+    Garante que cada veículo só seja utilizado se atingir pelo menos ocupacao_min_pct da capacidade.
+    Veículos abaixo do mínimo têm seus pedidos desalocados e são redistribuídos para outros veículos, priorizando o uso de menos veículos.
+    Retorna o novo DataFrame de rotas e uma lista de veículos que não atingiram o mínimo (para alerta).
+    """
+    import pandas as pd
+    if rotas_df is None or rotas_df.empty or 'Veículo' not in rotas_df.columns or 'Demanda' not in rotas_df.columns:
+        return rotas_df, []
+    id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
+    capacidades = frota.set_index(id_col)['Capacidade (Kg)'].to_dict() if 'Capacidade (Kg)' in frota.columns else {}
+    ocupacao_min = {k: v * ocupacao_min_pct / 100.0 for k, v in capacidades.items()}
+    # 1. Identifica veículos abaixo do mínimo
+    veiculos_abaixo = []
+    for veic, grupo in rotas_df.groupby('Veículo'):
+        cap = capacidades.get(veic, None)
+        if cap is None:
+            continue
+        demanda_total = grupo['Demanda'].sum()
+        if demanda_total < ocupacao_min.get(veic, 0):
+            veiculos_abaixo.append((veic, demanda_total, cap))
+            # Desaloca todos os pedidos desse veículo
+            rotas_df.loc[grupo.index, 'Veículo'] = None
+    # 2. Redistribui pedidos desalocados para veículos acima do mínimo, priorizando os mais cheios
+    pedidos_sem_veic = rotas_df[rotas_df['Veículo'].isnull()].copy()
+    for idx, row in pedidos_sem_veic.iterrows():
+        melhor_veic = None
+        melhor_ocup = 0
+        for veic, cap in capacidades.items():
+            demanda_atual = rotas_df[rotas_df['Veículo'] == veic]['Demanda'].sum()
+            if demanda_atual + row['Demanda'] <= cap:
+                # Só aloca se não ultrapassar a capacidade
+                ocupacao = (demanda_atual + row['Demanda']) / cap
+                if ocupacao > melhor_ocup:
+                    melhor_ocup = ocupacao
+                    melhor_veic = veic
+        if melhor_veic is not None:
+            rotas_df.at[idx, 'Veículo'] = melhor_veic
+    # 3. Recalcula ocupação e remove novamente veículos abaixo do mínimo (pode ser iterativo)
+    veiculos_abaixo_final = []
+    for veic, grupo in rotas_df.groupby('Veículo'):
+        cap = capacidades.get(veic, None)
+        if cap is None:
+            continue
+        demanda_total = grupo['Demanda'].sum()
+        if demanda_total < ocupacao_min.get(veic, 0):
+            veiculos_abaixo_final.append((veic, demanda_total, cap))
+            rotas_df.loc[grupo.index, 'Veículo'] = None
+    # 4. Remove linhas sem veículo (não alocadas)
+    rotas_df = rotas_df[rotas_df['Veículo'].notnull()].copy()
+    return rotas_df, veiculos_abaixo_final
 # Função para garantir veículos suficientes por região, respeitando capacidade
 def alocar_veiculos_por_capacidade_regiao(rotas_df, frota, pedidos):
     """

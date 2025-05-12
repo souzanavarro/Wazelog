@@ -27,7 +27,12 @@ def clusterizar_geograficamente(pedidos_df, n_clusters=None):
     if n_clusters is None:
         n_clusters = 300  # valor padrão atualizado
 
-    coords = pedidos_df[['latitude', 'longitude']].dropna() # Garante que não há nulos nas coordenadas
+    # Validação robusta das coordenadas
+    coords = pedidos_df[['latitude', 'longitude']].dropna()
+    # Remove coordenadas claramente inválidas (zero ou fora dos limites geográficos)
+    coords = coords[(coords['latitude'] != 0) & (coords['longitude'] != 0)]
+    coords = coords[(coords['latitude'] >= -90) & (coords['latitude'] <= 90)]
+    coords = coords[(coords['longitude'] >= -180) & (coords['longitude'] <= 180)]
 
     if coords.empty:
         print("Não há coordenadas válidas para clusterizar.")
