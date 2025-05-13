@@ -669,16 +669,35 @@ def balancear_carga_e_usar_todos_veiculos(
         v_min = cargas.idxmin()
         if cargas[v_max] - cargas[v_min] < 1:
             break
-        # Se priorizar região, tenta mover pedido da região predominante do v_max
-        if priorizar_regiao and 'Região' in rotas_df.columns:
-            regiao_predominante = rotas_df[rotas_df['Veículo'] == v_max]['Região'].mode().iloc[0]
-            pedidos_vmax = rotas_df[(rotas_df['Veículo'] == v_max) & (rotas_df['Região'] == regiao_predominante)]
-            if pedidos_vmax.empty:
-                pedidos_vmax = rotas_df[rotas_df['Veículo'] == v_max]
-        else:
+        # --- REGRA: só permite mover pedidos entre veículos da MESMA REGIÃO predominante ---
+        if 'Região' in rotas_df.columns:
+            regiao_pred_max = rotas_df[rotas_df['Veículo'] == v_max]['Região'].mode().iloc[0]
+            regiao_pred_min = rotas_df[rotas_df['Veículo'] == v_min]['Região'].mode().iloc[0]
+            if regiao_pred_max != regiao_pred_min:
+                # Não move pedidos entre veículos de regiões diferentes
+                # Tenta encontrar outro veículo com mesma região predominante que v_max
+                veics_mesma_regiao = [v for v in cargas.index if v != v_max and v != v_min]
+                encontrou = False
+                for v_alt in veics_mesma_regiao:
+                    regiao_pred_alt = rotas_df[rotas_df['Veículo'] == v_alt]['Região'].mode().iloc[0]
+                    if regiao_pred_alt == regiao_pred_max:
+                        v_min = v_alt
+                        encontrou = True
+                        break
+                if not encontrou:
+                    break  # Não há veículo para balancear dentro da mesma região
+        # Seleciona apenas pedidos da região predominante
+        pedidos_vmax = rotas_df[(rotas_df['Veículo'] == v_max) & (rotas_df['Região'] == rotas_df[rotas_df['Veículo'] == v_max]['Região'].mode().iloc[0])]
+        if pedidos_vmax.empty:
             pedidos_vmax = rotas_df[rotas_df['Veículo'] == v_max]
         pedido_para_mover = pedidos_vmax.iloc[0]
-        rotas_df.loc[rotas_df.index == pedido_para_mover.name, 'Veículo'] = v_min
+        # Só move se o pedido for da mesma região predominante do v_min
+        regiao_pred_min = rotas_df[rotas_df['Veículo'] == v_min]['Região'].mode().iloc[0]
+        if pedido_para_mover['Região'] == regiao_pred_min:
+            rotas_df.loc[rotas_df.index == pedido_para_mover.name, 'Veículo'] = v_min
+        else:
+            # Não move para não violar a regra de 1 região por veículo
+            break
     return rotas_df
 
 def mover_para_vizinho_proximo(rotas_df, matriz_distancias, depot_index=0, max_iter=10):

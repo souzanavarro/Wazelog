@@ -271,7 +271,7 @@ def show():
                 help="Permite simular veículos carregando menos ou até 20% a mais que a capacidade cadastrada."
             )
 
-        # --- Agrupamento Inicial de Pedidos (sempre exibe se possível) ---
+        # --- Agrupamento Inicial de Pedidos (agora acima do campo de raio) ---
         st.subheader("Agrupamento Inicial de Pedidos (por proximidade geográfica)")
 
         col1_agrup, col2_agrup = st.columns(2)
@@ -350,14 +350,13 @@ def show():
             pedidos_validos['RegiaoParaRoteirizacao'] = pedidos_validos['Região']
 
         # --- Opções Avançadas de Pós-Processamento e Exportação ---
-        # --- NOVO: Opção para respeitar Regiões Preferidas dos veículos ---
         st.subheader("Restrições de Regiões Preferidas da Frota")
         respeitar_regioes_preferidas = st.checkbox(
             "Respeitar Regiões Preferidas dos Veículos",
             value=False,
             help="Se ativado, o sistema tentará alocar pedidos preferencialmente para veículos que tenham a região do pedido em suas regiões preferidas, respeitando a capacidade."
         )
-        st.subheader("Opções Avançadas de Pós-Processamento e Exportação")
+
         st.markdown("""
         <ul>
         <li><b>2-opt</b>: Heurística clássica para rotas, troca pares de arestas para reduzir a distância total do percurso de cada veículo.</li>
