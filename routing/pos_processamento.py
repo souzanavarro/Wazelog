@@ -1,59 +1,11 @@
-def garantir_ocupacao_minima(rotas_df, frota, ocupacao_min_pct=70):
-    """
-    Garante que cada veículo só seja utilizado se atingir pelo menos ocupacao_min_pct da capacidade.
-    Veículos abaixo do mínimo têm seus pedidos desalocados e são redistribuídos para outros veículos, priorizando o uso de menos veículos.
-    Retorna o novo DataFrame de rotas e uma lista de veículos que não atingiram o mínimo (para alerta).
-    """
-    import pandas as pd
-    if rotas_df is None or rotas_df.empty or 'Veículo' not in rotas_df.columns or 'Demanda' not in rotas_df.columns:
-        return rotas_df, []
-    id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
-    capacidades = frota.set_index(id_col)['Capacidade (Kg)'].to_dict() if 'Capacidade (Kg)' in frota.columns else {}
-    ocupacao_min = {k: v * ocupacao_min_pct / 100.0 for k, v in capacidades.items()}
-    # 1. Identifica veículos abaixo do mínimo
-    veiculos_abaixo = []
-    for veic, grupo in rotas_df.groupby('Veículo'):
-        cap = capacidades.get(veic, None)
-        if cap is None:
-            continue
-        demanda_total = grupo['Demanda'].sum()
-        if demanda_total < ocupacao_min.get(veic, 0):
-            veiculos_abaixo.append((veic, demanda_total, cap))
-            # Desaloca todos os pedidos desse veículo
-            rotas_df.loc[grupo.index, 'Veículo'] = None
-    # 2. Redistribui pedidos desalocados para veículos acima do mínimo, priorizando os mais cheios
-    pedidos_sem_veic = rotas_df[rotas_df['Veículo'].isnull()].copy()
-    for idx, row in pedidos_sem_veic.iterrows():
-        melhor_veic = None
-        melhor_ocup = 0
-        for veic, cap in capacidades.items():
-            demanda_atual = rotas_df[rotas_df['Veículo'] == veic]['Demanda'].sum()
-            if demanda_atual + row['Demanda'] <= cap:
-                # Só aloca se não ultrapassar a capacidade
-                ocupacao = (demanda_atual + row['Demanda']) / cap
-                if ocupacao > melhor_ocup:
-                    melhor_ocup = ocupacao
-                    melhor_veic = veic
-        if melhor_veic is not None:
-            rotas_df.at[idx, 'Veículo'] = melhor_veic
-    # 3. Recalcula ocupação e remove novamente veículos abaixo do mínimo (pode ser iterativo)
-    veiculos_abaixo_final = []
-    for veic, grupo in rotas_df.groupby('Veículo'):
-        cap = capacidades.get(veic, None)
-        if cap is None:
-            continue
-        demanda_total = grupo['Demanda'].sum()
-        if demanda_total < ocupacao_min.get(veic, 0):
-            veiculos_abaixo_final.append((veic, demanda_total, cap))
-            rotas_df.loc[grupo.index, 'Veículo'] = None
-    # 4. Remove linhas sem veículo (não alocadas)
-    rotas_df = rotas_df[rotas_df['Veículo'].notnull()].copy()
-    return rotas_df, veiculos_abaixo_final
+## Função garantir_ocupacao_minima removida: regra de ocupação mínima por veículo não é mais utilizada.
 # Função para garantir veículos suficientes por região, respeitando capacidade
-def alocar_veiculos_por_capacidade_regiao(rotas_df, frota, pedidos):
+def alocar_veiculos_por_capacidade_regiao(rotas_df, frota, pedidos, modo='capacidade', marcar_restrito=True):
     """
-    Para cada região, garante veículos suficientes para não exceder a capacidade.
-    Divide os pedidos entre múltiplos veículos se necessário.
+    Função unificada de alocação de veículos por região.
+    Se modo='capacidade', divide pedidos entre vários veículos respeitando capacidade.
+    Se modo='1_veiculo_por_regiao', cada região recebe no máximo 1 veículo (e cada veículo só atende uma região).
+    Se faltar veículo, pode marcar pedidos como restritos.
     """
     import pandas as pd
     if 'Região' not in pedidos.columns or rotas_df is None or rotas_df.empty:
@@ -62,55 +14,67 @@ def alocar_veiculos_por_capacidade_regiao(rotas_df, frota, pedidos):
         raise KeyError("A coluna 'Região' não está presente no DataFrame rotas_df. Verifique os dados de entrada.")
     id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
     veiculos_ativos = frota[id_col].dropna().unique().tolist()
-    capacidade_veic = frota.set_index(id_col)['Capacidade (Kg)'].to_dict()
+    capacidade_veic = frota.set_index(id_col)['Capacidade (Kg)'].to_dict() if 'Capacidade (Kg)' in frota.columns else {}
     regioes = pedidos['Região'].dropna().unique().tolist()
-    veic_idx = 0
-    for reg in regioes:
-        pedidos_reg = rotas_df[(rotas_df['Região'] == reg) & (rotas_df['Veículo'].isnull())].copy()
-        if pedidos_reg.empty:
-            continue
-        peso_total = pedidos_reg['Demanda'].sum()
-        pedidos_restantes = pedidos_reg.copy()
-        while peso_total > 0 and veic_idx < len(veiculos_ativos):
-            veic = veiculos_ativos[veic_idx]
-            cap = capacidade_veic.get(veic, 0)
-            carga = 0
-            idxs = []
-            for idx, row in pedidos_restantes.iterrows():
-                if carga + row['Demanda'] <= cap:
-                    carga += row['Demanda']
-                    idxs.append(idx)
-            rotas_df.loc[idxs, 'Veículo'] = veic
-            peso_total -= carga
-            pedidos_restantes = pedidos_restantes.drop(idxs)
-            veic_idx += 1
-    return rotas_df
+    veiculos_usados = set()
+    if modo == 'capacidade':
+        for reg in regioes:
+            # Busca veículos que tenham essa região nas preferidas
+            veics_pref = frota[frota['Regiões Preferidas'].fillna('').str.lower().str.contains(reg.lower())][id_col].tolist()
+            veic = None
+            for v in veics_pref:
+                if v not in veiculos_usados:
+                    veic = v
+                    break
+            # Se não achou veículo preferencial, pega o próximo disponível
+            if veic is None:
+                for v in veiculos_ativos:
+                    if v not in veiculos_usados:
+                        veic = v
+                        break
+            if veic is not None:
+                idxs = rotas_df[rotas_df['Região'] == reg].index
+                rotas_df.loc[idxs, 'Veículo'] = veic
+                veiculos_usados.add(veic)
+            else:
+                # Não há veículo disponível para essa região
+                if marcar_restrito:
+                    idxs = rotas_df[rotas_df['Região'] == reg].index
+                    rotas_df.loc[idxs, 'Alocacao_Restrita'] = True
+        return rotas_df
+    elif modo == '1_veiculo_por_regiao':
+        veiculos_usados = set()
+        for reg in regioes:
+            # Busca veículos que tenham essa região nas preferidas
+            veics_pref = frota[frota['Regiões Preferidas'].fillna('').str.lower().str.contains(reg.lower())][id_col].tolist()
+            veic = None
+            for v in veics_pref:
+                if v not in veiculos_usados:
+                    veic = v
+                    break
+            # Se não achou veículo preferencial, pega o próximo disponível
+            if veic is None:
+                for v in veiculos_ativos:
+                    if v not in veiculos_usados:
+                        veic = v
+                        break
+            if veic is not None:
+                idxs = rotas_df[rotas_df['Região'] == reg].index
+                rotas_df.loc[idxs, 'Veículo'] = veic
+                veiculos_usados.add(veic)
+            else:
+                # Não há veículo disponível para essa região
+                if marcar_restrito:
+                    idxs = rotas_df[rotas_df['Região'] == reg].index
+                    rotas_df.loc[idxs, 'Alocacao_Restrita'] = True
+        return rotas_df
+    else:
+        raise ValueError(f"Modo '{modo}' não reconhecido em alocar_veiculos_por_capacidade_regiao.")
 def alocar_1_veiculo_por_regiao(rotas_df, frota, pedidos):
     """
-    Garante que cada região seja atendida por apenas 1 veículo (e cada veículo atenda apenas uma região).
-    Associa as regiões distintas aos veículos disponíveis, priorizando as regiões com mais pedidos.
+    Compatibilidade: chama a função unificada com modo '1_veiculo_por_regiao'.
     """
-    if 'Região' not in pedidos.columns or rotas_df is None or rotas_df.empty:
-        return rotas_df
-    if 'Região' not in rotas_df.columns:
-        raise KeyError("A coluna 'Região' não está presente no DataFrame rotas_df. Verifique os dados de entrada.")
-    regioes = pedidos['Região'].dropna().unique().tolist()
-    veiculos_ativos = frota['ID Veículo'] if 'ID Veículo' in frota.columns else frota['Placa']
-    veiculos_ativos = veiculos_ativos.dropna().unique().tolist()
-    n = min(len(regioes), len(veiculos_ativos))
-    # Associa cada região a um veículo
-    for i in range(n):
-        reg = regioes[i]
-        veic = veiculos_ativos[i]
-        idxs = rotas_df[rotas_df['Região'] == reg].index
-        rotas_df.loc[idxs, 'Veículo'] = veic
-    # Opcional: marcar pedidos de regiões sem veículo como restritos
-    if len(regioes) > len(veiculos_ativos):
-        regioes_sem_veiculo = regioes[len(veiculos_ativos):]
-        for reg in regioes_sem_veiculo:
-            idxs = rotas_df[rotas_df['Região'] == reg].index
-            rotas_df.loc[idxs, 'Alocacao_Restrita'] = True
-    return rotas_df
+    return alocar_veiculos_por_capacidade_regiao(rotas_df, frota, pedidos, modo='1_veiculo_por_regiao', marcar_restrito=True)
 def realocar_pedidos_restritos(rotas_df, frota, pedidos, raio_km=20):
     # Garante que a frota tenha as colunas de janela de tempo e preenche valores padrão se necessário
     if 'Janela Início' not in frota.columns:

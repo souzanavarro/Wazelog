@@ -273,15 +273,23 @@ def show():
 
         # --- Agrupamento Inicial de Pedidos (sempre exibe se possível) ---
         st.subheader("Agrupamento Inicial de Pedidos (por proximidade geográfica)")
+
         col1_agrup, col2_agrup = st.columns(2)
         with col1_agrup:
+            # NOVO: Opção para agrupar regiões vizinhas automaticamente
+            agrupar_regioes_vizinhas = st.checkbox(
+                "Agrupar regiões vizinhas automaticamente (reduzir número de regiões)",
+                value=False,
+                help="Se ativado, regiões próximas serão agrupadas em super-regiões usando o mesmo raio da realocação de pedidos restritos. Isso reduz o número de regiões para a roteirização."
+            )
             if 'Cluster' in pedidos_validos.columns:
-                st.caption(f"Pedidos Agrupados ({len(pedidos_validos)})") # Adicionado caption
-                st.dataframe(pedidos_validos[['ID Pedido', 'Região', 'Latitude', 'Longitude', 'Cluster']] if 'ID Pedido' in pedidos_validos.columns else pedidos_validos[['Região', 'Latitude', 'Longitude', 'Cluster']], height=250, use_container_width=True) # Ajuste de altura
+                st.caption(f"Pedidos Agrupados ({len(pedidos_validos)})")
+                st.dataframe(pedidos_validos[['ID Pedido', 'Região', 'Latitude', 'Longitude', 'Cluster']] if 'ID Pedido' in pedidos_validos.columns else pedidos_validos[['Região', 'Latitude', 'Longitude', 'Cluster']], height=250, use_container_width=True)
             else:
                 st.info("Não foi possível gerar o agrupamento inicial de pedidos.")
-        
+
         with col2_agrup:
+            st.caption("Se ativado, a coluna 'SuperRegiao' será usada no lugar de 'Região' para a roteirização.")
             if 'Cluster' in pedidos_validos.columns:
                 resumo_clusters = pedidos_validos.groupby('Cluster').agg(
                     Qtd_Pedidos=('Cluster', 'count'),
@@ -301,13 +309,54 @@ def show():
                     else:
                         veiculos_sugeridos.append(f'Veículo {cluster_idx + 1}')
                 resumo_clusters['Veículo Sugerido'] = veiculos_sugeridos
-                
-                st.caption(f"Resumo dos Clusters ({len(resumo_clusters)})") # Adicionado caption
-                st.dataframe(resumo_clusters, height=250, use_container_width=True) # Ajuste de altura
-            # else: # Não precisa de else aqui, se não há cluster, não mostra resumo
-            #    pass 
+                st.caption(f"Resumo dos Clusters ({len(resumo_clusters)})")
+                st.dataframe(resumo_clusters, height=250, use_container_width=True)
+
+        # Função utilitária para agrupar regiões vizinhas usando DBSCAN
+        def agrupar_regioes_vizinhas_func(pedidos_validos, raio_km=20, min_regioes_por_grupo=1):
+            import numpy as np
+            import pandas as pd
+            from sklearn.cluster import DBSCAN
+            # 1. Calcular centroide de cada região
+            centroides = pedidos_validos.groupby('Região')[['Latitude', 'Longitude']].mean().reset_index()
+            # 2. Converter para radianos para usar haversine
+            coords_rad = np.radians(centroides[['Latitude', 'Longitude']].values)
+            # 3. DBSCAN com métrica haversine (raio da Terra ~6371km)
+            db = DBSCAN(eps=raio_km/6371, min_samples=min_regioes_por_grupo, metric='haversine')
+            labels = db.fit_predict(coords_rad)
+            centroides['SuperRegiao'] = labels
+            # 4. Mapear cada região para seu cluster
+            mapa_regiao_super = dict(zip(centroides['Região'], centroides['SuperRegiao']))
+            pedidos_validos['SuperRegiao'] = pedidos_validos['Região'].map(mapa_regiao_super)
+            return pedidos_validos, centroides
+
+        # --- Opção para configurar o raio máximo de realocação de pedidos restritos e agrupamento de regiões ---
+        st.subheader("Configuração de Raio para Realocação de Pedidos Restritos e Agrupamento de Regiões")
+        raio_max_km = st.number_input(
+            "Raio máximo para realocação de pedidos restritos e agrupamento de regiões (km)",
+            min_value=1, max_value=100, value=20, step=1,
+            help="Este valor será utilizado tanto para o agrupamento automático de regiões vizinhas quanto para a realocação de pedidos restritos. Valor padrão: 20 km."
+        )
+
+        # Aplicar agrupamento se ativado
+        if 'pedidos_validos' in locals() and agrupar_regioes_vizinhas:
+            pedidos_validos, centroides_regioes = agrupar_regioes_vizinhas_func(pedidos_validos, raio_km=raio_max_km)
+            st.success(f"Agrupamento automático de regiões vizinhas realizado. Número de super-regiões: {pedidos_validos['SuperRegiao'].nunique()}")
+            st.dataframe(centroides_regioes[['Região', 'SuperRegiao', 'Latitude', 'Longitude']], use_container_width=True)
+        # Para o restante do pipeline, se agrupou, use 'SuperRegiao' como coluna de região
+        if 'pedidos_validos' in locals() and agrupar_regioes_vizinhas and 'SuperRegiao' in pedidos_validos.columns:
+            pedidos_validos['RegiaoParaRoteirizacao'] = pedidos_validos['SuperRegiao']
+        else:
+            pedidos_validos['RegiaoParaRoteirizacao'] = pedidos_validos['Região']
 
         # --- Opções Avançadas de Pós-Processamento e Exportação ---
+        # --- NOVO: Opção para respeitar Regiões Preferidas dos veículos ---
+        st.subheader("Restrições de Regiões Preferidas da Frota")
+        respeitar_regioes_preferidas = st.checkbox(
+            "Respeitar Regiões Preferidas dos Veículos",
+            value=False,
+            help="Se ativado, o sistema tentará alocar pedidos preferencialmente para veículos que tenham a região do pedido em suas regiões preferidas, respeitando a capacidade."
+        )
         st.subheader("Opções Avançadas de Pós-Processamento e Exportação")
         st.markdown("""
         <ul>
@@ -356,13 +405,8 @@ def show():
             help="Sugere agrupamento de pedidos com base em histórico de roteirizações (placeholder)."
         )
 
-        # --- Opção para configurar o raio máximo de realocação de pedidos restritos ---
-        st.subheader("Configuração de Raio para Realocação de Pedidos Restritos")
-        raio_max_km = st.number_input(
-            "Raio máximo para realocação de pedidos restritos (km)",
-            min_value=1, max_value=100, value=20, step=1,
-            help="Pedidos marcados como restritos só serão realocados para veículos/regiões vizinhas dentro deste raio. Valor padrão: 20 km."
-        )
+        # --- REMOVIDO: Campo duplicado de raio para realocação de pedidos restritos ---
+        # O valor de raio_max_km já é utilizado para ambos os casos (agrupamento e realocação)
 
         # --- Opção de Balanceamento de Carga ---
         st.subheader("Balanceamento de Carga entre Veículos")
@@ -527,6 +571,26 @@ def show():
                              # matriz_distancias já é None, não precisa reatribuir
                         elif np.any(matriz_distancias >= INFINITE_VALUE): # Usar INFINITE_VALUE importado
                              st.warning("A matriz de distâncias contém valores infinitos ou impossíveis para alguns pares. Verifique as coordenadas dos pedidos e do depósito. O solver tentará prosseguir.")
+                             # NOVO: Relatório dos pedidos problemáticos
+                             indices_invalidos = set()
+                             n = matriz_distancias.shape[0]
+                             for i in range(n):
+                                 for j in range(n):
+                                     if matriz_distancias[i, j] >= INFINITE_VALUE:
+                                         indices_invalidos.add(i)
+                                         indices_invalidos.add(j)
+                             # Remove o depósito (índice 0)
+                             indices_invalidos = [idx for idx in indices_invalidos if idx != 0]
+                             # Mapeia para os pedidos
+                             if len(indices_invalidos) > 0:
+                                 pedidos_invalidos = pedidos_validos.iloc[[idx-1 for idx in indices_invalidos if idx-1 < len(pedidos_validos)]]
+                                 if not pedidos_invalidos.empty:
+                                     st.warning(f"\u26A0\uFE0F Foram encontrados {len(pedidos_invalidos)} pedidos com coordenadas problemáticas que geram distâncias infinitas ou impossíveis. Reveja esses pedidos abaixo:")
+                                     st.dataframe(pedidos_invalidos, use_container_width=True)
+                                 else:
+                                     st.info("Todos os pedidos possuem coordenadas válidas para cálculo de distâncias.")
+                             else:
+                                 st.info("Todos os pedidos possuem coordenadas válidas para cálculo de distâncias.")
                              # Não retorna, permite que o solver tente lidar com isso.
                         else:
                              st.success(f"Matriz de distâncias ({matriz_distancias.shape}) calculada com sucesso.")
@@ -685,17 +749,21 @@ def show():
                         # --- FIM DA MOVIMENTAÇÃO ---
 
 
+
                         from routing.pos_processamento import balanceamento_iterativo, reservar_veiculos_para_regioes, mover_para_vizinho_proximo, sugerir_agrupamento_ml
-                        from routing.pos_processamento import realocar_pedidos_restritos
+                        from routing.pos_processamento import realocar_pedidos_restritos, priorizar_regioes_preferidas, alocar_1_veiculo_por_regiao, alocar_veiculos_por_capacidade_regiao
 
-
-                        # Priorizar regiões preferidas da frota (restrição dura)
-
-                        from routing.pos_processamento import alocar_1_veiculo_por_regiao, alocar_veiculos_por_capacidade_regiao
                         # 1º: Garante 1 veículo por região
                         rotas_df = alocar_1_veiculo_por_regiao(rotas_df, frota, pedidos_validos)
 
-                        # --- AJUSTE: Desaloca veículos de regiões com excesso de carga ---
+                        # 2º: Priorizar regiões preferidas, se ativado
+                        if respeitar_regioes_preferidas:
+                            rotas_df, n_realocados_regioes = priorizar_regioes_preferidas(rotas_df, frota, pedidos_validos)
+                            st.info(f"Restrições de Regiões Preferidas ATIVAS: {n_realocados_regioes} pedidos realocados para veículos com regiões preferidas.")
+                        else:
+                            st.caption("Restrições de regiões preferidas DESATIVADAS. Pedidos podem ser alocados para qualquer veículo, respeitando apenas capacidade e demais regras.")
+
+                        # 3º: Desaloca veículos de regiões com excesso de carga
                         id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
                         capacidades = frota.set_index(id_col)['Capacidade (Kg)'].to_dict() if 'Capacidade (Kg)' in frota.columns else {}
                         if 'Veículo' in rotas_df.columns and 'Demanda' in rotas_df.columns and 'Região' in rotas_df.columns:
@@ -708,7 +776,7 @@ def show():
                                     # Desaloca todos os pedidos desse veículo para forçar redistribuição
                                     rotas_df.loc[grupo.index, 'Veículo'] = None
 
-                        # 2º: Garante veículos suficientes por capacidade
+                        # 4º: Garante veículos suficientes por capacidade
                         rotas_df = alocar_veiculos_por_capacidade_regiao(rotas_df, frota, pedidos_validos)
                         # Garante a existência da coluna 'Alocacao_Restrita' (inicializa como False se não existir)
                         if 'Alocacao_Restrita' not in rotas_df.columns:
@@ -718,7 +786,7 @@ def show():
                         if n_restritos > 0:
                             st.warning(f"{n_restritos} pedidos estão fora das regiões permitidas do veículo e foram marcados como restritos.")
 
-                        # Realocação automática de pedidos restritos
+                        # 5º: Realocação automática de pedidos restritos
                         rotas_df, n_realocados_restritos = realocar_pedidos_restritos(rotas_df, frota, pedidos_validos, raio_km=raio_max_km)
                         if n_realocados_restritos > 0:
                             st.success(f"{n_realocados_restritos} pedidos restritos foram realocados automaticamente para veículos vizinhos com capacidade e região compatível.")
@@ -744,29 +812,14 @@ def show():
                             rotas_df = mover_para_vizinho_proximo(rotas_df, matriz_distancias)
                             st.info("Heurística de vizinhança aplicada após balanceamento.")
 
-                        # --- NOVO: Garantir ocupação mínima dos veículos ---
-                        # --- Slider para ocupação mínima ---
-                        if 'ocupacao_min_pct' not in st.session_state:
-                            st.session_state['ocupacao_min_pct'] = 70
-                        ocupacao_min_pct = st.slider(
-                            "Ocupação mínima por veículo (%)",
-                            min_value=10, max_value=100, value=st.session_state['ocupacao_min_pct'], step=5,
-                            help="Apenas veículos com carga igual ou superior a este percentual da capacidade serão utilizados. Os demais serão desconsiderados."
-                        )
-                        st.session_state['ocupacao_min_pct'] = ocupacao_min_pct
-                        from routing.pos_processamento import garantir_ocupacao_minima
-                        rotas_df, veiculos_abaixo_min = garantir_ocupacao_minima(rotas_df, frota, ocupacao_min_pct=ocupacao_min_pct)
-                        if veiculos_abaixo_min:
-                            st.warning(f"Os seguintes veículos não atingiram o mínimo de {ocupacao_min_pct}% de ocupação e foram desconsiderados:")
-                            for veic, demanda, cap in veiculos_abaixo_min:
-                                st.info(f"Veículo {veic}: {demanda:.1f} kg (capacidade: {cap:.1f} kg)")
+                            # (Regra de ocupação mínima por veículo removida)
 
 
                         # --- Checagem de excesso de carga (ajuste conforme slider) ---
                         from routing.pos_processamento import checar_e_corrigir_excesso_carga
                         rotas_df, excesso_final = checar_e_corrigir_excesso_carga(rotas_df, frota, limite_pct=ajuste_capacidade_pct)
                         if excesso_final:
-                            st.error(f"Atenção: Alguns veículos ultrapassaram o limite de {ajuste_capacidade_pct}% da capacidade após o balanceamento e ocupação mínima!")
+                            st.error(f"Atenção: Alguns veículos ultrapassaram o limite de {ajuste_capacidade_pct}% da capacidade após o balanceamento!")
                             for veic, demanda, cap in excesso_final:
                                 st.warning(f"Veículo {veic}: {demanda:.1f} kg (limite: {cap:.1f} kg)")
 

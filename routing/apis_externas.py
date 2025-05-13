@@ -2,15 +2,19 @@ import requests
 import logging
 import os
 
+
 # URL do servidor OSRM local (primeira opção)
-OSRM_LOCAL_URL = "https://router.project-osrm.org" # Alterado para URL pública
-# URL do servidor OSRM público (segunda opção)
-OSRM_PUBLIC_URL = "https://router.project-osrm.org"
+OSRM_LOCAL_URL = "http://localhost:5000"
+OSRM_PUBLIC_URL = "http://4.231.232.158:5000"
+
+
+# Força o uso do OSRM público em todo o código
+OSRM_SERVER_PREFERENCE = "public"
 
 # Variável de ambiente para definir qual OSRM usar como padrão ou para testes
 # Pode ser "local", "public", ou "auto" (tenta local primeiro, depois público)
-# MODIFICADO: Força o uso do servidor público como padrão se a variável de ambiente não estiver definida ou for "auto".
-OSRM_SERVER_PREFERENCE = os.environ.get("OSRM_SERVER_PREFERENCE", "public").lower()
+# MODIFICADO: Força o uso do servidor público como padrão SEMPRE
+OSRM_SERVER_PREFERENCE = "public"
 
 def consultar_google_maps_directions(origem, destino, api_key):
     """

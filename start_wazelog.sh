@@ -8,6 +8,7 @@ echo "==> Iniciando servidor OSRM local em background..."
 # Use 'docker-compose up -d osrm-backend' se o pré-processamento já foi feito
 # Para garantir que funcione na primeira vez, usamos 'up -d'
 # Ajuste o caminho para o diretório do projeto no Ubuntu
+
 OSRM_DIR="/workspaces/Wazelog/routing/osrm_local"
 PROJECT_DIR="/workspaces/Wazelog"
 

@@ -12,8 +12,78 @@ import os # <<< ADICIONADO para verificar existência do arquivo
 def gerar_cor_aleatoria():
     return "#{:06x}".format(random.randint(0, 0xFFFFFF))
 
-st.markdown('<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;"><span style="font-size:2.5rem;">🗾</span><span style="font-size:2rem;font-weight:700;">Mapas</span></div>', unsafe_allow_html=True)
-st.markdown('<div class="hero-subtitle">Visualize rotas e entregas no mapa de forma clara</div>', unsafe_allow_html=True)
+st.markdown("""
+<style>
+.kpi-card {
+    background: linear-gradient(90deg, #e3f2fd 0%, #bbdefb 100%);
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.2rem;
+    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+}
+.kpi-icon {
+    font-size: 2.2rem;
+    margin-right: 1rem;
+}
+.section-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: #1976d2;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.alert-info {
+    background: #e3f2fd;
+    color: #1565c0;
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    margin-bottom: 1rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+.alert-success {
+    background: #e8f5e9;
+    color: #388e3c;
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    margin-bottom: 1rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center,
+    gap: 0.7rem;
+}
+.alert-warning {
+    background: #fffde7;
+    color: #fbc02d;
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    margin-bottom: 1rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+.alert-error {
+    background: #ffebee;
+    color: #c62828;
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    margin-bottom: 1rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+</style>
+""", unsafe_allow_html=True)
 st.header("Mapas de Pedidos", divider="rainbow")
 st.write("Visualize todos os pedidos e rotas no mapa de forma simples e rápida.")
 st.divider()
@@ -21,12 +91,10 @@ st.divider()
 # <<< ADICIONADO: Caminho para o arquivo CSV >>>
 ROTEIRIZACAO_CSV_PATH = "/workspaces/WazeLog/data/Roteirizacao.csv"
 
-# <<< ADICIONADO: URL do servidor OSRM >>>
-OSRM_SERVER_URL = os.environ.get("OSRM_BASE_URL", "https://router.project-osrm.org")
-
 def show():
     st.header("Mapas de Rotas", divider="rainbow")
     st.write("Visualize no mapa os pontos dos pedidos e as rotas por veículo.")
+    st.divider()
 
     # Carrega dados básicos
     pedidos_todos = carregar_pedidos()
@@ -59,7 +127,6 @@ def show():
     depot_lon = default_depot_location[1]
 
     # --- Processa a Seleção ---
-    depot_index = 0  # Índice do depósito na matriz de distâncias
     if selecao == "Mostrar apenas pedidos":
         st.info("Exibindo localizações dos pedidos carregados.")
         if pedidos_todos is not None:
@@ -77,31 +144,14 @@ def show():
                         tooltip='Depósito'
                     ).add_to(m)
 
-                # Gera um dicionário de cores por cluster/região
-                cor_por_grupo = {}
-                grupos = None
-                if 'Cluster' in pedidos_mapa.columns:
-                    grupos = pedidos_mapa['Cluster'].unique()
-                    for i, grupo in enumerate(grupos):
-                        cor_por_grupo[grupo] = gerar_cor_aleatoria()
-                elif 'Região' in pedidos_mapa.columns:
-                    grupos = pedidos_mapa['Região'].unique()
-                    for i, grupo in enumerate(grupos):
-                        cor_por_grupo[grupo] = gerar_cor_aleatoria()
-                # Adiciona marcadores para cada pedido como bolinhas pequenas e coloridas por grupo
+                # Adiciona marcadores para cada pedido com popup
                 for idx, row in pedidos_mapa.iterrows():
-                    grupo = row['Cluster'] if 'Cluster' in pedidos_mapa.columns else row['Região'] if 'Região' in pedidos_mapa.columns else None
-                    cor = cor_por_grupo.get(grupo, gerar_cor_aleatoria())
-                    pedido_info = f"Pedido: {row.get('Nº Pedido', 'ID Desconhecido')}" + (f"<br>Grupo: {grupo}" if grupo is not None else "")
-                    folium.CircleMarker(
-                        location=[row['Latitude'], row['Longitude']],
-                        radius=6,
-                        color=cor,
-                        fill=True,
-                        fill_color=cor,
-                        fill_opacity=0.85,
-                        tooltip=pedido_info,
-                        popup=pedido_info
+                    pedido_info = f"Pedido: {row.get('Nº Pedido', 'ID Desconhecido')}"
+                    folium.Marker(
+                        [row['Latitude'], row['Longitude']],
+                        tooltip=pedido_info, # Mostra ao passar o mouse
+                        popup=pedido_info,   # Mostra ao clicar
+                        icon=folium.Icon(color='red', icon='info-sign')
                     ).add_to(m)
 
                 # Exibe o mapa folium
@@ -185,130 +235,90 @@ def show():
                     if not pontos.empty:
                         if 'Sequencia' in pontos.columns:
                             pontos = pontos.sort_values('Sequencia')
-
-                        # --- Limitação de pontos enviados ao OSRM ---
-                        MAX_PONTOS_OSRM = 30
                         coords = [[depot_lat, depot_lon]]
                         coords += pontos[["Latitude", "Longitude"]].values.tolist()
                         if len(coords) > 2 and (coords[-1] != coords[0]):
                             coords.append([depot_lat, depot_lon])
                         m = folium.Map(location=[depot_lat, depot_lon], zoom_start=12)
                         folium.Marker([depot_lat, depot_lon], icon=folium.Icon(color='blue', icon='home'), tooltip='Depósito').add_to(m)
-
-                        # Usa MarkerCluster para muitos pontos
-                        marker_cluster = MarkerCluster().add_to(m)
                         for i, row in pontos.iterrows():
+                            # <<< MODIFICADO: Garante que 'Nº Pedido' seja usado no tooltip e popup >>>
+                            # Tenta buscar 'ID Pedido' primeiro, depois 'Nº Pedido'
                             pedido_id_display = row.get('ID Pedido', row.get('Nº Pedido', 'ID Desconhecido'))
                             pedido_info = f"Pedido: {pedido_id_display}"
                             folium.Marker(
                                 [row['Latitude'], row['Longitude']],
-                                tooltip=pedido_info,
-                                popup=pedido_info,
-                                icon=folium.Icon(color='red', icon='info-sign')
-                            ).add_to(marker_cluster)
-
-                        # --- Limita o número de pontos enviados ao OSRM ---
-                        if len(coords) > MAX_PONTOS_OSRM:
-                            st.warning(f"A rota possui muitos pontos ({len(coords)}). Por limitação do serviço de rotas, a linha da rota não será desenhada. Os marcadores dos pedidos continuam visíveis no mapa.")
-                            distancia_total_km = 0
-                            tempo_total_min = 0
-                        else:
-                            import requests
-                            progress_bar = st.progress(0, text="Calculando rota otimizada no mapa...")
-                            rota_ok = False
+                                tooltip=pedido_info, # Mostra ao passar o mouse
+                                popup=pedido_info,   # Mostra ao clicar
+                                icon=folium.Icon(color='red', icon='info-sign') # Mantém ícone vermelho
+                            ).add_to(m)
+                        # Trajeto real por ruas (OSRM)
+                        # Calcular distância total (km) e tempo total (min) da rota
+                        distancia_total_km = 0
+                        tempo_total_min = 0
+                        import requests
+                        for i in range(len(coords)-1):
+                            origem = coords[i]
+                            destino = coords[i+1]
+                            # Ajuste para usar http://router.project-osrm.org se o local não estiver rodando
+                            # url = f"http://router.project-osrm.org/route/v1/driving/{origem[1]},{origem[0]};{destino[1]},{destino[0]}?overview=full&geometries=geojson"
+                            url = f"http://4.231.232.158:5000/route/v1/driving/{origem[1]},{origem[0]};{destino[1]},{destino[0]}?overview=full&geometries=geojson"
                             try:
-                                coords_osrm = ";".join([f"{lon},{lat}" for lat, lon in coords])
-                                url = f"{OSRM_SERVER_URL}/route/v1/driving/{coords_osrm}?overview=full&geometries=geojson"
-                                resp = requests.get(url, timeout=30)
+                                resp = requests.get(url, timeout=10)
                                 if resp.status_code == 200:
                                     data = resp.json()
                                     if data.get('routes'):
                                         route = data['routes'][0]
                                         geometry = route['geometry']
+                                        # Define cor: vermelho para ida, azul para volta
+                                        if i < len(coords)-2:
+                                            cor_linha = 'red'  # Ida
+                                        else:
+                                            cor_linha = 'blue' # Volta para base
                                         folium.PolyLine(
                                             locations=[(lat, lon) for lon, lat in geometry['coordinates']],
-                                            color='red', weight=4, opacity=0.8
+                                            color=cor_linha, weight=4, opacity=0.8
                                         ).add_to(m)
-                                        distancia_total_km = route.get('distance', 0) / 1000
-                                        tempo_total_min = route.get('duration', 0) / 60
-                                        rota_ok = True
-                                if not rota_ok:
-                                    st.warning("Não foi possível calcular/desenhar a linha da rota no momento (OSRM indisponível ou resposta inválida). Os pontos das entregas estão visíveis no mapa.")
-                                    distancia_total_km = 0
-                                    tempo_total_min = 0
-                                # Não interrompe o mapa, apenas não mostra a linha
+                                        distancia_total_km += route.get('distance', 0) / 1000
+                                        tempo_total_min += route.get('duration', 0) / 60
+                                else:
+                                     # Adiciona log se OSRM falhar
+                                     # st.warning(f"OSRM request failed for segment {i}: Status {resp.status_code}")
+                                     pass # Continua tentando os próximos segmentos
+                            except requests.exceptions.ConnectionError:
+                                 st.error("Erro de conexão com o servidor OSRM local (http://4.231.232.158:5000). Verifique se o container Docker está rodando.")
+                                 break # Para de tentar calcular rotas se OSRM não está acessível
                             except Exception as osrm_err:
-                                st.warning(f"Não foi possível calcular/desenhar a linha da rota devido a erro ou lentidão do serviço OSRM. Os pontos das entregas estão visíveis no mapa.\nDetalhe: {osrm_err}")
-                                distancia_total_km = 0
-                                tempo_total_min = 0
-                            progress_bar.empty()
+                                 # st.warning(f"Erro ao buscar rota OSRM para segmento {i}: {osrm_err}")
+                                 pass # Continua tentando os próximos segmentos
 
-                        # Chave dinâmica para o mapa
+                        # <<< MODIFICADO: Adiciona chave dinâmica ao st_folium >>>
+                        # Cria chave única baseada na seleção para evitar erro de chave duplicada
+                        # Remove caracteres inválidos para uma chave
                         safe_selecao = "".join(c for c in selecao if c.isalnum() or c in ('_'))
-                        map_key = f"folium_map_{safe_selecao}_{placa_selecionada or 'all'}"
+                        map_key = f"folium_map_{safe_selecao}_{placa_selecionada or 'all'}" # Adiciona placa à chave
                         st_folium(m, width=None, height=500, key=map_key)
 
                         # Exibir métricas organizadas em 2 colunas, separadas por '-'
+                        # <<< GARANTIR INDENTAÇÃO CORRETA AQUI >>>
                         with st.container():
-                            # --- NOVO: Cards com visual igual aos cards de resumo ---
-                            card_style = """
-                                background: #fff;
-                                border-radius: 16px;
-                                box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-                                padding: 1.2rem 1.5rem 1.2rem 1.5rem;
-                                margin-bottom: 0.5rem;
-                                text-align: center;
-                                min-width: 180px;
-                                display: flex;
-                                flex-direction: column;
-                                align-items: center;
-                            """
-                            col1, col2, col3, col4, col5, col6 = st.columns(6)
-                            with col1:
-                                st.markdown(f"""
-                                    <div style='{card_style}'>
-                                        <div style='font-size:0.95rem;color:#888;'>Placa do Veículo</div>
-                                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{placa_selecionada}</div>
-                                    </div>
-                                """, unsafe_allow_html=True)
-                            with col2:
-                                st.markdown(f"""
-                                    <div style='{card_style}'>
-                                        <div style='font-size:0.95rem;color:#888;'>Capacidade do Veículo (Kg)</div>
-                                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{capacidade_veiculo:,.1f if capacidade_veiculo is not None else 'N/A'}</div>
-                                    </div>
-                                """, unsafe_allow_html=True)
-                            with col3:
-                                st.markdown(f"""
-                                    <div style='{card_style}'>
-                                        <div style='font-size:0.95rem;color:#888;'>Pedidos Empenhados</div>
-                                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{qtd_pedidos}</div>
-                                    </div>
-                                """, unsafe_allow_html=True)
-                            with col4:
-                                st.markdown(f"""
-                                    <div style='{card_style}'>
-                                        <div style='font-size:0.95rem;color:#888;'>Peso Empenhado (Kg)</div>
-                                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{peso_total:,.1f}</div>
-                                    </div>
-                                """, unsafe_allow_html=True)
-                            with col5:
-                                st.markdown(f"""
-                                    <div style='{card_style}'>
-                                        <div style='font-size:0.95rem;color:#888;'>Distância Total (km)</div>
-                                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{distancia_total_km:.1f}</div>
-                                    </div>
-                                """, unsafe_allow_html=True)
-                            with col6:
+                            col_esq, col_dir = st.columns(2)
+                            with col_esq:
+                                st.metric("Placa do Veículo", placa_selecionada)
+                                st.markdown("<div style='font-size:1.2rem;text-align:center;'>-</div>", unsafe_allow_html=True)
+                                st.metric("Pedidos Empenhados", qtd_pedidos)
+                                st.markdown("<div style='font-size:1.2rem;text-align:center;'>-</div>", unsafe_allow_html=True)
+                                st.metric("Distância Total (km)", f"{distancia_total_km:.1f}")
+                            with col_dir:
+                                st.metric("Capacidade do Veículo (Kg)", f"{capacidade_veiculo:,.1f}" if capacidade_veiculo is not None else "N/A")
+                                st.markdown("<div style='font-size:1.2rem;text-align:center;'>-</div>", unsafe_allow_html=True)
+                                st.metric("Peso Empenhado (Kg)", f"{peso_total:,.1f}")
+                                st.markdown("<div style='font-size:1.2rem;text-align:center;'>-</div>", unsafe_allow_html=True)
+                                # Exibir tempo estimado no formato hh:mm
                                 horas = int(tempo_total_min // 60) if tempo_total_min else 0
                                 minutos = int(round(tempo_total_min % 60)) if tempo_total_min else 0
                                 tempo_formatado = f"{horas}:{minutos:02d}"
-                                st.markdown(f"""
-                                    <div style='{card_style}'>
-                                        <div style='font-size:0.95rem;color:#888;'>Tempo Estimado (h)</div>
-                                        <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{tempo_formatado}</div>
-                                    </div>
-                                """, unsafe_allow_html=True)
+                                st.metric("Tempo Estimado (h)", tempo_formatado)
                     else:
                         st.info("Não há coordenadas válidas para exibir o trajeto.")
                 else:
@@ -379,9 +389,109 @@ if veiculo_selecionado:
         rota_veiculo_selecionado = pd.concat(rotas_veiculo, ignore_index=True)
         st.success(f"Foram encontradas {len(rota_veiculo_selecionado)} rotas para o veículo selecionado.")
 
-        # --- Tabela da Rota Selecionada ---
-        st.subheader("Tabela da Rota Selecionada")
-        st.dataframe(rota_veiculo_selecionado, use_container_width=True, hide_index=True)
+
+        # --- Cards de Métricas no estilo dashboard ---
+        st.subheader("Resumo do Veículo")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f"""
+                <div style='background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.07);padding:1.2rem 1.5rem;margin-bottom:0.5rem;text-align:center;min-width:180px;'>
+                    <div style='font-size:0.95rem;color:#888;'>Placa do Veículo</div>
+                    <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{veiculo_selecionado}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            # Capacidade do veículo
+            capacidade_veiculo = 0
+            frota_cenario = None
+            for i, c in enumerate(cenarios_disponiveis):
+                rotas_c = c.get('rotas')
+                if rotas_c is not None and not rotas_c.empty and veiculo_selecionado in rotas_c['Veículo'].unique():
+                    frota_cenario = c.get('frota_usada', st.session_state.get('frota_carregada'))
+                    break
+            if frota_cenario is not None and not frota_cenario.empty:
+                id_col_frota = 'ID Veículo' if 'ID Veículo' in frota_cenario.columns else 'Placa'
+                if id_col_frota in frota_cenario.columns and 'Capacidade (Kg)' in frota_cenario.columns:
+                    veiculo_info = frota_cenario[frota_cenario[id_col_frota] == veiculo_selecionado]
+                    if not veiculo_info.empty:
+                        capacidade_veiculo = pd.to_numeric(veiculo_info['Capacidade (Kg)'].iloc[0], errors='coerce').fillna(0)
+            st.markdown(f"""
+                <div style='background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.07);padding:1.2rem 1.5rem;margin-bottom:0.5rem;text-align:center;min-width:180px;'>
+                    <div style='font-size:0.95rem;color:#888;'>Capacidade do Veículo (Kg)</div>
+                    <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{capacidade_veiculo:,.1f}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"""
+                <div style='background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.07);padding:1.2rem 1.5rem;margin-bottom:0.5rem;text-align:center;min-width:180px;'>
+                    <div style='font-size:0.95rem;color:#888;'>Pedidos Empenhados</div>
+                    <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{len(rota_veiculo_selecionado)}</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        col4, col5 = st.columns(2)
+        with col4:
+            # Distância total
+            distancia_total_m = 0
+            matriz_distancias = None
+            if 'Node_Index_OR' in rota_veiculo_selecionado.columns:
+                try:
+                    id_cenario = rota_veiculo_selecionado['ID_Cenario'].iloc[0] if not rota_veiculo_selecionado.empty else None
+                    if id_cenario is not None:
+                        matriz_distancias = st.session_state.get(f"matriz_distancias_{id_cenario}")
+                except Exception:
+                    pass
+            if matriz_distancias is not None and 'Node_Index_OR' in rota_veiculo_selecionado.columns:
+                node_indices = [0] + rota_veiculo_selecionado.sort_values('Sequencia')['Node_Index_OR'].tolist() + [0]
+                for i in range(len(node_indices) - 1):
+                    idx_from = node_indices[i]
+                    idx_to = node_indices[i+1]
+                    if 0 <= idx_from < len(matriz_distancias) and 0 <= idx_to < len(matriz_distancias[idx_from]):
+                        distancia_total_m += matriz_distancias[idx_from][idx_to]
+            distancia_total_km = distancia_total_m / 1000 if distancia_total_m > 0 else 0
+            st.markdown(f"""
+                <div style='background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.07);padding:1.2rem 1.5rem;margin-bottom:0.5rem;text-align:center;min-width:180px;'>
+                    <div style='font-size:0.95rem;color:#888;'>Distância Total (km)</div>
+                    <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{distancia_total_km:,.1f}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        with col5:
+            # Peso empenhado
+            peso_empenhado = 0
+            if 'Demanda' in rota_veiculo_selecionado.columns:
+                demanda_numeric = pd.to_numeric(rota_veiculo_selecionado['Demanda'], errors='coerce').fillna(0)
+                peso_empenhado = demanda_numeric.sum()
+            st.markdown(f"""
+                <div style='background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.07);padding:1.2rem 1.5rem;margin-bottom:0.5rem;text-align:center;min-width:180px;'>
+                    <div style='font-size:0.95rem;color:#888;'>Peso Empenhado (Kg)</div>
+                    <div style='font-size:2.1rem;font-weight:700;margin-top:0.2rem'>{peso_empenhado:,.1f}</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # --- Gráfico da Rota (opcional) ---
+        st.subheader("Gráfico da Rota")
+        if 'Latitude' in rota_veiculo_selecionado.columns and 'Longitude' in rota_veiculo_selecionado.columns:
+            coords = rota_veiculo_selecionado[['Latitude', 'Longitude']].dropna().values.tolist()
+            if coords:
+                m = folium.Map(location=coords[0], zoom_start=12)
+                folium.Marker(coords[0], icon=folium.Icon(color='blue', icon='home'), tooltip='Início').add_to(m)
+                folium.Marker(coords[-1], icon=folium.Icon(color='red', icon='flag'), tooltip='Fim').add_to(m)
+                folium.PolyLine(coords, color='green', weight=2.5, opacity=0.8).add_to(m)
+                st_folium(m, width=None, height=500, key="mapa_rota_selecionada")
+                # --- Link Google Maps com todos os pedidos em rota (logo abaixo do mapa) ---
+                pontos = rota_veiculo_selecionado.dropna(subset=['Latitude', 'Longitude'])
+                if not pontos.empty:
+                    if 'Sequencia' in pontos.columns:
+                        pontos = pontos.sort_values('Sequencia')
+                    coords_list = pontos[['Latitude', 'Longitude']].values.tolist()
+                    if coords_list:
+                        waypoints = "/".join([f"{lat},{lon}" for lat, lon in coords_list])
+                        gmaps_url = f"https://www.google.com/maps/dir/{waypoints}"
+                        st.markdown(f"<a href='{gmaps_url}' target='_blank' style='font-size:1.1rem;font-weight:600;color:#1976d2;display:block;margin-top:1.5rem;'>Abrir rota no Google Maps com todos os pedidos</a>", unsafe_allow_html=True)
+            else:
+                st.warning("Nenhum ponto válido encontrado para exibir no mapa.")
+        else:
+            st.warning("As colunas 'Latitude' e 'Longitude' não foram encontradas na rota selecionada.")
 
         # --- Cálculo da Distância Total ---
         distancia_total_m = 0

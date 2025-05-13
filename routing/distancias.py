@@ -10,8 +10,7 @@ import traceback # Adicionado para log de erro completo
 import os # Adicionado para ler variáveis de ambiente
 
 # --- Constantes ---
-# Use a variável de ambiente OSRM_BASE_URL se definida, senão usa localhost:5000
-OSRM_SERVER_URL = os.environ.get("OSRM_BASE_URL", "https://router.project-osrm.org")
+OSRM_SERVER_URL = "http://4.231.232.158:5000"
 MAX_RETRIES = 3
 # --- AJUSTE AQUI ---
 RETRY_DELAY = 20 # Segundos entre retentativas
