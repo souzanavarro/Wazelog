@@ -599,6 +599,7 @@ def show():
     # --- Gerenciamento dos dados salvos ---
     st.divider()
     with st.container(border=True):
+
         st.subheader("📝 Gerenciar CNPJs Salvos")
         df_cnpj_raw = carregar_cnpj_enderecos()
 
@@ -622,15 +623,20 @@ def show():
                 elif col_lower == 'latitude' and col != 'Latitude': col_renomear_lower[col] = 'Latitude'
                 elif col_lower == 'longitude' and col != 'Longitude': col_renomear_lower[col] = 'Longitude'
                 elif col_lower in ['google maps', 'googlemaps', 'maps'] and col != 'Google Maps': col_renomear_lower[col] = 'Google Maps'
+                elif col_lower == 'cep' and col != 'CEP': col_renomear_lower[col] = 'CEP'
 
             if col_renomear_lower:
                 df_cnpj = df_cnpj.rename(columns=col_renomear_lower)
 
             df_cnpj = df_cnpj.loc[:, ~df_cnpj.columns.duplicated()]
 
+            # Garante coluna CEP
+            if 'CEP' not in df_cnpj.columns:
+                df_cnpj['CEP'] = ''
+
             colunas_padrao = [
                 'CNPJ', 'Status', 'Cód. Edata', 'Cód. Mega', 'Nome',
-                'Endereco', 'Telefone', 'Email',
+                'Endereco', 'CEP', 'Telefone', 'Email',
                 'Latitude', 'Longitude', 'Google Maps'
             ]
             for col in colunas_padrao:
@@ -670,7 +676,35 @@ def show():
 
             st.info(f"{len(df_filtrado)} de {len(df_cnpj)} CNPJs exibidos após filtros.")
 
-            # Editor de dados
+
+            # Exibição aprimorada: Município/UF e CEP em destaque visual
+            def municipio_uf_cep_bloco(row):
+                endereco = str(row.get('Endereco', '') or '')
+                cep = str(row.get('CEP', '') or '').strip()
+                municipio = ''
+                uf = ''
+                # Tenta extrair município e UF do endereço (espera-se ", Município - UF" no final)
+                if endereco:
+                    partes = endereco.split(',')
+                    if len(partes) > 1:
+                        municipio_uf = partes[-1].strip()
+                        if ' - ' in municipio_uf:
+                            municipio, uf = [x.strip() for x in municipio_uf.split(' - ', 1)]
+                        else:
+                            municipio = municipio_uf
+                municipio = municipio or 'Não informado'
+                uf = uf or ''
+                cep_str = f"<span style='color:#444;font-size:1em;'>📮 CEP: <b>{cep}</b></span>" if cep else "<span style='color:#888;'>CEP não informado</span>"
+                municipio_uf_str = f"<span style='font-size:1.1em;'>🏙️ <b>{municipio}</b>{' - ' + uf if uf else ''}</span>"
+                return f"{municipio_uf_str}<br>{cep_str}"
+
+            st.markdown("<br><b>Visualização rápida Município/UF + CEP:</b>", unsafe_allow_html=True)
+            for idx, row in df_filtrado.iterrows():
+                st.markdown(f"<div style='margin-bottom:0.5em;padding:0.3em 0.7em 0.3em 0.7em;background:#f8f8fa;border-radius:7px;border:1px solid #eee;display:inline-block;'>"
+                            f"{municipio_uf_cep_bloco(row)}"
+                            f"</div>", unsafe_allow_html=True)
+
+            # Editor de dados (sem coluna customizada, apenas dados reais)
             df_editado = st.data_editor(
                 df_filtrado,
                 num_rows="dynamic",
@@ -678,8 +712,6 @@ def show():
                 key="cnpj_editor",
                 column_order=df_cnpj.columns.tolist(),
                 hide_index=True,
-                # Define a coluna CNPJ como índice (não editável) para estabilidade
-                # disabled=["CNPJ"], # Desabilitar edição do CNPJ
                 column_config={
                     "Google Maps": st.column_config.LinkColumn("Google Maps", display_text="Abrir Mapa"),
                     "Latitude": st.column_config.NumberColumn(format="%.6f"),
@@ -687,73 +719,56 @@ def show():
                 }
             )
 
-            # Botões de Ação
+            # Botões de Ação (mantém igual)
             col_botoes1, col_botoes2, col_botoes3 = st.columns(3)
             with col_botoes1:
                 if st.button("💾 Salvar Edições", key="btn_salvar_edicoes", help="Salva as alterações feitas na tabela acima."):
-                    # Identifica as linhas que foram realmente editadas comparando com o df_filtrado original
-                    # Usa o CNPJ como índice para comparação segura
                     try:
                         df_filtrado_idx = df_filtrado.set_index('CNPJ')
                         df_editado_idx = df_editado.set_index('CNPJ')
-
-                        # Compara os dataframes alinhados pelo índice
                         diff_mask = (df_filtrado_idx != df_editado_idx).any(axis=1)
                         cnpjs_alterados = diff_mask[diff_mask].index.tolist()
-
                         if not cnpjs_alterados:
                             st.warning("Nenhuma alteração detectada para salvar.")
                         else:
-                            # Pega as linhas alteradas do df_editado
                             df_alterado = df_editado_idx.loc[cnpjs_alterados]
-
-                            # Atualiza o df_cnpj original (que contém todos os dados)
                             df_cnpj_idx = df_cnpj.set_index('CNPJ')
                             df_cnpj_idx.update(df_alterado)
                             df_cnpj_atualizado = df_cnpj_idx.reset_index()
-
-                            # Reaplicar a ordem original das colunas
                             df_cnpj_atualizado = df_cnpj_atualizado[df_cnpj.columns]
-
                             salvar_cnpj_enderecos(df_cnpj_atualizado)
                             st.success(f"{len(cnpjs_alterados)} CNPJs atualizados no banco de dados!")
                             st.rerun()
-
                     except Exception as e_save:
                         st.error(f"Erro ao salvar edições: {e_save}")
                         logging.error(f"Erro ao salvar edições do data_editor: {e_save}", exc_info=True)
 
             with col_botoes2:
-                # Botão para buscar/atualizar dados para não localizados ou inválidos
                 mask_atualizar = (
                     df_cnpj["Endereco"].isnull() |
                     (df_cnpj["Endereco"] == "") |
                     (df_cnpj["Endereco"].astype(str).str.strip().isin(["Não encontrado", "CNPJ inválido", ","])) |
-                    (df_cnpj["Latitude"].isnull()) | (df_cnpj["Longitude"].isnull()) # Inclui os sem coordenadas
+                    (df_cnpj["Latitude"].isnull()) | (df_cnpj["Longitude"].isnull())
                 )
-                # Garante que CNPJ não seja nulo para processamento
                 mask_atualizar &= df_cnpj["CNPJ"].notnull() & (df_cnpj["CNPJ"] != "")
-
                 df_para_atualizar = df_cnpj[mask_atualizar].copy()
                 total_atualizar = len(df_para_atualizar)
                 label_btn_atualizar = f"🔄 Atualizar Dados ({total_atualizar})"
                 if st.button(label_btn_atualizar, key="btn_buscar_faltantes", disabled=(total_atualizar == 0), help="Busca/Atualiza Endereço, Coords, Tel e Email para CNPJs marcados como 'Não encontrado', 'Inválido' ou sem coordenadas."):
                     progress = st.progress(0, text="Atualizando dados...")
                     cnpjs_atualizados_count = 0
-                    df_cnpj_atualizado = df_cnpj.copy() # Trabalha em uma cópia
-
+                    df_cnpj_atualizado = df_cnpj.copy()
                     for idx, (i, row) in enumerate(df_para_atualizar.iterrows()):
                         cnpj = row["CNPJ"]
                         progress.progress((idx+1)/total_atualizar, text=f"Processando {idx+1}/{total_atualizar}: {cnpj}")
-
                         resultado_api = buscar_endereco_cnpj(cnpj)
                         endereco = resultado_api.get('endereco')
                         situacao = resultado_api.get('situacao')
                         telefone = resultado_api.get('telefone')
                         email = resultado_api.get('email')
+                        cep = resultado_api.get('cep', '')
                         link = ""
                         lat, lon = None, None
-
                         if endereco:
                             link = google_maps_link(endereco)
                             lat, lon = obter_coordenadas(endereco)
@@ -761,21 +776,19 @@ def show():
                             df_cnpj_atualizado.loc[i, "Google Maps"] = link
                             df_cnpj_atualizado.loc[i, "Latitude"] = lat
                             df_cnpj_atualizado.loc[i, "Longitude"] = lon
+                            df_cnpj_atualizado.loc[i, "CEP"] = cep
                         else:
                             df_cnpj_atualizado.loc[i, "Endereco"] = "Não encontrado"
                             df_cnpj_atualizado.loc[i, "Google Maps"] = ""
                             df_cnpj_atualizado.loc[i, "Latitude"] = None
                             df_cnpj_atualizado.loc[i, "Longitude"] = None
-
+                            df_cnpj_atualizado.loc[i, "CEP"] = ''
                         df_cnpj_atualizado.loc[i, "Status"] = situacao_cadastral_str(situacao)
                         df_cnpj_atualizado.loc[i, "Telefone"] = telefone or ""
                         df_cnpj_atualizado.loc[i, "Email"] = email or ""
-
                         cnpjs_atualizados_count += 1
-
                     progress.empty()
                     if cnpjs_atualizados_count > 0:
-                        # Salva o DataFrame completo, não só os atualizados
                         salvar_cnpj_enderecos(df_cnpj_atualizado)
                         st.success(f"Dados buscados/atualizados para {cnpjs_atualizados_count} CNPJs!")
                     else:
@@ -783,22 +796,19 @@ def show():
                     st.rerun()
 
             with col_botoes3:
-                 # Botão Limpar dados salvos
                 if st.button("🗑️ Limpar Banco", key="btn_limpar_cnpjs", type="primary", help="Apaga TODOS os CNPJs salvos localmente."):
-                    # Adiciona confirmação extra
                     if 'confirm_delete' not in st.session_state:
                         st.session_state.confirm_delete = False
-
                     if st.session_state.confirm_delete:
                         limpar_cnpj_enderecos()
                         st.success("Banco de dados de CNPJs limpo!")
-                        st.session_state.confirm_delete = False # Reseta confirmação
+                        st.session_state.confirm_delete = False
                         st.rerun()
                     else:
                         st.warning("Clique novamente para confirmar a exclusão de TODOS os dados.")
-                        st.session_state.confirm_delete = True # Pede confirmação no próximo clique
+                        st.session_state.confirm_delete = True
                 else:
-                     st.session_state.confirm_delete = False # Reseta se o botão não for clicado
+                    st.session_state.confirm_delete = False
 
     # --- Busca individual ---
     st.divider()
@@ -979,7 +989,23 @@ def show():
                     linha_municipio = title_case_pt(linha_municipio)
 
                     st.markdown(f"📍 **Endereço:** {linha_logradouro if linha_logradouro else 'Não informado'}")
+
+                    # Exibe Município/UF
                     st.markdown(f"🏙️ **Município/UF:** {linha_municipio if linha_municipio else 'Não informado'}")
+                    # Exibe CEP logo abaixo (corrigido para buscar corretamente em ambos os casos)
+                    cep_val = None
+                    # Tenta buscar CEP de todas as fontes possíveis
+                    if 'cep' in dados_endereco and dados_endereco.get('cep'):
+                        cep_val = dados_endereco.get('cep')
+                    elif row_banco and ('CEP' in row_banco) and row_banco.get('CEP'):
+                        cep_val = row_banco.get('CEP')
+                    elif 'endereco' in dados_endereco and isinstance(dados_endereco['endereco'], dict):
+                        # Caso raro: se vier como dict
+                        cep_val = dados_endereco['endereco'].get('cep')
+                    if cep_val and str(cep_val).strip().lower() not in ['nan', 'none', '']:
+                        st.markdown(f"📮 <b>CEP:</b> {cep_val}", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<span style='color:#888;'>CEP não informado</span>", unsafe_allow_html=True)
 
                     # Salva no arquivo data/Coordenadas.csv sempre que houver endereço e coordenadas
                     from pedidos import salvar_coordenada_csv

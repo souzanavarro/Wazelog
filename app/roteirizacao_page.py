@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np # Adicionado
-import time # Adicionado
+import time # Certifique-se que time está importado
 
 # Adicionado para uso potencial
 from relatorio_template import gerar_relatorio_html
@@ -15,10 +15,10 @@ from database import (
 )
 # Ajuste na importação dos solvers para pegar do módulo correto
 from routing.cvrp import solver_cvrp
-from routing.cvrp_flex import solver_cvrp
 # Modificado para importar também INFINITE_VALUE
 from routing.distancias import calcular_matriz_distancias, INFINITE_VALUE
 from pedidos import obter_coordenadas # Para geocodificação do endereço de partida
+from routing.pos_processamento import executar_pos_processamento_completo # Importa a função principal
 
 # Constantes para endereço de partida padrão
 DEFAULT_ENDERECO_PARTIDA = "Rua Antonio Ortega, 3604, Cabreuva, São Paulo"
@@ -271,7 +271,7 @@ def show():
                 help="Permite simular veículos carregando menos ou até 20% a mais que a capacidade cadastrada."
             )
 
-        # --- Agrupamento Inicial de Pedidos (agora acima do campo de raio) ---
+        # --- Agrupamento Inicial de Pedidos (sempre exibe se possível) ---
         st.subheader("Agrupamento Inicial de Pedidos (por proximidade geográfica)")
 
         col1_agrup, col2_agrup = st.columns(2)
@@ -350,13 +350,14 @@ def show():
             pedidos_validos['RegiaoParaRoteirizacao'] = pedidos_validos['Região']
 
         # --- Opções Avançadas de Pós-Processamento e Exportação ---
+        # --- NOVO: Opção para respeitar Regiões Preferidas dos veículos ---
         st.subheader("Restrições de Regiões Preferidas da Frota")
         respeitar_regioes_preferidas = st.checkbox(
             "Respeitar Regiões Preferidas dos Veículos",
             value=False,
             help="Se ativado, o sistema tentará alocar pedidos preferencialmente para veículos que tenham a região do pedido em suas regiões preferidas, respeitando a capacidade."
         )
-
+        st.subheader("Opções Avançadas de Pós-Processamento e Exportação")
         st.markdown("""
         <ul>
         <li><b>2-opt</b>: Heurística clássica para rotas, troca pares de arestas para reduzir a distância total do percurso de cada veículo.</li>
@@ -532,6 +533,7 @@ def show():
                         n = len(all_locations)
                         
                         # Placeholders para a barra de progresso e texto de status da matriz
+                        import time
                         progress_bar_matriz = st.progress(0, text="Iniciando cálculo da matriz de distâncias...")
                         status_text_matriz = st.empty()
                         start_time_matriz = time.time()
@@ -607,7 +609,16 @@ def show():
                     resultado_solver = None # Para armazenar o dict do VRPTW ou o DataFrame dos outros
                     status_solver = "Não executado"
 
-                    with st.spinner(f"Executando o solver {tipo}..."):
+
+                    # --- NOVO: Barra de progresso e timer para execução do solver ---
+                    progress_bar_solver = st.progress(0, text="Executando o solver CVRP...")
+                    status_text_solver = st.empty()
+                    start_time_solver = time.time()
+                    import threading
+                    solver_result = {}
+                    solver_exception = {}
+
+                    def run_solver():
                         try:
                             if tipo == "CVRP":
                                 # CVRP também minimiza distância, mas considera capacidade
@@ -615,57 +626,111 @@ def show():
                                     st.error("Coluna 'Peso dos Itens' necessária para CVRP não encontrada nos pedidos.")
                                     raise ValueError("Faltando 'Peso dos Itens'")
                                 elif 'Capacidade (Kg)' not in frota.columns:
-                                     st.error("Coluna 'Capacidade (Kg)' necessária para CVRP não encontrada na frota.")
-                                     raise ValueError("Faltando 'Capacidade (Kg)'")
+                                    st.error("Coluna 'Capacidade (Kg)' necessária para CVRP não encontrada na frota.")
+                                    raise ValueError("Faltando 'Capacidade (Kg)'")
                                 else:
-                                     rotas = solver_cvrp(
-                                         pedidos_validos, frota, matriz_distancias,
-                                         pos_processamento=aplicar_pos,
-                                         tipo_heuristica=tipo_heuristica if aplicar_pos else '2opt',
-                                         kwargs_heuristica={"max_paradas_por_subrota": max_paradas_split} if aplicar_pos and tipo_heuristica == "split" else {},
-                                         ajuste_capacidade_pct=ajuste_capacidade_pct
-                                     )
-                                     rotas_df = rotas # Resultado já é DataFrame
-                                     status_solver = "OK" if rotas_df is not None and not rotas_df.empty else "Falha ou Sem Solução"
-                            elif tipo == "CVRP Flex":
-                                rotas = solver_cvrp_flex(
-                                    pedidos_validos, frota, matriz_distancias, depot_index=depot_index, ajuste_capacidade_pct=ajuste_capacidade_pct,
-                                    pos_processamento=aplicar_pos,
-                                    tipo_heuristica=tipo_heuristica if aplicar_pos else '2opt',
-                                    kwargs_heuristica={"max_paradas_por_subrota": max_paradas_split} if aplicar_pos and tipo_heuristica == "split" else {}
-                                )
-                                # Se o solver retornar dict, tenta extrair o DataFrame
-                                if isinstance(rotas, dict):
-                                    # Tenta extrair a chave 'rotas' ou 'routes' ou converter o maior DataFrame do dict
-                                    if 'rotas' in rotas:
-                                        rotas_df = rotas['rotas']
-                                    elif 'routes' in rotas:
-                                        rotas_df = rotas['routes']
+                                    # --- NOVO: Solver CVRP por cluster/região ---
+                                    from routing.cvrp import solver_cvrp_por_cluster
+                                    # Determina a coluna de cluster/região a ser usada
+                                    coluna_cluster = 'RegiaoParaRoteirizacao' if 'RegiaoParaRoteirizacao' in pedidos_validos.columns else 'Cluster'
+                                    # Garante que a coluna existe e não está toda nula
+                                    if coluna_cluster not in pedidos_validos.columns or pedidos_validos[coluna_cluster].isnull().all():
+                                        st.warning(f"Nenhuma informação de cluster/região encontrada em '{coluna_cluster}'. O solver será executado globalmente.")
+                                        from routing.cvrp import solver_cvrp
+                                        rotas = solver_cvrp(
+                                            pedidos_validos, frota, matriz_distancias,
+                                            pos_processamento=aplicar_pos,
+                                            tipo_heuristica=tipo_heuristica if aplicar_pos else '2opt',
+                                            kwargs_heuristica={"max_paradas_por_subrota": max_paradas_split} if aplicar_pos and tipo_heuristica == "split" else {},
+                                            ajuste_capacidade_pct=ajuste_capacidade_pct,
+                                            respeitar_regioes_preferidas=respeitar_regioes_preferidas
+                                        )
                                     else:
-                                        # Procura o maior DataFrame no dict
-                                        dfs = [v for v in rotas.values() if isinstance(v, pd.DataFrame)]
-                                        rotas_df = dfs[0] if dfs else pd.DataFrame()
-                                else:
-                                    rotas_df = rotas
-                                status_solver = "OK" if rotas_df is not None and isinstance(rotas_df, pd.DataFrame) and not rotas_df.empty else "Falha ou Sem Solução"
+                                        rotas = solver_cvrp_por_cluster(
+                                            pedidos_validos, frota, matriz_distancias,
+                                            pos_processamento=aplicar_pos,
+                                            coluna_cluster=coluna_cluster,
+                                            tipo_heuristica=tipo_heuristica if aplicar_pos else '2opt',
+                                            kwargs_heuristica={"max_paradas_por_subrota": max_paradas_split} if aplicar_pos and tipo_heuristica == "split" else {},
+                                            ajuste_capacidade_pct=ajuste_capacidade_pct,
+                                            respeitar_regioes_preferidas=respeitar_regioes_preferidas
+                                        )
+                                    solver_result['rotas'] = rotas
+                            elif tipo == "CVRP Flex":
+                                st.error("O modo 'CVRP Flex' não está mais disponível. O arquivo 'cvrp_flex.py' foi removido do sistema.")
+                                solver_result['rotas'] = None
+                        except Exception as e:
+                            solver_exception['error'] = e
 
-                        except ValueError as ve:
-                             st.error(f"Erro de dados ao preparar para {tipo}: {ve}")
-                             status_solver = f"Erro de Dados: {ve}"
-                             rotas_df = None
-                             st.session_state['rotas_calculadas'] = None
-                             st.session_state['mapa_necessario'] = False
-                        except Exception as solver_error:
-                             st.error(f"Erro durante a execução do solver {tipo}: {solver_error}")
-                             st.exception(solver_error)
-                             status_solver = f"Erro Solver: {solver_error}"
-                             rotas_df = None
-                             st.session_state['rotas_calculadas'] = None
-                             st.session_state['mapa_necessario'] = False
+                    thread = threading.Thread(target=run_solver)
+                    thread.start()
 
-                        # Relatório automático de causas para inviabilidade
-                        if status_solver and ("INFEASIBLE" in str(status_solver).upper() or "NENHUMA SOLUÇÃO" in str(status_solver).upper() or "Falha" in str(status_solver)):
-                            st.warning("\n**Diagnóstico automático para problema inviável:**\n\n- Verifique se algum pedido tem demanda maior que a capacidade máxima dos veículos.\n- Revise as janelas de tempo dos veículos e pedidos (se existirem).\n- Confira se todos os pedidos possuem coordenadas válidas e não há outliers muito distantes.\n- Certifique-se de que a frota é suficiente para atender todos os pedidos.\n- Tente relaxar restrições (aumentar janelas, frota, capacidade) e rode novamente.\n\nSe o problema persistir, revise os dados de entrada e tente com um conjunto menor de pedidos.")
+                    # --- Barra de progresso e estimativa de tempo para o solver ---
+                    # Histórico de execuções anteriores para estimativa
+                    if 'historico_solver_cvrp' not in st.session_state:
+                        st.session_state['historico_solver_cvrp'] = []
+                    historico_solver = st.session_state['historico_solver_cvrp']
+                    # Estimativa inicial baseada no histórico ou em uma fórmula simples
+                    n_pedidos = len(pedidos_validos)
+                    n_veiculos = len(frota)
+                    if historico_solver:
+                        tempo_medio = sum(historico_solver) / len(historico_solver)
+                    else:
+                        tempo_medio = max(10, 0.1 * n_pedidos * n_veiculos)  # 10s mínimo, 0.1s por pedido x veículo
+                    tempo_estimado = tempo_medio
+                    progress = 0.0
+                    while thread.is_alive():
+                        elapsed = time.time() - start_time_solver
+                        elapsed_formatted = time.strftime('%H:%M:%S', time.gmtime(elapsed))
+                        # Estimativa de tempo restante
+                        restante = max(tempo_estimado - elapsed, 0)
+                        restante_formatted = time.strftime('%H:%M:%S', time.gmtime(restante))
+                        # Progresso "fake" proporcional ao tempo decorrido/estimado
+                        if tempo_estimado > 0:
+                            progress = min(elapsed / tempo_estimado, 0.98)
+                        else:
+                            progress = min(progress + 0.01, 0.98)
+                        progress_bar_solver.progress(progress, text=f"Executando o solver CVRP... | Decorrido: {elapsed_formatted} | Estimado restante: {restante_formatted}")
+                        status_text_solver.text(f"Executando o solver CVRP... | Decorrido: {elapsed_formatted} | Estimado restante: {restante_formatted}")
+                        time.sleep(0.2)
+                    thread.join()
+                    # Finaliza barra de progresso
+                    elapsed = time.time() - start_time_solver
+                    elapsed_formatted = time.strftime('%H:%M:%S', time.gmtime(elapsed))
+                    # Salva tempo real no histórico (mantém só os últimos 10)
+                    historico_solver.append(elapsed)
+                    if len(historico_solver) > 10:
+                        historico_solver.pop(0)
+                    st.session_state['historico_solver_cvrp'] = historico_solver
+                    progress_bar_solver.progress(1.0, text=f"Solver finalizado em {elapsed_formatted}")
+                    status_text_solver.success(f"Solver finalizado em {elapsed_formatted}")
+
+                    # Trata resultado ou exceção
+                    if 'error' in solver_exception:
+                        solver_error = solver_exception['error']
+                        st.error(f"Erro durante a execução do solver {tipo}: {solver_error}")
+                        st.exception(solver_error)
+                        status_solver = f"Erro Solver: {solver_error}"
+                        rotas_df = None
+                        st.session_state['rotas_calculadas'] = None
+                        st.session_state['mapa_necessario'] = False
+                    else:
+                        rotas = solver_result.get('rotas', None)
+                        if tipo == "CVRP Flex" and isinstance(rotas, dict):
+                            if 'rotas' in rotas:
+                                rotas_df = rotas['rotas']
+                            elif 'routes' in rotas:
+                                rotas_df = rotas['routes']
+                            else:
+                                dfs = [v for v in rotas.values() if isinstance(v, pd.DataFrame)]
+                                rotas_df = dfs[0] if dfs else pd.DataFrame()
+                        else:
+                            rotas_df = rotas
+                        status_solver = "OK" if rotas_df is not None and isinstance(rotas_df, pd.DataFrame) and not rotas_df.empty else "Falha ou Sem Solução"
+
+                    # Relatório automático de causas para inviabilidade
+                    if status_solver and ("INFEASIBLE" in str(status_solver).upper() or "NENHUMA SOLUÇÃO" in str(status_solver).upper() or "Falha" in str(status_solver)):
+                        st.warning("\n**Diagnóstico automático para problema inviável:**\n\n- Verifique se algum pedido tem demanda maior que a capacidade máxima dos veículos.\n- Revise as janelas de tempo dos veículos e pedidos (se existirem).\n- Confira se todos os pedidos possuem coordenadas válidas e não há outliers muito distantes.\n- Certifique-se de que a frota é suficiente para atender todos os pedidos.\n- Tente relaxar restrições (aumentar janelas, frota, capacidade) e rode novamente.\n\nSe o problema persistir, revise os dados de entrada e tente com um conjunto menor de pedidos.")
 
                     if rotas_df is not None and not rotas_df.empty:
                         # --- MOVIDO PARA CÁ: Adicionar 'Região' e coordenadas ao rotas_df ANTES do pós-processamento ---
@@ -673,27 +738,23 @@ def show():
                         if 'Região' not in rotas_df.columns:
                             rotas_df['Região'] = None
 
-                        # Propaga a coluna 'Região' dos pedidos para rotas_df, se existir
-                        if 'Pedido_Index_DF' in rotas_df.columns and 'Região' in pedidos_validos.columns:
+                        # Propaga a coluna 'RegiaoParaRoteirizacao' (que pode ser 'Região' ou 'SuperRegiao')
+                        if 'Pedido_Index_DF' in rotas_df.columns and 'RegiaoParaRoteirizacao' in pedidos_validos.columns:
                             try:
-                                regioes_to_merge = pedidos_validos.reset_index(drop=True).reset_index()[['index', 'Região']].copy()
-                                regioes_to_merge = regioes_to_merge.rename(columns={'index': 'Pedido_Index_DF'})
+                                regioes_to_merge = pedidos_validos.reset_index(drop=True).reset_index()[['index', 'RegiaoParaRoteirizacao']].copy()
+                                regioes_to_merge = regioes_to_merge.rename(columns={'index': 'Pedido_Index_DF', 'RegiaoParaRoteirizacao': 'Região'})
                                 rotas_df = pd.merge(
                                     rotas_df,
                                     regioes_to_merge,
                                     on='Pedido_Index_DF',
                                     how='left',
-                                    suffixes=(None, '_pedido') # Suffixes para evitar conflito se 'Região' já existir
+                                    suffixes=(None, '_pedido') 
                                 )
-                                # Se houve merge e criou 'Região_pedido', renomeia para 'Região' se 'Região' original era None ou não existia
                                 if 'Região_pedido' in rotas_df.columns:
                                     if 'Região' not in rotas_df.columns or rotas_df['Região'].isnull().all():
                                         rotas_df['Região'] = rotas_df['Região_pedido']
-                                    # Remove a coluna duplicada/sufixada se a original já foi preenchida ou criada
                                     if 'Região' in rotas_df.columns and rotas_df['Região'].notnull().any():
                                          rotas_df = rotas_df.drop(columns=['Região_pedido'], errors='ignore')
-
-
                             except Exception as merge_reg_err:
                                 st.warning(f"Não foi possível adicionar a coluna 'Região' ao DataFrame de rotas: {merge_reg_err}")
 
@@ -706,9 +767,8 @@ def show():
                                     coords_to_merge,
                                     on='Pedido_Index_DF',
                                     how='left',
-                                    suffixes=(None, '_pedido') # Suffixes para evitar conflito
+                                    suffixes=(None, '_pedido') 
                                 )
-                                # Similar ao 'Região', prioriza colunas originais se existirem e não forem nulas
                                 if 'Latitude_pedido' in rotas_df.columns:
                                     if 'Latitude' not in rotas_df.columns or rotas_df['Latitude'].isnull().all():
                                         rotas_df['Latitude'] = rotas_df['Latitude_pedido']
@@ -719,14 +779,12 @@ def show():
                                         rotas_df['Longitude'] = rotas_df['Longitude_pedido']
                                     if 'Longitude' in rotas_df.columns and rotas_df['Longitude'].notnull().any():
                                         rotas_df = rotas_df.drop(columns=['Longitude_pedido'], errors='ignore')
-
                                 st.info("Coordenadas adicionadas ao DataFrame de rotas.")
                             except Exception as merge_err:
                                 st.warning(f"Não foi possível adicionar coordenadas ao DataFrame de rotas: {merge_err}")
                         else:
                              st.warning("Não foi possível adicionar coordenadas ao DataFrame de rotas (coluna 'Pedido_Index_DF' ou 'pedidos_validos' ausente/vazio).")
 
-                        # --- Ajuste: Garantir que 'ID Pedido' seja igual ao 'Nº Pedido' do pedido original ---
                         if 'Pedido_Index_DF' in rotas_df.columns and not pedidos_validos.empty and 'Nº Pedido' in pedidos_validos.columns:
                             try:
                                 num_pedidos_to_merge = pedidos_validos.reset_index(drop=True).reset_index()[['index', 'Nº Pedido']].copy()
@@ -738,93 +796,98 @@ def show():
                                     how='left',
                                     suffixes=(None, '_pedido')
                                 )
-                                # Substitui 'ID Pedido' pelo valor correto de 'Nº Pedido Original' se disponível
                                 if 'Nº Pedido Original' in rotas_df.columns:
-                                    rotas_df['ID Pedido'] = rotas_df['Nº Pedido Original']
-                                    rotas_df = rotas_df.drop(columns=['Nº Pedido Original'], errors='ignore')
+                                    rotas_df['ID Pedido'] = rotas_df['Nº Pedido Original'] # Garante que 'ID Pedido' seja o original
+                                    # Não remove 'Nº Pedido Original' ainda, pode ser útil para debug ou logs
                             except Exception as merge_id_err:
                                 st.warning(f"Não foi possível ajustar o campo 'ID Pedido' para o valor correto do pedido original: {merge_id_err}")
-                        # --- FIM DO AJUSTE DE ID PEDIDO ---
-                        # --- FIM DA MOVIMENTAÇÃO ---
+                        
+                        # --- INÍCIO DA INTEGRAÇÃO DO PÓS-PROCESSAMENTO COMPLETO ---
 
+                        st.subheader("Iniciando Pós-processamento Completo das Rotas...")
+                        st.markdown("### Resumo do Pós-processamento das Rotas")
+                        st.info(f"""
+                        O pós-processamento executa as seguintes etapas:
+                        1. **Alocação inicial por capacidade e região**
+                        2. **Priorização de regiões preferidas dos veículos** ({'ativada' if respeitar_regioes_preferidas else 'desativada'})
+                        3. **Agrupamento flexível de regiões e realocação de pedidos**
+                        4. **Checagem e correção de excesso de carga**
+                        5. **Marcação de pedidos sem veículo como restritos**
+                        6. **Realocação iterativa de pedidos restritos** (raio: {raio_max_km} km)
+                        7. **Balanceamento final de carga entre veículos**
+                        
+                        Opções avançadas:
+                        - **Heurística aplicada:** {tipo_heuristica if aplicar_pos else 'Nenhuma'}
+                        - **Balanceamento automático:** {'Sim' if balanceamento_auto else 'Não'}
+                        - **Reserva de veículos para regiões críticas:** {'Sim' if usar_reserva_regioes else 'Não'}
+                        - **Heurística de vizinhança:** {'Sim' if usar_vizinhanca else 'Não'}
+                        - **Máximo de paradas por sub-rota (split):** {max_paradas_split if aplicar_pos and tipo_heuristica == 'split' else 'N/A'}
+                        """)
+                        progress_bar_pos = st.progress(0, text="Iniciando Pós-processamento Completo das Rotas...")
+                        status_text_pos = st.empty()
+                        import threading
+                        import time
+                        pos_result = {}
+                        pos_exception = {}
+                        start_time_pos = time.time()
 
+                        def update_progress_pos(progress_value, message):
+                            progress_bar_pos.progress(progress_value, text=message)
+                            status_text_pos.text(message)
 
-                        from routing.pos_processamento import balanceamento_iterativo, reservar_veiculos_para_regioes, mover_para_vizinho_proximo, sugerir_agrupamento_ml
-                        from routing.pos_processamento import realocar_pedidos_restritos, priorizar_regioes_preferidas, alocar_1_veiculo_por_regiao, alocar_veiculos_por_capacidade_regiao
+                        def run_pos_processamento():
+                            try:
+                                # Prepara os DataFrames necessários para o pós-processamento
+                                if 'Peso dos Itens' in pedidos_validos.columns and 'Pedido_Index_DF' in rotas_df.columns:
+                                    demanda_map = pedidos_validos.reset_index(drop=True).reset_index().set_index('index')['Peso dos Itens']
+                                    rotas_df['Demanda'] = rotas_df['Pedido_Index_DF'].map(demanda_map).fillna(0)
+                                else:
+                                    rotas_df['Demanda'] = 0 # Fallback se não puder mapear
 
-                        # 1º: Garante 1 veículo por região
-                        rotas_df = alocar_1_veiculo_por_regiao(rotas_df, frota, pedidos_validos)
+                                # Garante 'ID Veículo' na frota
+                                if 'ID Veículo' not in frota.columns and 'Placa' in frota.columns:
+                                    frota['ID Veículo'] = frota['Placa']
+                                elif 'ID Veículo' not in frota.columns:
+                                    frota['ID Veículo'] = [f"Veiculo_{i+1}" for i in range(len(frota))]
 
-                        # 2º: Priorizar regiões preferidas, se ativado
-                        if respeitar_regioes_preferidas:
-                            rotas_df, n_realocados_regioes = priorizar_regioes_preferidas(rotas_df, frota, pedidos_validos)
-                            st.info(f"Restrições de Regiões Preferidas ATIVAS: {n_realocados_regioes} pedidos realocados para veículos com regiões preferidas.")
+                                rotas_df_pos_processado = executar_pos_processamento_completo(
+                                    rotas_df.copy(),  # Passa uma cópia para evitar modificações inesperadas no original
+                                    frota.copy(),
+                                    pedidos_validos.copy(), # Usa pedidos_validos que tem 'RegiaoParaRoteirizacao'
+                                    matriz_distancias,
+                                    progress_callback=update_progress_pos,
+                                    respeitar_regioes_preferidas=respeitar_regioes_preferidas, # Passa a opção do UI
+                                    raio_km_realocacao_restritos=raio_max_km, # Passa o raio do UI
+                                )
+                                pos_result['rotas_df'] = rotas_df_pos_processado
+                            except Exception as e:
+                                pos_exception['error'] = e
+
+                        thread_pos = threading.Thread(target=run_pos_processamento)
+                        thread_pos.start()
+
+                        progress = 0.0
+                        while thread_pos.is_alive():
+                            elapsed = time.time() - start_time_pos
+                            elapsed_formatted = time.strftime('%H:%M:%S', time.gmtime(elapsed))
+                            # Progresso "fake" (incrementa até 95% enquanto roda)
+                            progress = min(progress + 0.01, 0.95)
+                            progress_bar_pos.progress(progress, text=f"Pós-processamento em andamento... | Decorrido: {elapsed_formatted}")
+                            status_text_pos.text(f"Pós-processamento em andamento... | Decorrido: {elapsed_formatted}")
+                            time.sleep(0.1)
+                        thread_pos.join()
+                        elapsed = time.time() - start_time_pos
+                        elapsed_formatted = time.strftime('%H:%M:%S', time.gmtime(elapsed))
+                        progress_bar_pos.progress(1.0, text=f"Pós-processamento finalizado em {elapsed_formatted}")
+                        status_text_pos.success(f"Pós-processamento finalizado em {elapsed_formatted}")
+
+                        if 'error' in pos_exception:
+                            status_text_pos.error(f"Erro durante o pós-processamento completo: {pos_exception['error']}")
+                            st.exception(pos_exception['error'])
                         else:
-                            st.caption("Restrições de regiões preferidas DESATIVADAS. Pedidos podem ser alocados para qualquer veículo, respeitando apenas capacidade e demais regras.")
-
-                        # 3º: Desaloca veículos de regiões com excesso de carga
-                        id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
-                        capacidades = frota.set_index(id_col)['Capacidade (Kg)'].to_dict() if 'Capacidade (Kg)' in frota.columns else {}
-                        if 'Veículo' in rotas_df.columns and 'Demanda' in rotas_df.columns and 'Região' in rotas_df.columns:
-                            for veic, grupo in rotas_df.groupby('Veículo'):
-                                cap = capacidades.get(veic, None)
-                                if cap is None:
-                                    continue
-                                demanda_total = grupo['Demanda'].sum()
-                                if demanda_total > cap:
-                                    # Desaloca todos os pedidos desse veículo para forçar redistribuição
-                                    rotas_df.loc[grupo.index, 'Veículo'] = None
-
-                        # 4º: Garante veículos suficientes por capacidade
-                        rotas_df = alocar_veiculos_por_capacidade_regiao(rotas_df, frota, pedidos_validos)
-                        # Garante a existência da coluna 'Alocacao_Restrita' (inicializa como False se não existir)
-                        if 'Alocacao_Restrita' not in rotas_df.columns:
-                            rotas_df['Alocacao_Restrita'] = False
-                        st.info("Aplicada restrição: 1 veículo por região e capacidade máxima respeitada.")
-                        n_restritos = rotas_df['Alocacao_Restrita'].sum() if 'Alocacao_Restrita' in rotas_df.columns else 0
-                        if n_restritos > 0:
-                            st.warning(f"{n_restritos} pedidos estão fora das regiões permitidas do veículo e foram marcados como restritos.")
-
-                        # 5º: Realocação automática de pedidos restritos
-                        rotas_df, n_realocados_restritos = realocar_pedidos_restritos(rotas_df, frota, pedidos_validos, raio_km=raio_max_km)
-                        if n_realocados_restritos > 0:
-                            st.success(f"{n_realocados_restritos} pedidos restritos foram realocados automaticamente para veículos vizinhos com capacidade e região compatível.")
-                        n_restritos_final = rotas_df['Alocacao_Restrita'].sum() if 'Alocacao_Restrita' in rotas_df.columns else 0
-                        if n_restritos_final > 0:
-                            st.warning(f"{n_restritos_final} pedidos permanecem restritos após tentativa de realocação automática.")
-
-                        # ML agrupamento (placeholder)
-                        if usar_ml:
-                            pedidos_validos = sugerir_agrupamento_ml(pedidos_validos)
-                            st.info("Agrupamento sugerido por ML aplicado (experimental).")
-                        # Reserva de veículos para regiões críticas
-                        if usar_reserva_regioes:
-                            rotas_df = reservar_veiculos_para_regioes(rotas_df, frota, pedidos_validos, n_reservas=min(2, len(frota)))
-                            st.info("Reserva de veículos para regiões críticas aplicada.")
-
-                        # Balanceamento iterativo (peso, paradas, região)
-                        if balanceamento_auto:
-                            rotas_df = balanceamento_iterativo(rotas_df, frota, pedidos_validos, matriz_distancias)
-                            st.info("Balanceamento avançado aplicado: peso, paradas, região e vizinhança.")
-                        # Heurística de vizinhança extra (opcional)
-                        if usar_vizinhanca:
-                            rotas_df = mover_para_vizinho_proximo(rotas_df, matriz_distancias)
-                            st.info("Heurística de vizinhança aplicada após balanceamento.")
-
-                            # (Regra de ocupação mínima por veículo removida)
-
-
-                        # --- Checagem de excesso de carga (ajuste conforme slider) ---
-                        from routing.pos_processamento import checar_e_corrigir_excesso_carga
-                        rotas_df, excesso_final = checar_e_corrigir_excesso_carga(rotas_df, frota, limite_pct=ajuste_capacidade_pct)
-                        if excesso_final:
-                            st.error(f"Atenção: Alguns veículos ultrapassaram o limite de {ajuste_capacidade_pct}% da capacidade após o balanceamento!")
-                            for veic, demanda, cap in excesso_final:
-                                st.warning(f"Veículo {veic}: {demanda:.1f} kg (limite: {cap:.1f} kg)")
-
-                        # NÃO reaplicar alocar_1_veiculo_por_regiao aqui!
-                        # Isso causava excesso de carga pois concentrava tudo em um só veículo por região.
-                        # Se quiser garantir que cada região tenha pelo menos 1 veículo, faça isso só no início do pipeline.
+                            rotas_df = pos_result.get('rotas_df', rotas_df)
+                            st.dataframe(rotas_df, use_container_width=True) # Mostra o resultado final
+                        # --- FIM DA INTEGRAÇÃO DO PÓS-PROCESSAMENTO COMPLETO ---
 
                         # Adicionar data e hora da roteirização e salvar CSV
                         if rotas_df is not None and not rotas_df.empty:
