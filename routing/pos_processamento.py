@@ -446,7 +446,9 @@ def alocar_1_veiculo_por_regiao(rotas_df, frota, pedidos):
     Compatibilidade: chama a função unificada com modo '1_veiculo_por_regiao'.
     """
     return alocar_veiculos_por_capacidade_regiao(rotas_df, frota, pedidos, modo='1_veiculo_por_regiao', marcar_restrito=True)
-def realocar_pedidos_restritos(rotas_df, frota, pedidos, raio_km=20):
+def realocar_pedidos_restritos(rotas_df, frota, pedidos, raio_km=5):
+    # Raio padrão fixo de 5km para realocação
+    raio_km = 5
     # Garante que a frota tenha as colunas de janela de tempo e preenche valores padrão se necessário
     if 'Janela Início' not in frota.columns:
         frota['Janela Início'] = '05:00'
@@ -571,7 +573,7 @@ def realocar_pedidos_restritos(rotas_df, frota, pedidos, raio_km=20):
             realocados += 1
     return rotas_df, realocados
 
-def alocar_regiao_predominante_com_agrupamento_vizinho(rotas_df, frota, pedidos, raio_km, capacidade_min_pct=0.5, min_pedidos=5, capacidade_col='Capacidade (Kg)', demanda_col='Demanda'):
+def alocar_regiao_predominante_com_agrupamento_vizinho(rotas_df, frota, pedidos, raio_km=5, capacidade_min_pct=0.5, min_pedidos=5, capacidade_col='Capacidade (Kg)', demanda_col='Demanda'):
     """
     Aloca pedidos priorizando a região predominante do veículo, permitindo agrupamento
     com uma região vizinha mais próxima se o veículo estiver subutilizado.
@@ -585,6 +587,8 @@ def alocar_regiao_predominante_com_agrupamento_vizinho(rotas_df, frota, pedidos,
        centroide da sua própria região.
     5. Pedidos fora dessas condições são marcados como 'Alocacao_Restrita'.
     """
+    # Raio padrão fixo de 5km para agrupamento
+    raio_km = 5
     if rotas_df is None or rotas_df.empty:
         logging.warning("alocar_regiao_predominante_com_agrupamento_vizinho: rotas_df vazio.")
         return rotas_df
@@ -672,51 +676,43 @@ def alocar_regiao_predominante_com_agrupamento_vizinho(rotas_df, frota, pedidos,
             precisa_agrupar = True
         
         if precisa_agrupar:
-            logging.info(f"Veículo {veic_id} (Região Pred: {regiao_pred_veic_nome}, Carga: {carga_atual_kg}/{capacidade_do_veiculo} kg, Pedidos: {num_pedidos_atual}) subutilizado. Buscando em região vizinha.")
-            
-            regiao_vizinha_mais_proxima_nome = None
-            menor_dist_vizinha = float('inf')
-
+            logging.info(f"Veículo {veic_id} (Região Pred: {regiao_pred_veic_nome}, Carga: {carga_atual_kg}/{capacidade_do_veiculo} kg, Pedidos: {num_pedidos_atual}) subutilizado. Buscando em regiões vizinhas.")
+            # NOVO: Permitir múltiplas regiões vizinhas dentro do raio
+            regioes_vizinhas = []
             for reg_vizinha_cand_nome, centroide_reg_vizinha_cand in centroides_todas_regioes.items():
                 if reg_vizinha_cand_nome == regiao_pred_veic_nome:
                     continue
                 dist_pred_a_vizinha = geodesic(centroide_reg_pred_veic, centroide_reg_vizinha_cand).km
-                if dist_pred_a_vizinha <= raio_km and dist_pred_a_vizinha < menor_dist_vizinha:
-                    menor_dist_vizinha = dist_pred_a_vizinha
-                    regiao_vizinha_mais_proxima_nome = reg_vizinha_cand_nome
-            
-            if regiao_vizinha_mais_proxima_nome:
-                logging.info(f"Veículo {veic_id}: Região vizinha mais próxima: {regiao_vizinha_mais_proxima_nome} (Dist: {menor_dist_vizinha:.2f} km).")
-                centroide_reg_vizinha_escolhida = centroides_todas_regioes[regiao_vizinha_mais_proxima_nome]
-                
-                pedidos_candidatos_da_vizinha = rotas_df_proc[
-                    (rotas_df_proc['Região'] == regiao_vizinha_mais_proxima_nome) &
-                    ((rotas_df_proc['Veículo'] != veic_id) | rotas_df_proc['Veículo'].isnull())
-                ].copy() # Usar cópia para evitar problemas de iteração e modificação
-                
-                # Ordenar por alguma prioridade? Ex: menores demandas primeiro?
-                # pedidos_candidatos_da_vizinha = pedidos_candidatos_da_vizinha.sort_values(by=demanda_col)
+                if dist_pred_a_vizinha <= raio_km:
+                    regioes_vizinhas.append(reg_vizinha_cand_nome)
 
-                for idx_pedido_vizinho, pedido_vizinho_row in pedidos_candidatos_da_vizinha.iterrows():
+            if regioes_vizinhas:
+                logging.info(f"Veículo {veic_id}: Regiões vizinhas dentro do raio: {regioes_vizinhas}.")
+                pedidos_candidatos_vizinhos = rotas_df_proc[
+                    rotas_df_proc['Região'].isin(regioes_vizinhas) &
+                    ((rotas_df_proc['Veículo'] != veic_id) | rotas_df_proc['Veículo'].isnull())
+                ].copy()
+
+                for idx_pedido_vizinho, pedido_vizinho_row in pedidos_candidatos_vizinhos.iterrows():
                     coord_pedido_vizinho = (pedido_vizinho_row['Latitude'], pedido_vizinho_row['Longitude'])
                     demanda_pedido_vizinho = pedido_vizinho_row[demanda_col]
 
                     if pd.isnull(coord_pedido_vizinho[0]) or pd.isnull(coord_pedido_vizinho[1]) or pd.isnull(demanda_pedido_vizinho):
                         continue
-
-                    dist_ped_vizinho_a_centroide_vizinha = geodesic(coord_pedido_vizinho, centroide_reg_vizinha_escolhida).km
-                    
+                    # Checa se o pedido está próximo do centroide da sua própria região
+                    centroide_reg_vizinha = centroides_todas_regioes.get(pedido_vizinho_row['Região'])
+                    if centroide_reg_vizinha is None:
+                        continue
+                    dist_ped_vizinho_a_centroide_vizinha = geodesic(coord_pedido_vizinho, centroide_reg_vizinha).km
                     if dist_ped_vizinho_a_centroide_vizinha <= raio_km:
                         if carga_atual_kg + demanda_pedido_vizinho <= capacidade_do_veiculo:
                             veiculo_anterior = rotas_df_proc.at[idx_pedido_vizinho, 'Veículo']
                             rotas_df_proc.at[idx_pedido_vizinho, 'Veículo'] = veic_id
                             rotas_df_proc.at[idx_pedido_vizinho, 'Alocacao_Restrita'] = False
-                            
                             carga_atual_kg += demanda_pedido_vizinho
-                            num_pedidos_atual +=1
-                            
+                            num_pedidos_atual += 1
                             pedido_id_log_vizinho = pedido_vizinho_row.get('Pedido_Index_DF', idx_pedido_vizinho)
-                            logging.info(f"Pedido {pedido_id_log_vizinho} (Reg: {regiao_vizinha_mais_proxima_nome}) movido do veículo '{veiculo_anterior if pd.notnull(veiculo_anterior) else 'NÃO ALOCADO'}' para veículo {veic_id} (Região Pred: {regiao_pred_veic_nome}).")
+                            logging.info(f"Pedido {pedido_id_log_vizinho} (Reg: {pedido_vizinho_row['Região']}) movido do veículo '{veiculo_anterior if pd.notnull(veiculo_anterior) else 'NÃO ALOCADO'}' para veículo {veic_id} (Região Pred: {regiao_pred_veic_nome}).")
     
     for veic_id_final in rotas_df_proc['Veículo'].dropna().unique():
         pedidos_veic_final = rotas_df_proc[rotas_df_proc['Veículo'] == veic_id_final]
@@ -983,7 +979,7 @@ def priorizar_regioes_preferidas(rotas_df, frota, pedidos):
     return rotas_df, realocados
 
 # --- NOVAS FUNÇÕES DE LOOPS INTELIGENTES ---
-def loop_realocacao_pedidos_restritos(rotas_df, frota, pedidos, raio_km=20, max_iter=10):
+def loop_realocacao_pedidos_restritos(rotas_df, frota, pedidos, raio_km=5, max_iter=10):
     """
     Repete a realocação de pedidos restritos até que o número de pedidos restritos não diminua mais.
     Retorna o DataFrame final e o número de realocações totais.

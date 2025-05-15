@@ -279,7 +279,7 @@ def show():
             # NOVO: Opção para agrupar regiões vizinhas automaticamente
             agrupar_regioes_vizinhas = st.checkbox(
                 "Agrupar regiões vizinhas automaticamente (reduzir número de regiões)",
-                value=False,
+                value=True,
                 help="Se ativado, regiões próximas serão agrupadas em super-regiões usando o mesmo raio da realocação de pedidos restritos. Isso reduz o número de regiões para a roteirização."
             )
             if 'Cluster' in pedidos_validos.columns:
@@ -324,8 +324,18 @@ def show():
             # 3. DBSCAN com métrica haversine (raio da Terra ~6371km)
             db = DBSCAN(eps=raio_km/6371, min_samples=min_regioes_por_grupo, metric='haversine')
             labels = db.fit_predict(coords_rad)
-            centroides['SuperRegiao'] = labels
-            # 4. Mapear cada região para seu cluster
+            centroides['SuperRegiaoLabel'] = labels
+            # 4. Para cada label, criar um nome legível de super-região
+            label_to_regioes = centroides.groupby('SuperRegiaoLabel')['Região'].apply(list).to_dict()
+            label_to_nome = {}
+            for label, regs in label_to_regioes.items():
+                if len(regs) == 1:
+                    label_to_nome[label] = regs[0]
+                else:
+                    # Nome composto, ordenado
+                    label_to_nome[label] = ' + '.join(sorted(regs))
+            centroides['SuperRegiao'] = centroides['SuperRegiaoLabel'].map(label_to_nome)
+            # 5. Mapear cada região para seu nome de super-região
             mapa_regiao_super = dict(zip(centroides['Região'], centroides['SuperRegiao']))
             pedidos_validos['SuperRegiao'] = pedidos_validos['Região'].map(mapa_regiao_super)
             return pedidos_validos, centroides
@@ -334,7 +344,7 @@ def show():
         st.subheader("Configuração de Raio para Realocação de Pedidos Restritos e Agrupamento de Regiões")
         raio_max_km = st.number_input(
             "Raio máximo para realocação de pedidos restritos e agrupamento de regiões (km)",
-            min_value=1, max_value=100, value=20, step=1,
+            min_value=1, max_value=100, value=5, step=1,
             help="Este valor será utilizado tanto para o agrupamento automático de regiões vizinhas quanto para a realocação de pedidos restritos. Valor padrão: 20 km."
         )
 
@@ -354,7 +364,7 @@ def show():
         st.subheader("Restrições de Regiões Preferidas da Frota")
         respeitar_regioes_preferidas = st.checkbox(
             "Respeitar Regiões Preferidas dos Veículos",
-            value=False,
+            value=True,
             help="Se ativado, o sistema tentará alocar pedidos preferencialmente para veículos que tenham a região do pedido em suas regiões preferidas, respeitando a capacidade."
         )
         st.subheader("Opções Avançadas de Pós-Processamento e Exportação")
@@ -643,7 +653,7 @@ def show():
                                             tipo_heuristica=tipo_heuristica if aplicar_pos else '2opt',
                                             kwargs_heuristica={"max_paradas_por_subrota": max_paradas_split} if aplicar_pos and tipo_heuristica == "split" else {},
                                             ajuste_capacidade_pct=ajuste_capacidade_pct,
-                                            respeitar_regioes_preferidas=respeitar_regioes_preferidas
+                                            respeitar_regioes_preferidas=True
                                         )
                                     else:
                                         rotas = solver_cvrp_por_cluster(
@@ -653,7 +663,7 @@ def show():
                                             tipo_heuristica=tipo_heuristica if aplicar_pos else '2opt',
                                             kwargs_heuristica={"max_paradas_por_subrota": max_paradas_split} if aplicar_pos and tipo_heuristica == "split" else {},
                                             ajuste_capacidade_pct=ajuste_capacidade_pct,
-                                            respeitar_regioes_preferidas=respeitar_regioes_preferidas
+                                            respeitar_regioes_preferidas=True
                                         )
                                     solver_result['rotas'] = rotas
                             elif tipo == "CVRP Flex":
@@ -832,8 +842,11 @@ def show():
                         start_time_pos = time.time()
 
                         def update_progress_pos(progress_value, message):
-                            progress_bar_pos.progress(progress_value, text=message)
-                            status_text_pos.text(message)
+                            try:
+                                progress_bar_pos.progress(progress_value, text=message)
+                                status_text_pos.text(message)
+                            except Exception as e:
+                                pass  # Ignora erros de contexto de sessão Streamlit
 
                         def run_pos_processamento():
                             try:
@@ -856,7 +869,7 @@ def show():
                                     pedidos_validos.copy(), # Usa pedidos_validos que tem 'RegiaoParaRoteirizacao'
                                     matriz_distancias,
                                     progress_callback=update_progress_pos,
-                                    respeitar_regioes_preferidas=respeitar_regioes_preferidas, # Passa a opção do UI
+                                    respeitar_regioes_preferidas=True, # Sempre True
                                     raio_km_realocacao_restritos=raio_max_km, # Passa o raio do UI
                                 )
                                 pos_result['rotas_df'] = rotas_df_pos_processado

@@ -1,5 +1,8 @@
 # Função auxiliar: solver CVRP por cluster/região
 def solver_cvrp_por_cluster(pedidos, frota, matriz_distancias, pos_processamento=None, coluna_cluster='Cluster', **kwargs):
+    # Remove 'respeitar_regioes_preferidas' de kwargs para evitar conflito
+    if 'respeitar_regioes_preferidas' in kwargs:
+        kwargs.pop('respeitar_regioes_preferidas')
     """
     Executa o solver CVRP separadamente para cada cluster/região, concatenando o resultado.
     - pedidos: DataFrame de pedidos, deve conter coluna de cluster/região.
@@ -12,8 +15,12 @@ def solver_cvrp_por_cluster(pedidos, frota, matriz_distancias, pos_processamento
     import pandas as pd
     import numpy as np
     from .cvrp import solver_cvrp
+    # Permite usar 'RegiaoParaRoteirizacao' como nome padrão de cluster, se existir
     if coluna_cluster not in pedidos.columns:
-        raise ValueError(f"Coluna '{coluna_cluster}' não encontrada nos pedidos para roteirização por cluster.")
+        if 'RegiaoParaRoteirizacao' in pedidos.columns:
+            coluna_cluster = 'RegiaoParaRoteirizacao'
+        else:
+            raise ValueError(f"Coluna '{coluna_cluster}' não encontrada nos pedidos para roteirização por cluster.")
     resultados = []
     clusters = pedidos[coluna_cluster].dropna().unique()
     # --- NOVO: Mapeamento de veículos para regiões preferidas ---
@@ -33,7 +40,7 @@ def solver_cvrp_por_cluster(pedidos, frota, matriz_distancias, pos_processamento
         if pedidos_cluster.empty:
             continue
         # Veículos que preferem essa região
-        veics_pref = [v for v, regs in regioes_preferidas_dict.items() if cluster.lower() in regs]
+        veics_pref = [v for v, regs in regioes_preferidas_dict.items() if str(cluster).lower() in regs]
         if not veics_pref:
             continue  # Não há veículo preferencial para essa região
         # Monta nova matriz de distâncias: depósito + pedidos do cluster
@@ -207,10 +214,9 @@ def solver_cvrp(pedidos, frota, matriz_distancias, pos_processamento=None, **kwa
     search_parameters.first_solution_strategy = (
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
     )
-    search_parameters.local_search_metaheuristic = (
-        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
-    )
-    search_parameters.time_limit.seconds = 30 # Adiciona um limite de tempo
+    # Não define local_search_metaheuristic para compatibilidade com todas as versões do OR-Tools
+    # Reduz o tempo limite para 10 segundos
+    search_parameters.time_limit.seconds = 10
 
     # --- Resolução ---
     logger.info("Iniciando a resolução do CVRP com OR-Tools...")
@@ -324,11 +330,13 @@ def solver_cvrp(pedidos, frota, matriz_distancias, pos_processamento=None, **kwa
 
     else:
         logger.warning("Solver CVRP não encontrou solução.")
+        # Corrige: constantes de status do OR-Tools podem não estar disponíveis como atributos do objeto routing
         status_map = {
-            routing.ROUTING_NOT_SOLVED: 'NOT_SOLVED',
-            routing.ROUTING_FAIL: 'FAIL',
-            routing.ROUTING_FAIL_TIMEOUT: 'FAIL_TIMEOUT',
-            routing.ROUTING_INVALID: 'INVALID',
+            0: 'NOT_SOLVED',
+            1: 'SUCCESS',
+            2: 'FAIL',
+            3: 'FAIL_TIMEOUT',
+            4: 'INVALID',
         }
         logger.warning(f"Status da solução: {routing.status()} ({status_map.get(routing.status(), 'UNKNOWN')})")
         # Tentar fornecer mais detalhes sobre a inviabilidade, se possível

@@ -477,7 +477,9 @@ if veiculo_selecionado:
                 folium.Marker(coords[0], icon=folium.Icon(color='blue', icon='home'), tooltip='Início').add_to(m)
                 folium.Marker(coords[-1], icon=folium.Icon(color='red', icon='flag'), tooltip='Fim').add_to(m)
                 folium.PolyLine(coords, color='green', weight=2.5, opacity=0.8).add_to(m)
-                st_folium(m, width=None, height=500, key="mapa_rota_selecionada")
+                # Gera chave única para o mapa usando veículo e cenário
+                map_key = f"mapa_rota_selecionada_{veiculo_selecionado}_{id_cenario_atual or ''}"
+                st_folium(m, width=None, height=500, key=map_key)
                 # --- Link Google Maps com todos os pedidos em rota (logo abaixo do mapa) ---
                 pontos = rota_veiculo_selecionado.dropna(subset=['Latitude', 'Longitude'])
                 if not pontos.empty:
@@ -557,7 +559,9 @@ if veiculo_selecionado:
                 folium.Marker(coords[0], icon=folium.Icon(color='blue', icon='home'), tooltip='Início').add_to(m)
                 folium.Marker(coords[-1], icon=folium.Icon(color='red', icon='flag'), tooltip='Fim').add_to(m)
                 folium.PolyLine(coords, color='green', weight=2.5, opacity=0.8).add_to(m)
-                st_folium(m, width=None, height=500, key="mapa_rota_selecionada")
+                # Gera chave única para o mapa usando veículo e cenário
+                map_key = f"mapa_rota_selecionada_{veiculo_selecionado}_{id_cenario_atual or ''}"
+                st_folium(m, width=None, height=500, key=map_key)
             else:
                 st.warning("Nenhum ponto válido encontrado para exibir no mapa.")
         else:
