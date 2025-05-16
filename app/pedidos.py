@@ -16,8 +16,19 @@ OPENCAGE_KEYS = [
 key_cycle = itertools.cycle(OPENCAGE_KEYS)
 
 def definir_regiao(row):
-    cidade = str(row.get("Cidade de Entrega", "")).strip()
-    bairro = str(row.get("Bairro de Entrega", "")).strip()
+    # Tenta obter cidade e bairro, mesmo que só exista Endereço Completo
+    cidade = str(row.get("Cidade de Entrega", "")).strip() if "Cidade de Entrega" in row else ""
+    bairro = str(row.get("Bairro de Entrega", "")).strip() if "Bairro de Entrega" in row else ""
+    # Se não tem cidade, tenta extrair do Endereço Completo
+    if not cidade and "Endereço Completo" in row:
+        endereco = str(row.get("Endereço Completo", ""))
+        partes = [p.strip() for p in endereco.split(",") if p.strip()]
+        if len(partes) >= 2:
+            cidade_estado = partes[-1]
+            if "-" in cidade_estado:
+                cidade = cidade_estado.split("-")[0].strip()
+            elif len(partes) >= 2:
+                cidade = partes[-2]
     # Dicionário básico de bairros para zonas de SP (pode ser expandido conforme necessidade)
     bairro_zona = {
         # Zona Sul
@@ -32,30 +43,61 @@ def definir_regiao(row):
         "sé": "Centro", "república": "Centro", "bela vista": "Centro", "liberdade": "Centro", "santa cecília": "Centro", "consolação": "Centro", "brás": "Centro", "bom retiro": "Centro", "cambuci": "Centro", "pari": "Centro"
     }
 
-    if cidade.lower() == "são paulo":
+    if cidade.lower() == "sao paulo" or cidade.lower() == "são paulo":
+        lat = row.get("Latitude")
+        lon = row.get("Longitude")
+        try:
+            lat = float(lat) if lat is not None and lat != '' else None
+            lon = float(lon) if lon is not None and lon != '' else None
+        except Exception:
+            lat, lon = None, None
+        if lat is not None and lon is not None:
+            # Limites aproximados das zonas de SP (ajustados para garantir que sempre caia em uma zona)
+            # Centro: região próxima ao marco zero
+            if -23.553 < lat < -23.540 and -46.655 < lon < -46.625:
+                return "Centro - São Paulo"
+            # Zona Sul
+            elif lat <= -23.60:
+                return "Zona Sul - São Paulo"
+            # Zona Norte
+            elif lat >= -23.48:
+                return "Zona Norte - São Paulo"
+            # Zona Leste
+            elif lon >= -46.60:
+                return "Zona Leste - São Paulo"
+            # Zona Oeste (qualquer outro caso)
+            else:
+                return "Zona Oeste - São Paulo"
+        # fallback: bairro
         bairro_lower = bairro.lower()
         zona = bairro_zona.get(bairro_lower)
         if zona:
             return f"{zona} - São Paulo"
         elif bairro:
-            return f"Zona Desconhecida - São Paulo"
+            # Se não encontrou, força Zona Oeste como padrão
+            return "Zona Oeste - São Paulo"
         else:
-            return "Zona Desconhecida - São Paulo"
+            return "Zona Oeste - São Paulo"
     elif cidade:
         return cidade
     # fallback: tenta extrair do endereço completo
     endereco = str(row.get("Endereço Completo", ""))
     partes = [p.strip() for p in endereco.split(",") if p.strip()]
+    # Tenta identificar cidade pelo padrão "Cidade - Estado" no final
     if len(partes) >= 2:
-        if "são paulo" in partes[-2].lower() and len(partes) >= 3:
-            bairro_fallback = partes[-3].lower()
-            zona = bairro_zona.get(bairro_fallback)
-            if zona:
-                return f"{zona} - São Paulo"
-            else:
-                return "Zona Desconhecida - São Paulo"
-        return partes[-2]
-    return "N/A"
+        cidade_estado = partes[-1]
+        if "-" in cidade_estado:
+            cidade_nome = cidade_estado.split("-")[0].strip()
+            if cidade_nome.lower() == "são paulo":
+                # Se for São Paulo, força Zona Oeste
+                return "Zona Oeste - São Paulo"
+            elif cidade_nome:
+                return cidade_nome
+        # Se não, retorna só a cidade se possível
+        if len(partes) >= 2:
+            return partes[-2]
+    # Se não conseguiu identificar, retorna "Outra Região"
+    return "Outra Região"
 
 def obter_coordenadas_opencage(endereco):
     key = next(key_cycle)

@@ -1,23 +1,24 @@
 Endereço Completo,Latitude,Longitude,Região
 "Rua Antonio Joaquim Mendes, 471, Pirassununga - São Paulo",-21.99611,-47.42583,Pirassununga
-"Rua Municipal do Jacu, S/n, Itu - São Paulo",-23.26417,-47.29917,
-"Rua do Cafe, 156, Sao Paulo - São Paulo",-23.0406497,-47.0125271,
-"Rua das Bandeiras, 17 a, Itapecerica da Serra - São Paulo",-23.71694,-46.84917,
-"Rua Aeroporto, 514, Iguape - São Paulo",-24.70806,-47.55528,
-"Rua Passo da Patria, 1651, Sao Paulo - São Paulo",-23.5235341,-46.7321923,
-"Rua de Taipas, 2549, Sao Paulo - São Paulo",-23.4248896,-46.7161721,
-"Rua Ayrton Senna da Silva, S/n - Km 29.5 Mg/sp, Guarulhos - São Paulo",-23.46278,-46.53333,GUARULHOS
-"Rua Joao da Cruz e Sousa, 05, Sao Paulo - São Paulo",-23.597507,-46.4300981,São Paulo
-"Rua Lino Pinto dos Santos, 22 - 26, Sao Paulo - São Paulo",-23.4962277,-46.7268044,São Paulo
+"Rua Pascoal Santi, 328, Cabreuva - São Paulo",-23.3075,-47.13278,Cabreuva
+"Rua Municipal do Jacu, S/n, Itu - São Paulo",-23.26417,-47.29917,Itu
+"Rua do Cafe, 156, Sao Paulo - São Paulo",-23.0406497,-47.0125271,Zona Norte - São Paulo
+"Rua das Bandeiras, 17 a, Itapecerica da Serra - São Paulo",-23.71694,-46.84917,Itapecerica da Serra
+"Rua Aeroporto, 514, Iguape - São Paulo",-24.70806,-47.55528,Iguape
+"Rua Passo da Patria, 1651, Sao Paulo - São Paulo",-23.5235341,-46.7321923,Zona Oeste - São Paulo
+"Rua de Taipas, 2549, Sao Paulo - São Paulo",-23.4248896,-46.7161721,Zona Norte - São Paulo
+"Rua Ayrton Senna da Silva, S/n - Km 29.5 Mg/sp, Guarulhos - São Paulo",-23.46278,-46.53333,Guarulhos
+"Rua Joao da Cruz e Sousa, 05, Sao Paulo - São Paulo",-23.597507,-46.4300981,Zona Leste - São Paulo
+"Rua Lino Pinto dos Santos, 22 - 26, Sao Paulo - São Paulo",-23.4962277,-46.7268044,Zona Oeste - São Paulo
 "Rua Amaro Godinho, 964, São Roque - São Paulo",-23.6052592,-47.1651961,São Roque
-"Rua Raimundo Pereira de Magalhaes, 2541, Sao Paulo - São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Dr Heitor Nascimento, 30, Sao Paulo - São Paulo",-23.496633,-46.7047577,São Paulo
-"Rua Benedita Dornellas Claro, 151, Sao Paulo - São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Lucila Rocha, 30, Sao Paulo - São Paulo",-23.5034202,-46.6644538,São Paulo
-"Rua Antonio Ortega, 3604, Cabreuva - São Paulo",-23.3075,-47.13278,CABREUVA
-"Rua Antonio Ortega, 3604, Cabreuva, São Paulo",-23.3075,-47.13278,
+"Rua Raimundo Pereira de Magalhaes, 2541, Sao Paulo - São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Dr Heitor Nascimento, 30, Sao Paulo - São Paulo",-23.496633,-46.7047577,Zona Oeste - São Paulo
+"Rua Benedita Dornellas Claro, 151, Sao Paulo - São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Lucila Rocha, 30, Sao Paulo - São Paulo",-23.5034202,-46.6644538,Zona Oeste - São Paulo
+"Rua Antonio Ortega, 3604, Cabreuva, São Paulo",-23.3075,-47.13278,Cabreuva
+"Rua Antonio Ortega, 3604, Cabreuva - São Paulo",-23.3075,-47.13278,Cabreuva
 "Rua Seriemas, Das, 550, Vila Mathiesen, Americana, São Paulo",-22.7679745,-47.3267778,Americana
-"Rua Professor Toledo, 194, Centro, Araçoiaba Da Serra, São Paulo",-23.5050525,-47.6182181,Araçoiaba da Serra
+"Rua Professor Toledo, 194, Centro, Araçoiaba Da Serra, São Paulo",-23.5050525,-47.6182181,Araçoiaba Da Serra
 "Avenida Walter Engracia De Oliveira, 39, Estancia Lynce, Atibaia, São Paulo",-23.1248363,-46.5514725,Atibaia
 "Avenida São João, 1115, Centro, Atibaia, São Paulo",-23.1132246,-46.5569782,Atibaia
 "Avenida Alfredo André, 905, Jardim Brasil, Atibaia, São Paulo",-23.11694,-46.55028,Atibaia
@@ -36,7 +37,7 @@ Endereço Completo,Latitude,Longitude,Região
 "Avenida Tucunare, 80, Tambore, Barueri, São Paulo",-23.51056,-46.87611,Barueri
 "Rua Da Prata, 349, Jardim Dos Camargos, Barueri, São Paulo",-23.5025874,-46.8674979,Barueri
 "Rua Americo Vespucio, 12, Parque Imperial, Barueri, São Paulo",-23.4804833,-46.8052982,Barueri
-"Rua Alagoinha, 998, Jardim Mutinga, Barueri, São Paulo",-23.5055776,-46.8092969,Osasco
+"Rua Alagoinha, 998, Jardim Mutinga, Barueri, São Paulo",-23.5055776,-46.8092969,Barueri
 "Rua Padre Cicero Romao Batista, 234, Parque Imperial, Barueri, São Paulo",-23.4886307,-46.8133445,Barueri
 "Rua Claudio Manoel Da Costa, 43, Parque Imperial, Barueri, São Paulo",-23.4831217,-46.8053765,Barueri
 "Rua Minas Gerais, 300, Vila Boa Vista, Barueri, São Paulo",-23.5011283,-46.8754334,Barueri
@@ -46,12 +47,12 @@ Endereço Completo,Latitude,Longitude,Região
 "Alameda Rio Negro, 1456, Alphaville Industrial, Barueri, São Paulo",-23.51056,-46.87611,Barueri
 "Avenida Anchieta, 2300, Albatroz, Bertioga, São Paulo",-23.8376018,-46.1298621,Bertioga
 "Avenida Aprovada 294, 775, Boraceia, Bertioga, São Paulo",-23.85444,-46.13861,Bertioga
-"Rua Jose Oliva Melo, 85, Centro, Biritiba-Mirim, São Paulo",-23.5731197,-46.0391715,Biritiba Mirim
+"Rua Jose Oliva Melo, 85, Centro, Biritiba-Mirim, São Paulo",-23.5731197,-46.0391715,Biritiba-Mirim
 "Rua Amaro J Andrade, 428, Jd.Maria Paulina, Boituva, São Paulo",-23.28333,-47.67222,Boituva
 "Rua Joao Leite, 39, Centro, Boituva, São Paulo",-23.2858028,-47.6746236,Boituva
 "Rua Joao De Camargo, 352, Pq Res Novo Mundo, Boituva, São Paulo",-23.2628736,-47.6716318,Boituva
-"Rua Major Murzilho, 96, Centro, Bom Jesus Dos Perdões, São Paulo",-23.135,-46.46528,Bom Jesus dos Perdões
-"Rua 21 De Abril, 470, Centro, Bom Jesus Dos Perdões, São Paulo",-23.135,-46.46528,Bom Jesus dos Perdões
+"Rua Major Murzilho, 96, Centro, Bom Jesus Dos Perdões, São Paulo",-23.135,-46.46528,Bom Jesus Dos Perdões
+"Rua 21 De Abril, 470, Centro, Bom Jesus Dos Perdões, São Paulo",-23.135,-46.46528,Bom Jesus Dos Perdões
 "Avenida Salvador Markowicz, 339, Lagos De Santa Helena, Bragança Paulista, São Paulo",-22.9806161,-46.5299192,Bragança Paulista
 "Avenida Dos Imigrantes, 2400, Jardim America, Bragança Paulista, São Paulo",-22.9521237,-46.546414,Bragança Paulista
 "Avenida Major Antonio Da Silveira Camargo, 148, Centro, Cabreúva, São Paulo",-23.3086055,-47.1295799,Cabreúva
@@ -77,7 +78,7 @@ Endereço Completo,Latitude,Longitude,Região
 "Avenida Iguatemi, 777, Vila Brandina, Campinas, São Paulo",-22.8924024,-47.0272094,Campinas
 "Avenida Ricardo Bassoli Cezare, 1567, Jardim Das Bandeiras, Campinas, São Paulo",-22.9495493,-47.0928675,Campinas
 "Rua Maria José Rodrigues, 90, Jd.Santa Lucia, Campo Limpo Paulista, São Paulo",-23.2104628,-46.7946342,Campo Limpo Paulista
-"Avenida Doutor Januario Miraglia, 608, Vila Jaguaribe, Campos Do Jordão, São Paulo",-22.7437125,-45.5964598,Campos do Jordão
+"Avenida Doutor Januario Miraglia, 608, Vila Jaguaribe, Campos Do Jordão, São Paulo",-22.7437125,-45.5964598,Campos Do Jordão
 "Avenida Independencia, 278, Rocio, Cananéia, São Paulo",-25.0069457,-47.9313292,Cananéia
 "Avenida Miguel De Araujo, 182, Porto Cubatão, Cananéia, São Paulo",-24.97232,-47.94529,Cananéia
 "Avenida Independencia, 1136, Rocio, Cananéia, São Paulo",-25.0069457,-47.9313292,Cananéia
@@ -114,33 +115,33 @@ Endereço Completo,Latitude,Longitude,Região
 "Avenida Fundibem, S/N, Jardim Casa Grande, Diadema, São Paulo",-23.7035411,-46.5949433,Diadema
 "Avenida Caraita, 194, Centro, Eldorado, São Paulo",-24.52,-48.10806,Eldorado
 "Rua Dr. Nuno Silva, 220, Centro, Eldorado, São Paulo",-24.52,-48.10806,Eldorado
-"Rua Orlandia, 47, Parque Luiza, Embu Das Artes, São Paulo",-23.64889,-46.85222,Embu das Artes
+"Rua Orlandia, 47, Parque Luiza, Embu Das Artes, São Paulo",-23.64889,-46.85222,Embu Das Artes
 "Rua Emilia Pires, 365, Centro, Embu-Guaçu, São Paulo",-23.8294539,-46.8169557,Embu-Guaçu
-"Rua Otavio Rodrigues Barbosa, 219, Vila Romanopolis, Ferraz De Vasconcelos, São Paulo",-23.541155,-46.365145,Ferraz de Vasconcelos
-"Avenida Vinicius De Moraes, 143, Vila Sao Paulo, Ferraz De Vasconcelos, São Paulo",-23.5578807,-46.3669865,Ferraz de Vasconcelos
+"Rua Otavio Rodrigues Barbosa, 219, Vila Romanopolis, Ferraz De Vasconcelos, São Paulo",-23.541155,-46.365145,Ferraz De Vasconcelos
+"Avenida Vinicius De Moraes, 143, Vila Sao Paulo, Ferraz De Vasconcelos, São Paulo",-23.5578807,-46.3669865,Ferraz De Vasconcelos
 "Rua Demerson Gomes Romano, 386, Centro, Francisco Morato, São Paulo",-23.2868804,-46.7419955,Francisco Morato
-"Estrada Governo, Do, S/N, Pouso Alegre, Franco Da Rocha, São Paulo",-23.3344663,-46.7254136,Franco da Rocha
+"Estrada Governo, Do, S/N, Pouso Alegre, Franco Da Rocha, São Paulo",-23.3344663,-46.7254136,Franco Da Rocha
 "Rua Bandeirantes, 605, João B.Julião, Guarujá, São Paulo",-23.9830219,-46.2060406,Guarujá
 "Rua Antonio Baracal, 561, Morrinhos I, Guarujá, São Paulo",-23.9611553,-46.2525505,Guarujá
 "Avenida Santos Dumont, 1503, Sitio Paecara (Vicente De Carv, Guarujá, São Paulo",-23.9540438,-46.2912372,Guarujá
 "Avenida Dos Caicaras, 1682, Jardim Las Palmas, Guarujá, São Paulo",-23.9999291,-46.273905,Guarujá
 "Avenida Tancredo Neves, 1041, Cachoeira, Guarujá, São Paulo",-23.99306,-46.25639,Guarujá
 "Rua Cav Nami Jafet, 145, Centro, Guarujá, São Paulo",-23.99306,-46.25639,Guarujá
-"Rua Osvaldo Ramos, 100, Parque Mikail, Guarulhos, São Paulo",-23.46278,-46.53333,GUARULHOS
-"Rua Campina Grande Do Sul, 237, Jardim Centenario, Guarulhos, São Paulo",-23.46278,-46.53333,GUARULHOS
+"Rua Osvaldo Ramos, 100, Parque Mikail, Guarulhos, São Paulo",-23.46278,-46.53333,Guarulhos
+"Rua Campina Grande Do Sul, 237, Jardim Centenario, Guarulhos, São Paulo",-23.46278,-46.53333,Guarulhos
 "Rua Luis Vaz De Camoes, 177, Cumbica, Guarulhos, São Paulo",-23.46667,-46.46667,Guarulhos
 "Avenida Manoel Isidoro Martins, 1084, Cidade Martins, Guarulhos, São Paulo",-23.43149,-46.51214,Guarulhos
 "Rua Ibirapuera, 20, Parque Jurema, Guarulhos, São Paulo",-23.4465622,-46.4110879,Guarulhos
 "Avenida Onze De Agosto, 256, Jd. Zaira, Guarulhos, São Paulo",-23.4644112,-46.5364085,Guarulhos
 "Avenida Salgado Filho, 1536, Centro, Guarulhos, São Paulo",-23.4598137,-46.5328666,Guarulhos
 "Rua Constancio Colalilo, 630, Vila Augusta, Guarulhos, São Paulo",-23.4830382,-46.539254,Guarulhos
-"Avenida Professor José Munhoz, 685, Jardim Munhoz, Guarulhos, São Paulo",-23.46278,-46.53333,GUARULHOS
-"Rua Holandesa, 150, Cidade Jardim Cumbica (Jardim, Guarulhos, São Paulo",-23.46278,-46.53333,GUARULHOS
-"Rodovia Ayrton Senna Da Silva, Sn, Vila Anny, Guarulhos, São Paulo",-23.46278,-46.53333,GUARULHOS
+"Avenida Professor José Munhoz, 685, Jardim Munhoz, Guarulhos, São Paulo",-23.46278,-46.53333,Guarulhos
+"Rua Holandesa, 150, Cidade Jardim Cumbica (Jardim, Guarulhos, São Paulo",-23.46278,-46.53333,Guarulhos
+"Rodovia Ayrton Senna Da Silva, Sn, Vila Anny, Guarulhos, São Paulo",-23.46278,-46.53333,Guarulhos
 "Rua Louveira, 541, Jardim Marilena, Guarulhos, São Paulo",-23.423113,-46.4937482,Guarulhos
 "Avenida Atalaia Do Norte, 527, Jardim Cumbica (Jardim Preside, Guarulhos, São Paulo",-23.4525325,-46.4413987,Guarulhos
 "Rua Nossa Senhora Aparecida, 31, Vila Das Malvinas, Guarulhos, São Paulo",-23.4595654,-46.5081069,Guarulhos
-"Rua Rodrigo Fernandes, Lt 21, Jd. Santa Paula, Guarulhos, São Paulo",-23.46278,-46.53333,GUARULHOS
+"Rua Rodrigo Fernandes, Lt 21, Jd. Santa Paula, Guarulhos, São Paulo",-23.46278,-46.53333,Guarulhos
 "Rua Lagoa Seca, 660, Jardim Triunfo, Guarulhos, São Paulo",-23.41433,-46.4037699,Guarulhos
 "Praça Nossa Senhora Aparecida, 275, Jardim Vila Galvao, Guarulhos, São Paulo",-23.4661663,-46.5594452,Guarulhos
 "Rua Conego Valadao, 1143, Gopouva, Guarulhos, São Paulo",-23.4737032,-46.5448854,Guarulhos
@@ -158,9 +159,9 @@ Endereço Completo,Latitude,Longitude,Região
 "Avenida Goncalo Monteiro, 625, Cibratel Ii, Itanhaém, São Paulo",-24.2026378,-46.835336,Itanhaém
 "Rua Joao Mariano Ferreira, 164, Centro, Itanhaém, São Paulo",-24.18306,-46.78889,Itanhaém
 "Rua Dos Fundadores, 463, Praia Do Sonho, Itanhaém, São Paulo",-24.18306,-46.78889,Itanhaém
-"Rodovia Regis Bitencourt Km 293,5, S/N, Potupeva, Itapecerica Da Serra, São Paulo",-23.71694,-46.84917,Itapecerica da Serra
-"Avenida Maranhao, 235, Parque Paraíso, Itapecerica Da Serra, São Paulo",-23.7106842,-46.8581897,Itapecerica da Serra
-"Rua Nicola Felice, 36, Parque Paraiso, Itapecerica Da Serra, São Paulo",-23.71694,-46.84917,Itapecerica da Serra
+"Rodovia Regis Bitencourt Km 293,5, S/N, Potupeva, Itapecerica Da Serra, São Paulo",-23.71694,-46.84917,Itapecerica Da Serra
+"Avenida Maranhao, 235, Parque Paraíso, Itapecerica Da Serra, São Paulo",-23.7106842,-46.8581897,Itapecerica Da Serra
+"Rua Nicola Felice, 36, Parque Paraiso, Itapecerica Da Serra, São Paulo",-23.71694,-46.84917,Itapecerica Da Serra
 "Avenida Wenceslau Braz, 640, Vila Popular, Itapetininga, São Paulo",-23.563419,-48.0152876,Itapetininga
 "Rua Ary De Almeida, 71, Cambui, Itapetininga, São Paulo",-23.59167,-48.05306,Itapetininga
 "Rua Magali Wassel, 25, Jardim Itacolomi, Itapevi, São Paulo",-23.54889,-46.93417,Itapevi
@@ -241,7 +242,7 @@ Endereço Completo,Latitude,Longitude,Região
 "Rua Rafael De Barros, 778, Centro, Leme, São Paulo",-22.1852455,-47.3901636,Leme
 "Avenida Joaquim Lopes Aguilla, 2420, Barra Funda, Leme, São Paulo",-22.18556,-47.39028,Leme
 "Rua Presidente Prudente, 101, Cidade Jardim, Limeira, São Paulo",-22.56472,-47.40167,Limeira
-"Avenida Maria Thereza S. De Barros Camargo, 1525, Jardim Santo Andre, Limeira, São Paulo",-23.66389,-46.53833,Santo André
+"Avenida Maria Thereza S. De Barros Camargo, 1525, Jardim Santo Andre, Limeira, São Paulo",-23.66389,-46.53833,Limeira
 "Rua Pedro Bassi, 499, Santo Antonio, Louveira, São Paulo",-23.086188,-46.9817512,Louveira
 "Rua Silvio Benvegnu, 104, Santo Anonio, Louveira, São Paulo",-23.0890985,-46.975001,Louveira
 "Rua Ercilia Martins Cruz, 207, Vila Nova Louveira, Louveira, São Paulo",-23.08639,-46.95056,Louveira
@@ -254,13 +255,13 @@ Endereço Completo,Latitude,Longitude,Região
 "Avenida Pietro Petri, 382, Terra Preta, Mairiporã, São Paulo",-23.2613941,-46.5886899,Mairiporã
 "Rua Sao Judas Tadeu, S/N, Capoavinha, Mairiporã, São Paulo",-23.31861,-46.58667,Mairiporã
 "Rua Presidente Wenceslau Brás, 335, São Vicente, Mauá, São Paulo",-23.66778,-46.46139,Mauá
-"Rua Presidente Arthur Da Costa E Silva, 453, Parque São Vicente, Mauá, São Paulo",-22.7321,-43.36924,Belford Roxo
+"Rua Presidente Arthur Da Costa E Silva, 453, Parque São Vicente, Mauá, São Paulo",-22.7321,-43.36924,Mauá
 "Rua Regente Feijo, 166, Vila Sao Francisco, Mauá, São Paulo",-23.6726791,-46.4503303,Mauá
 "Rua Dr Emilio Martins Ribeiro, 141, Centro, Miracatu, São Paulo",-24.28139,-47.45972,Miracatu
 "Rua Kahei Nakamura, 308, Jardim Miracatu, Miracatu, São Paulo",-24.28139,-47.45972,Miracatu
-"Rua Dolores De Aquino, 1925, Jundiapeba, Mogi Das Cruzes, São Paulo",-23.5453399,-46.2583235,Mogi das Cruzes
-"Rua Dolores De Aquino, 640, Jundiapeba, Mogi Das Cruzes, São Paulo",-23.54629,-46.2499707,Mogi das Cruzes
-"Rua Roseira, 35, Parque Recanto Monica, Mogi Das Cruzes, São Paulo",-23.52278,-46.18833,Mogi das Cruzes
+"Rua Dolores De Aquino, 1925, Jundiapeba, Mogi Das Cruzes, São Paulo",-23.5453399,-46.2583235,Mogi Das Cruzes
+"Rua Dolores De Aquino, 640, Jundiapeba, Mogi Das Cruzes, São Paulo",-23.54629,-46.2499707,Mogi Das Cruzes
+"Rua Roseira, 35, Parque Recanto Monica, Mogi Das Cruzes, São Paulo",-23.52278,-46.18833,Mogi Das Cruzes
 "Rua Marina, 1081, Centro, Mongaguá, São Paulo",-24.09306,-46.62083,Mongaguá
 "Avenida Nossa Senhora De Fatima, 430, Agenor De Campos, Mongaguá, São Paulo",-24.127765,-46.6898597,Mongaguá
 "Praça Dicran Echrefian, 12, Presidente Altino, Osasco, São Paulo",-23.5325,-46.79167,Osasco
@@ -288,7 +289,7 @@ Endereço Completo,Latitude,Longitude,Região
 "Avenida Pref. Jose Lozano Araujo, 1110, Centro, Paulínia, São Paulo",-22.76111,-47.15417,Paulínia
 "Rua Prof. Otavio Rocha, 151, Jardim Triunfo, Pedreira, São Paulo",-22.74194,-46.90139,Pedreira
 "Rua Dr.Arthur Moreira De Almeida, 384, Vila Sao Jose, Pedreira, São Paulo",-22.7476542,-46.8985023,Pedreira
-"Rua 15 De Novembro, 735, Centro, Pedreira, São Paulo",-23.4917837,-46.3435262,Itaquaquecetuba
+"Rua 15 De Novembro, 735, Centro, Pedreira, São Paulo",-23.4917837,-46.3435262,Pedreira
 "Avenida Padre Anchieta, 1821, Stella Maris, Peruíbe, São Paulo",-24.32,-46.99833,Peruíbe
 "Rua Esmael Francisco Dos Santos, 190, Caraguava, Peruíbe, São Paulo",-24.32,-46.99833,Peruíbe
 "Avenida Luciano De Bona, 2027, Vila Romar, Peruíbe, São Paulo",-24.2936254,-46.9770747,Peruíbe
@@ -324,20 +325,20 @@ Endereço Completo,Latitude,Longitude,Região
 "Avenida Saburo Akamine, 1125, Jardim Matheus Maniero, Rio Claro, São Paulo",-22.3980124,-47.5936443,Rio Claro
 "Avenida 68, 356, Jd Cidade Azul, Rio Claro, São Paulo",-22.3869334,-47.5792418,Rio Claro
 "Avenida 24A, 303, Vila Alema, Rio Claro, São Paulo",-22.41139,-47.56139,Rio Claro
-"Estrada Fazenda Sao Joaquim, 29, Vila Ota, Rio Grande Da Serra, São Paulo",-23.747989,-46.3746945,Rio Grande da Serra
+"Estrada Fazenda Sao Joaquim, 29, Vila Ota, Rio Grande Da Serra, São Paulo",-23.747989,-46.3746945,Rio Grande Da Serra
 "Rua Estado Da Bahia, 261, São Pedro São Paulo, Salto, São Paulo",-23.2053331,-47.3080198,Salto
 "Avenida Dos Tres Poderes, 608, Res.Central Parque, Salto, São Paulo",-23.20083,-47.28694,Salto
 "Avenida Casper Libero, 954, Jardim Santa Cruz, Salto, São Paulo",-23.20083,-47.28694,Salto
 "Rua Vereador Gumercindo Fernandes Pereira, 1030, Jardim Parque Industrial, Santa Gertrudes, São Paulo",-22.4466094,-47.5455028,Santa Gertrudes
-"Avenida Moacir Da Silveira, 1035, Jardim Isaura, Santana De Parnaíba, São Paulo",-23.4798612,-46.8921049,Santana de Parnaíba
-"Rua Capricornio, 667, Parque Santana, Santana De Parnaíba, São Paulo",-23.4772118,-46.8925865,Santana de Parnaíba
-"Avenida Yojiro Takaoka, 4492, Alphaville, Santana De Parnaíba, São Paulo",-23.4678426,-46.8707308,Santana de Parnaíba
-"Avenida Yojiro Takaoka, 4630, Alphaville - Centro De Apoio I, Santana De Parnaíba, São Paulo",-0.05833,-51.18167,Santana
+"Avenida Moacir Da Silveira, 1035, Jardim Isaura, Santana De Parnaíba, São Paulo",-23.4798612,-46.8921049,Santana De Parnaíba
+"Rua Capricornio, 667, Parque Santana, Santana De Parnaíba, São Paulo",-23.4772118,-46.8925865,Santana De Parnaíba
+"Avenida Yojiro Takaoka, 4492, Alphaville, Santana De Parnaíba, São Paulo",-23.4678426,-46.8707308,Santana De Parnaíba
+"Avenida Yojiro Takaoka, 4630, Alphaville - Centro De Apoio I, Santana De Parnaíba, São Paulo",-0.05833,-51.18167,Santana De Parnaíba
 "Avenida Nacoes, Das, 1600, Parque Novo Oratorio, Santo André, São Paulo",-23.6408129,-46.4989662,Santo André
 "Avenida Pereira Barreto, 42, Paraiso, Santo André, São Paulo",-23.6695869,-46.5340595,Santo André
 "Rua Fenicia, 144, Parque Novo Oratório, Santo André, São Paulo",-23.6292226,-46.4987878,Santo André
 "Rua Caiubi, 433, Jardim Pilar, Santo André, São Paulo",-23.6844381,-46.5392872,Santo André
-"Rua Cynira Marques Cezar, 100, Sao Judas Tadeu, Santo Antônio De Posse, São Paulo",-22.6073243,-46.9072778,Santo Antônio de Posse
+"Rua Cynira Marques Cezar, 100, Sao Judas Tadeu, Santo Antônio De Posse, São Paulo",-22.6073243,-46.9072778,Santo Antônio De Posse
 "Avenida Afonso Pena, 336, Macuco, Santos, São Paulo",-23.9593759,-46.3191609,Santos
 "Rua Duque De Caxias, 21, Campo Grande, Santos, São Paulo",-23.9599623,-46.3415268,Santos
 "Avenida Vereador Alvaro Guimaraes, 148, Radio Clube, Santos, São Paulo",-23.96083,-46.33361,Santos
@@ -352,267 +353,267 @@ Endereço Completo,Latitude,Longitude,Região
 "Avenida Afonso Pena, 622, Aparecida, Santos, São Paulo",-23.9715042,-46.3023726,Santos
 "Rua Osvaldo Cocrane, 60, Embaré, Santos, São Paulo",-23.96083,-46.33361,Santos
 "Avenida Drº Epitacio Pessoa, 241, Embaré, Santos, São Paulo",-23.96083,-46.33361,Santos
-"Rua Benedito Pereira Goulart, 282, Centro, São Bento Do Sapucaí, São Paulo",-22.68889,-45.73083,São Bento do Sapucaí
-"Via De Acesso Rod.Joao Bat.Furquim, 180, Rodeio, São Bento Do Sapucaí, São Paulo",-22.68889,-45.73083,São Bento do Sapucaí
-"Rua Baltazar Borges (Jd Lavínia), 15, Assunção, São Bernardo Do Campo, São Paulo",-23.69389,-46.565,São Bernardo do Campo
-"Rua Mmdc, 546, Pauliceia, São Bernardo Do Campo, São Paulo",-23.6747014,-46.5915321,São Bernardo do Campo
-"Rua Cidade De Sao Sebastiao, 201, Jardim Wallace Simonsen, São Bernardo Do Campo, São Paulo",-23.709775,-46.5395554,São Bernardo do Campo
-"Avenida Senador Flaquer, 862, Vila Euclides, São Bernardo Do Campo, São Paulo",-23.6927638,-46.5586558,São Bernardo do Campo
-"Rua Casper Libero, 491, Pauliceia, São Bernardo Do Campo, São Paulo",-23.6673537,-46.5941037,São Bernardo do Campo
-"Estrada Henrique Rosa, 670, Finco (Jd Tupa), São Bernardo Do Campo, São Paulo",-23.69389,-46.565,São Bernardo do Campo
-"Rua Lazara De Oliveira Leite, 371, Demarchi, São Bernardo Do Campo, São Paulo",-23.7284559,-46.5582636,São Bernardo do Campo
-"Estrada Luiz Marson, 381, Batistini, São Bernardo Do Campo, São Paulo",-23.7485643,-46.5826605,São Bernardo do Campo
-"Rua Municipal, 349, Centro, São Bernardo Do Campo, São Paulo",-23.7112629,-46.5474498,São Bernardo do Campo
-"Rua Tapajós, 80, Centro, São Bernardo Do Campo, São Paulo",-23.6991131,-46.5502833,São Bernardo do Campo
-"Rua Atlantica, 230, Jardim Do Mar, São Bernardo Do Campo, São Paulo",-23.6910052,-46.5552196,São Bernardo do Campo
-"Rua Senador Flaquer, 294, São José, São Caetano Do Sul, São Paulo",-23.6340594,-46.5752863,São Caetano do Sul
-"Alameda Terracota, 545, Ceramica, São Caetano Do Sul, São Paulo",-23.626508,-46.5807647,São Caetano do Sul
-"Rua Votorantim, 311, Barcelona, São Caetano Do Sul, São Paulo",-23.6191958,-46.5520096,São Caetano do Sul
-"Avenida Cassiano Ricardo, 1993, Jardim Alvorada, São José Dos Campos, São Paulo",-23.2243586,-45.9118091,São José dos Campos
-"Rua Sete Lagos, 190, Chacaras Reunidas, São José Dos Campos, São Paulo",-23.2541491,-45.9313672,São José dos Campos
-"Avenida Doutor Joao Batista Soares De Queiroz Ju, 398, Jardim Das Industrias, São José Dos Campos, São Paulo",-21.48028,-56.13806,Jardim
-"Avenida Cassiano Ricardo, 401, Pq. Residencial Aquarius, São José Dos Campos, São Paulo",-23.2157301,-45.9094568,São José dos Campos
-"Avenida Doutor Adhemar De Barros, 563, Jd.Sao Dimas, São José Dos Campos, São Paulo",-23.1953942,-45.8909157,São José dos Campos
-"Avenida Andromeda, 2811, Jardim Satelite, São José Dos Campos, São Paulo",-23.219906,-45.8914207,São José dos Campos
-"Avenida Sao Joao, 2555, Jardim Das Colinas, São José Dos Campos, São Paulo",-23.17944,-45.88694,São José dos Campos
-"Avenida Cassiopeia, 591, Jardim Satelite, São José Dos Campos, São Paulo",-23.2298571,-45.8861203,São José dos Campos
-"Rua Itororó, 74, Jd. Paulista, São José Dos Campos, São Paulo",-23.17944,-45.88694,São José dos Campos
-"Rua Benedito Fernandes, 270, Santo Amaro, São Paulo, São Paulo",-23.6610006,-46.7093906,São Paulo
-"Avenida Rudge, 500, Bom Retiro, São Paulo, São Paulo",-23.523624,-46.6500239,São Paulo
-"Rua Padre Adelino, 685, Belém, São Paulo, São Paulo",-23.5439803,-46.5838146,São Paulo
-"Avenida Engenheiro George Corbisier, 273, Jabaquara, São Paulo, São Paulo",-23.6392403,-46.6419503,São Paulo
-"Rua Benedito Egídio Barbosa, 11, Vila Brasilândia, São Paulo, São Paulo",-23.4598445,-46.6986945,São Paulo
-"Avenida Carlos Liviero, 942, Vila Liviero, São Paulo, São Paulo",-23.6441482,-46.5916661,São Paulo
-"Rua Paim, 201, Bela Vista, São Paulo, São Paulo",-23.5544616,-46.6500849,São Paulo
-"Rua Joao Da Cruz E Sousa, 5, Jardim Das Rosas, São Paulo, São Paulo",-23.597507,-46.430098,São Paulo
-"Avenida Carlos Lacerda, 2170, Pirajussara, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Avenida Dos Latinos, 738, Jardim Santa Teresinha, São Paulo, São Paulo",-23.5728247,-46.4987755,São Paulo
-"Avenida Inacio Cunha Leme, 301, Jardim Suzana, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Herbart, 47, Lapa, São Paulo, São Paulo",-23.5197686,-46.7014124,São Paulo
-"Rua Amambai, 1215, Vila Maria, São Paulo, São Paulo",-23.5177931,-46.5853263,São Paulo
-"Rua Sebastião Ribeiro, 28, Jardim Sta.Lucia-Capão Redondo, São Paulo, São Paulo",-23.6629,-47.6209,Salto de Pirapora
-"Rua Guaraita, 6, Sao Miguel Paulista, São Paulo, São Paulo",-23.493,-46.43646,São Paulo
-"Avenida Mutinga, 2426, Pirituba, São Paulo, São Paulo",-23.4855633,-46.7459339,São Paulo
-"Rua Lino Pinto Dos Santos, 22, Jardim Felicidade, São Paulo, São Paulo",-23.496228,-46.726804,São Paulo
-"Avenida Marechal Tito, 6829, Itaim Paulista, São Paulo, São Paulo",-23.4927223,-46.3885539,São Paulo
-"Rua Carlos Magalhaes, 283, Vila Andrade, São Paulo, São Paulo",-23.21725,-46.00151,Jacareí
-"Praça 14 Bis, 26, Bela Vista, São Paulo, São Paulo",-23.5554462,-46.650081,São Paulo
-"Avenida Pompeia, 1115, Vila Pompéia, São Paulo, São Paulo",-23.5339352,-46.6874622,São Paulo
-"Rua Francisco Inacio Solano, 445, Cantinho Do Ceu, São Paulo, São Paulo",-23.7424958,-46.6618167,São Paulo
-"Rua Doutor Joao Ribeiro, 304, Penha De Franca, São Paulo, São Paulo",-23.5251778,-46.5467519,São Paulo
-"Rua Cambuci Do Vale, 52, Cidade Dutra, São Paulo, São Paulo",-23.7142184,-46.7019877,São Paulo
-"Avenida Elisio Teixeira Leite, 1095, Vila Brasilandia, São Paulo, São Paulo",-23.4570932,-46.714201,São Paulo
-"Estrada Canal Da Cocaia, 2832, Parque Residencial Cocaia, São Paulo, São Paulo",-23.738973,-46.666526,São Paulo
-"Avenida Engenheiro Heitor Antonio Eiras Garcia, 5985, Jardim Esmeralda, São Paulo, São Paulo",-23.5916859,-46.7749208,São Paulo
-"Rua Secundino Domingues, 70, Vila Prudente, São Paulo, São Paulo",-23.58845,-46.5798,São Paulo
-"Rua João Teodoro, 842, Brás, São Paulo, São Paulo",-23.5345723,-46.6244535,São Paulo
-"Rua Domingos De Morais, 2564, Vila Mariana, São Paulo, São Paulo",-23.5990047,-46.6369432,São Paulo
-"Avenida Sapopemba, 7911, Jardim Adutora, São Paulo, São Paulo",-23.5968387,-46.5226399,São Paulo
-"Rua Haddock Lobo, 328, Cerqueira Cesar, São Paulo, São Paulo",-23.5620377,-46.6659896,São Paulo
-"Rua Passaro Preto, 759, Vila Paulistania, São Paulo, São Paulo",-23.6422001,-45.4375369,Caraguatatuba
-"Avenida Raimundo Pereira De Magalhaes, 14000, Pirituba, São Paulo, São Paulo",-23.4825331,-46.7231692,São Paulo
-"Rua Das Palmeiras, 278, Vila Buarque, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Avenida Mascote, 429, Vila Mascote, São Paulo, São Paulo",-23.6486173,-46.6656941,São Paulo
-"Rua Santo Antonio, 543, Bela Vista, São Paulo, São Paulo",-23.3731639,-45.6717908,Paraibuna
-"Avenida Onze De Junho, 744, Vila Clementino, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Avenida Sapopemba, 1304, Vila Leme, São Paulo, São Paulo",-23.38083,-48.73085,Paranapanema
-"Rua Rosalvo José Da Silva, 23-B, Jardim Carumbé, São Paulo, São Paulo",-22.0,-49.0,Iacanga
-"Rua Aricá -  Mirim, 63, Vila São Francisco, São Paulo, São Paulo",-23.5245532,-46.4917133,São Paulo
-"Avenida Renata, 346, Chacara Belenzinho, São Paulo, São Paulo",-23.5733062,-46.5413423,São Paulo
-"Rua Agenor De Barros, 211, Vila Ponte Rasa, São Paulo, São Paulo",-23.5088206,-46.4894631,São Paulo
-"Avenida Vereador Abel Ferreira, 2022, Chacara Mafalda, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Avenida Arquiteto Vilanova Artigas, 132, Conj Habit. Teotonio Vilela, São Paulo, São Paulo",-23.6133707,-46.5009539,São Paulo
-"Avenida Cangaiba, 1659, Cangaiba, São Paulo, São Paulo",-23.5087736,-46.5389309,São Paulo
-"Avenida Ragueb Chohfi, 4831, Jardim Iguatemi, São Paulo, São Paulo",-23.5944434,-46.4386057,São Paulo
-"Rua Inacio Cervantes, 1199, Parque Ipê, São Paulo, São Paulo",-23.5937742,-46.7971128,São Paulo
-"Rua Frei Caneca, 569, Consolacao, São Paulo, São Paulo",-23.5541787,-46.6524022,São Paulo
-"Avenida São Paulo, 88, Chácara Gaivota, São Paulo, São Paulo",-23.2195694,-47.9448753,Cesário Lange
-"Rua Fernão Dias, 579, Pinheiros, São Paulo, São Paulo",-23.5663331,-46.6954353,São Paulo
-"Rua Araritaguaba, 35, Vila Maria Alta, São Paulo, São Paulo",-23.5139012,-46.583372,São Paulo
-"Avenida Dr. Francisco Ranieri, 834, Lauzane Pta., São Paulo, São Paulo",-23.476523,-46.6450418,São Paulo
-"Avenida Tucuruvi, 248, Tucuruvi, São Paulo, São Paulo",-23.4787794,-46.6088101,São Paulo
-"Avenida Coronel Sezefredo Fagundes, 4800, Tucuruvi, São Paulo, São Paulo",-23.4760075,-46.6092907,São Paulo
-"Rua Humberto I, 545, Vila Mariana, São Paulo, São Paulo",-23.5848574,-46.6421213,São Paulo
-"Rua Mourato Coelho, 1458, Pinheiros, São Paulo, São Paulo",-23.5554328,-46.6928898,São Paulo
-"Avenida Armando Ferrentini, 406, Aclimação, São Paulo, São Paulo",-23.5746722,-46.6351096,São Paulo
-"Rua Professor Atilio Innocenti, 29, Vila Nova Conceição, São Paulo, São Paulo",-23.70114,-48.10404,Itapetininga
-"Avenida Jardim Japao, 1284, Jardim Brasil, São Paulo, São Paulo",-23.4793728,-46.5819262,São Paulo
-"Avenida Raimundo Pereira De Magalhaes, 2541, Jardim Iris, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Matheus Grou, 159, Pinheiros, São Paulo, São Paulo",-23.56729,-46.69232,São Paulo
-"Rua Gomes De Carvalho, 1614, Vila Olímpia, São Paulo, São Paulo",-23.5950063,-46.6896149,São Paulo
-"Avenida Aricanduva, 5555, Vila Matilde, São Paulo, São Paulo",-23.5659937,-46.504011,São Paulo
-"Rua Parapua, 832, Itaberaba, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Domingos De Morais, 286, Vila Mariana, São Paulo, São Paulo",-23.5796817,-46.6404127,São Paulo
-"Rua Bela Vista, 54, Jardim Prainha, São Paulo, São Paulo",-23.1979389,-46.8131823,Várzea Paulista
-"Rua Paulo Andrighetti, 470, Pari, São Paulo, São Paulo",-23.5263346,-46.6061665,São Paulo
-"Rua Jequirituba, 2350, Jardim Castro Alves, São Paulo, São Paulo",-23.6879,-47.6693,Salto de Pirapora
-"Rua Pedro Escobar, 619, Grajau, São Paulo, São Paulo",-23.752215,-46.6665395,São Paulo
-"Rua Francisco Inacio Solano, 206, Cantinho Do Ceu, São Paulo, São Paulo",-23.7424958,-46.6618167,São Paulo
-"Rua Dr. Ulpiano Da Costa Manso, 151, Butantã, São Paulo, São Paulo",-23.57374,-46.71936,São Paulo
-"Rua Rola Cabocla, 462, Vila Cosmopolita, São Paulo, São Paulo",-23.562324,-46.4221435,São Paulo
-"Avenida Raimundo Pereira De Magalhaes, 12590, Pirituba, São Paulo, São Paulo",-23.4916534,-46.7322256,São Paulo
-"Rua Thomaz Antonio Villani, 205, Vila Santa Maria, São Paulo, São Paulo",-23.00263,-49.89123,Ourinhos
-"Avenida Fiorelli Peccicacco, 323, Vila Fanton, São Paulo, São Paulo",-23.4047725,-46.7411747,São Paulo
-"Rua Aparecida Do Taboado, 208, Jardim Paulistano, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Avenida Paulista, 854, Bela Vista, São Paulo, São Paulo",-23.5658304,-46.6508381,São Paulo
-"Avenida Engenheiro Armando De Arruda Pereira, 4.684, Vila Do Encontro, São Paulo, São Paulo",-23.6531957,-46.6369427,São Paulo
-"Estrada Da Ligação, 281, Jd.Monte Verde, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Avenida Antonio Louzada Antunes, 205, Jardim Pedro Jose Nunes, São Paulo, São Paulo",-23.5021947,-46.4645312,São Paulo
-"Avenida Gregorio Bezerra, 400, Jardim Iv Centenário, São Paulo, São Paulo",-23.7066222,-46.6876047,São Paulo
-"Estrada Campo Limpo, Do, 3000, Vila Prel, São Paulo, São Paulo",-23.3454526,-46.8424578,Cajamar
-"Rua Manicoba, 880, Jardim Umarizal, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Santa Etelvina, 10, Jardim Santa Teresinha, São Paulo, São Paulo",-23.5250364,-46.4286611,São Paulo
-"Estrada Dom Joao Neri, 2416, Jardim Bartira, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Geronimo Barbosa Da Silva, 1624, Jardim Nazareth, São Paulo, São Paulo",-23.18111,-46.395,Nazaré Paulista
-"Avenida Dos Latinos, 1264, Jd. Santa Terezinha, São Paulo, São Paulo",-23.36667,-49.16667,Itaí
-"Rua Cecilia Meireles, 537, Jardim Japao, São Paulo, São Paulo",-23.5118251,-46.5797465,São Paulo
-"Avenida Guilherme Cotching, 1746, Vila Maria, São Paulo, São Paulo",-23.5147153,-46.5866614,São Paulo
-"Avenida Otto Baumgart, 500, Vila Guilherme, São Paulo, São Paulo",-23.5174969,-46.6149398,São Paulo
-"Avenida Braz Leme, 2040, Santana, São Paulo, São Paulo",-23.5048653,-46.6409346,São Paulo
-"Rua José Getulio, 142, Liberdade, São Paulo, São Paulo",-23.5672233,-46.6360806,São Paulo
-"Rua Arbela, 1004, Cidade Antonio Estevao De Carv, São Paulo, São Paulo",-23.5258595,-46.4698864,São Paulo
-"Avenida Padre Antônio José Dos Santos, 296, Cidade Monções, São Paulo, São Paulo",-20.85028,-50.09167,Monções
-"Rua Luis Gois, 1877, Mirandopolis, São Paulo, São Paulo",-23.6040646,-46.6460655,São Paulo
-"Avenida Pavão, 61, Recanto Do Paraiso, São Paulo, São Paulo",-23.6083178,-45.3511302,Caraguatatuba
-"Avenida Lins De Vasconcelos, 733, Cambuci, São Paulo, São Paulo",-23.5734968,-46.6229475,São Paulo
-"Rua Ribeiro De Lima, 610, Bom Retiro, São Paulo, São Paulo",-23.5312906,-46.6386411,São Paulo
-"Rua Miguel Rodrigues, 62, Vila Madalena, São Paulo, São Paulo",-21.06667,-50.93333,Lavínia
-"Avenida Dr Gastao Vidigal, 1946, Vl Leopoldina, São Paulo, São Paulo",-23.536284,-46.7376947,São Paulo
-"Estrada Dom Joao Neri, 2411, Jardim Bartira, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Eugenio Bosser, 18, Jardim Sapopemba, São Paulo, São Paulo",-23.59556,-46.52472,São Paulo
-"Rua Otelo Zeloni, 32, Parque Belem, São Paulo, São Paulo",-23.565879,-46.8650012,Carapicuíba
-"Rua Edna Ferber, 359, Parque Belem, São Paulo, São Paulo",-23.4650898,-46.6842514,São Paulo
-"Praça Comandante Eduardo De Oliveira, 126, Parque Edu Chaves, São Paulo, São Paulo",-23.4771251,-46.5638035,São Paulo
-"Avenida Itaberaba, 4418, Itaberaba, São Paulo, São Paulo",-23.474322,-46.668385,São Paulo
-"Avenida Eulina, 145, Jardim Primavera, São Paulo, São Paulo",-23.1825,-46.5775,Atibaia
-"Avenida Nova Cantareira, 3381, Tucuruvi, São Paulo, São Paulo",-23.47093,-46.617617,São Paulo
-"Rua Alberto Borges Soveral, 09, Pq.Novo Santo Amaro, São Paulo, São Paulo",-23.6924523,-46.7832438,São Paulo
-"Avenida Antonelo Da Messina, 1213, Sítio Do Piqueri, São Paulo, São Paulo",-23.4555826,-46.5899705,São Paulo
-"Avenida Professor Castro Junior, 363, Vila Sabrina, São Paulo, São Paulo",-23.4957893,-46.5757236,São Paulo
-"Rua Muniz De Souza, 918, Aclimação, São Paulo, São Paulo",-23.5708485,-46.627986,São Paulo
-"Rua Das Rosas, 495, Mirandópolis, São Paulo, São Paulo",-23.6061623,-46.6415406,São Paulo
-"Rua Augusto Carlos Bauman, 980, Itaquera, São Paulo, São Paulo",-23.5336081,-46.4495633,São Paulo
-"Rua Sao Miguel Do Tapuio, 49, Jardim Peri, São Paulo, São Paulo",-23.4536671,-46.6639692,São Paulo
-"Avenida General Penha Brasil, 1304, Vila Nova Cachoeirinha, São Paulo, São Paulo",-23.48442,-46.6586,São Paulo
-"Rua Santo Antonio, 569, Bela Vista, São Paulo, São Paulo",-23.3731639,-45.6717908,Paraibuna
-"Rua Lucila Da Rocha, 30, Casa Verde Media, São Paulo, São Paulo",-23.50342,-46.664454,São Paulo
-"Avenida Santa Marina, 2459, Vila Albertina, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Praça Andre Nunes, 80, Vila Das Merces, São Paulo, São Paulo",-23.6307077,-46.6045437,São Paulo
-"Rua Libero Badaro, 480, Centro, São Paulo, São Paulo",-21.2639265,-48.5110736,Monte Alto
-"Avenida Nascer Do Sol, 658, Conjunto Habitacional Santa Et, São Paulo, São Paulo",-22.0,-49.0,Iacanga
-"Rua Caiowaa, 1759, Sumaré, São Paulo, São Paulo",-22.82194,-47.26694,Sumaré
-"Rua Alcantara, 805, Vila Maria, São Paulo, São Paulo",-23.5227677,-46.5924086,São Paulo
-"Rua Djalma Dutra, 266, Luz, São Paulo, São Paulo",-23.5337193,-46.6286408,São Paulo
-"Avenida Deputado Emilio Carlos, 1129, Limão, São Paulo, São Paulo",-23.496022,-46.6772285,São Paulo
-"Avenida Mazzei, 1160, Vila Mazzei, São Paulo, São Paulo",-23.4723641,-46.5997586,São Paulo
-"Estrada Guavirutuba, 1199, Vila Bom Jardim, São Paulo, São Paulo",-24.18333,-47.61667,Juquiá
-"Rua Duilio, 636, Agua Branca, São Paulo, São Paulo",-23.5254777,-46.6931616,São Paulo
-"Rua Parapua, 1729, Itaberaba, São Paulo, São Paulo",-21.9278104,-50.7385646,Bastos
-"Rua Julia Lopes De Almeida, 288, Vila Pauliceia, São Paulo, São Paulo",-23.4883423,-46.6142367,São Paulo
-"Avenida Otto Baumgart, 27, Vila Guilherme, São Paulo, São Paulo",-23.511968,-46.6159879,São Paulo
-"Rua Joao Amos Comenius, 417, Jardim Sao Bernardo, São Paulo, São Paulo",-23.7577354,-46.70655,São Paulo
-"Avenida Brigadeiro Luis Antonio, 3300, Jd.Paulista, São Paulo, São Paulo",-23.5742361,-46.6560882,São Paulo
-"Avenida Conselheiro Carrao, 1306, Vila Carrao, São Paulo, São Paulo",-23.5430969,-46.5476141,São Paulo
-"Avenida Professor Joao De Lorenzo, 526, Jardim Sao Jorge, São Paulo, São Paulo",-23.596056,-46.782882,São Paulo
-"Rua Dr. Heitor Do Nascimento, 30, Moinho Velho, São Paulo, São Paulo",-23.496633,-46.704758,São Paulo
-"Rua Lisa Ansorge, 27, Prque São Lucas, São Paulo, São Paulo",-23.6038195,-46.5381379,São Paulo
-"Rua Dronsfield, 47, Lapa, São Paulo, São Paulo",-23.5187703,-46.7053525,São Paulo
-"Avenida Roland Garros, 1765, Jd.Brasil, São Paulo, São Paulo",-23.4756552,-46.5718114,São Paulo
-"Avenida Luís Stamatis, 431, Jaçanã, São Paulo, São Paulo",-23.4669058,-46.5811562,São Paulo
-"Avenida Jardim Japao, 451, Jardim Brasil, São Paulo, São Paulo",-23.4861636,-46.5784059,São Paulo
-"Rua Cachoeira Dourada, 130, Jardim Maria Estela, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Praça Das Professoras, 07, Cidade Ae Carvalho, São Paulo, São Paulo",-20.48333,-50.01667,Votuporanga
-"Avenida Parada Pinto, 2262, Vila Nova Cachoeirinha, São Paulo, São Paulo",-23.47337,-46.6669789,São Paulo
-"Rua Br De Ladario, 670, Braz, São Paulo, São Paulo",-23.55,-46.61667,São Paulo
-"Rua Jose Vieira Guimaraes, 130, Jardim Santa Teresinha, São Paulo, São Paulo",-23.5233272,-46.4251563,São Paulo
-"Rua Marechal Argolo Ferrao, 413, Vila Sabrina, São Paulo, São Paulo",-23.48663,-46.56651,São Paulo
-"Rua Professora Nina Stocco, 845, Jardim Catanduva, São Paulo, São Paulo",-23.635819,-46.7592408,São Paulo
-"Avenida Itaquera, 2226, V.S.Maria, São Paulo, São Paulo",-23.5542277,-46.4832701,São Paulo
-"Rua Benedito Egidio Barbosa, 176, Brasilandia, São Paulo, São Paulo",-23.4598445,-46.6986945,São Paulo
-"Rua Amador Bueno, 229, Santo Amaro, São Paulo, São Paulo",-23.6531847,-46.7102133,São Paulo
-"Rua Martinho De Campos, 433, Vila Anastacio, São Paulo, São Paulo",-23.515852,-46.7207453,São Paulo
-"Rua Paraguacu, 544, Perdrizes, São Paulo, São Paulo",-23.5338774,-46.6672178,São Paulo
-"Rua Guaricanga, 321, Lapa, São Paulo, São Paulo",-23.5227167,-46.7104308,São Paulo
-"Rua Cardon, 831, Vila Progresso (Zona Leste), São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Nova York, 570, Brooklin Paulista, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Avenida Rodrigues Montemor, 253, Americanópolis, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Silvio Lazzari, 31, Vila Gustavo, São Paulo, São Paulo",-23.4870492,-46.5990058,São Paulo
-"Rua Dom Vilares, 1700, Vila Das Merces, São Paulo, São Paulo",-23.6252244,-46.611855,São Paulo
-"Rua Pio Xi, 2360, Lapa, São Paulo, São Paulo",-23.5406793,-46.7169032,São Paulo
-"Avenida Santa Monica, 690, Jardim Santa Monica, São Paulo, São Paulo",-23.4762246,-46.7478914,São Paulo
-"Rua Alencar Araripe, 1435, Sacoma, São Paulo, São Paulo",-23.6130408,-46.5972138,São Paulo
-"Rua Alvaro Do Vale, 412, Ipiranga, São Paulo, São Paulo",-23.5988682,-46.5962176,São Paulo
-"Rua Deputado Gouveia Franco, 3, Parque Mandaqui, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Tito Oliani, 1010, Sao Joao Climaro, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Avenida Das Nacoes Unidas, 13947, Vila Gertrudes, São Paulo, São Paulo",-23.34969,-46.74632,Caieiras
-"Avenida Assembleia, 16, Jardim Miriam, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Benedita Dornellas Claro, 151, Vila Maria Alta, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Otavio Tarquinio De Souza, 268, Aeroporto, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Padre Leonardo, 419, Aeroporto, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Barcelona, 414, Jaguaré, São Paulo, São Paulo",-23.5440225,-46.7487484,São Paulo
-"Rua Olavo Egidio, 534, Santana, São Paulo, São Paulo",-23.5002484,-46.6204722,São Paulo
-"Rua Delfino Facchina, 628, Americanopolis, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Avenida Eng.Soares De Camargo, 349, Jardim Hercilia, São Paulo, São Paulo",-23.5399002,-46.5029158,São Paulo
-"Avenida Onze De Junho, 1049, Vila Clementino, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Desembargador Isnard Dos Reis, 1246, Cidade Kemel, São Paulo, São Paulo",-23.50861,-46.35583,Poá
-"Avenida Amador Bueno Da Veiga, 3025, Penha, São Paulo, São Paulo",-23.5218536,-46.5170071,São Paulo
-"Rua Andarai, 630, Vila Maria, São Paulo, São Paulo",-23.5226024,-46.5900265,São Paulo
-"Rua Almeida Torres, 428, Aclimacao, São Paulo, São Paulo",-23.569768,-46.6262303,São Paulo
-"Rua Barao De Ladario, 312, Bras, São Paulo, São Paulo",-23.5393113,-46.6190086,São Paulo
-"Rua Itapeva, 142, Bela Vista, São Paulo, São Paulo",-23.5582442,-46.6508379,São Paulo
-"Avenida Diederichsen, 1277, Vila Guarani, São Paulo, São Paulo",-23.6332458,-46.6371398,São Paulo
-"Avenida Alto Beni, 345, Vila Cosmopolita, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Agostinho De Paiva, 529, C Redondo, São Paulo, São Paulo",-23.6520726,-46.789662,São Paulo
-"Avenida Satelite, 559 A, Cidade Satelite (São Mateus), São Paulo, São Paulo",-23.60583,-46.47889,São Paulo
-"Rua Carnot, 388, Pari, São Paulo, São Paulo",-23.5314722,-46.622215,São Paulo
-"Avenida Jabaquara, 2592, Planalto Paulista, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Estrada Campo Limpo, Do, 6433, Pirajussara, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Julio Ribeiro, 243, Bras, São Paulo, São Paulo",-23.5372628,-46.6197338,São Paulo
-"Rua Barretos, 251, Mooca, São Paulo, São Paulo",-23.5631412,-46.5851009,São Paulo
-"Avenida Mazzei, 1209, Vila Mazzei, São Paulo, São Paulo",-23.4719455,-46.5994511,São Paulo
-"Avenida Do Vaticano, 39, Jd João Xxiii, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Doutor Jose Higino, 111, Vila Oratorio, São Paulo, São Paulo",-23.5686126,-46.5793677,São Paulo
-"Rua Carolus-Duran, 346, Vila Gilda, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Corrientes, 14, Lapa, São Paulo, São Paulo",-23.5220098,-46.7114385,São Paulo
-"Avenida Do Café, 156, Vila Guarani, São Paulo, São Paulo",-23.635652,-46.6399683,São Paulo
-"Avenida Eliseo Cordeiro De Siqueira, 961/963, Jardim Santo Elias, São Paulo, São Paulo",-7.76667,-72.6,Cruzeiro do Sul
-"Rua Miguel  Rodrigues, 112, Vila Beatriz, São Paulo, São Paulo",-23.5495916,-46.6980264,São Paulo
-"Rua Conde Prates, 111, Mooca, São Paulo, São Paulo",-23.5664331,-46.5979351,São Paulo
-"Rua Isabel Dias, 47, Alto Da Mooca, São Paulo, São Paulo",-23.55801,-46.59508,São Paulo
-"Rua Manaias, 245, Vila Zelina, São Paulo, São Paulo",-23.5893222,-46.5760476,São Paulo
-"Rua Jose Zappi, 57, Vila Prudente, São Paulo, São Paulo",-23.5806907,-46.5855316,São Paulo
-"Rua Das Heras, 470, Vila Lucia, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Azevedo Soares, 2700, Vila Gomes Cardim, São Paulo, São Paulo",-23.5482754,-46.563284,São Paulo
-"Rua Antonio Camardo, 700, Tatuapé, São Paulo, São Paulo",-23.5489677,-46.5607487,São Paulo
-"Avenida Professor Francisco Morato, 3030, Butanta, São Paulo, São Paulo",-23.5769521,-46.7078899,São Paulo
-"Avenida Raimundo Pereira De Magalhaes, 1600, Jd.Iris, São Paulo, São Paulo",-23.5059366,-46.7161322,São Paulo
-"Rua Conselheiro Moreira De Barros, 240, Santana, São Paulo, São Paulo",-23.4965576,-46.6280895,São Paulo
-"Rua Domingos De Morais, 1999, Vila Mariana, São Paulo, São Paulo",-23.593603,-46.6360456,São Paulo
-"Rua Teodoro Sampaio, 473, Pinheiros, São Paulo, São Paulo",-23.5562987,-46.6752444,São Paulo
-"Rua Joaquim Floriano, 254, Itaim Bibi, São Paulo, São Paulo",-23.5838463,-46.672325,São Paulo
-"Rua Nestor Pestana, 40, Consolação, São Paulo, São Paulo",-23.55242,-46.65735,São Paulo
-"Avenida Prof. Fco . Morato, 946, V Sonia, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Avenida Itaquera, 6735, Cidade Lider, São Paulo, São Paulo",-23.5542277,-46.4832701,São Paulo
-"Avenida Nagib Farah Maluf, 100, Conj.Jose Bonifacio/Cohab Ii, São Paulo, São Paulo",-23.5386385,-46.4308871,São Paulo
-"Avenida Ragueb Chohfi, 7001, Jardim Tres Marias, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Avenida Conselheiro Carrao, 3.264, V Carrão, São Paulo, São Paulo",-23.5392496,-46.5535832,São Paulo
-"Rua Itajuibe, 1168, Jd. Nelia, São Paulo, São Paulo",-23.4331119,-46.4277298,Guarulhos
-"Rua Domenico Ferrara, 32, Jaraguá, São Paulo, São Paulo",-23.4516587,-46.7458602,São Paulo
-"Rua Capitão Mor Passos, 228, Pari, São Paulo, São Paulo",-23.527587,-46.6153585,São Paulo
-"Avenida Milton Da Rocha, 291, Vila Sabrina, São Paulo, São Paulo",-23.489062,-46.5744038,São Paulo
-"Estrada Cel.Jose Gladiador, 22, Jardim Canaã, São Paulo, São Paulo",-21.76806,-50.77167,Parapuã
-"Rua Aliança Liberal, 322, Vila Leopoldina, São Paulo, São Paulo",-23.5222368,-46.7253714,São Paulo
-"Rua Deputado Lacerda Franco, 553, Pinheiros, São Paulo, São Paulo",-23.5606538,-46.6928092,São Paulo
-"Rua Serra De Botucatu, 1703, Tatuapé, São Paulo, São Paulo",-23.5409791,-46.5552198,São Paulo
-"Avenida Vereador José Diniz, 2329, Brooklin Paulista, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Avenida Giovanni Gronchi, 2799, Morumbi, São Paulo, São Paulo",-23.5951062,-46.7178467,São Paulo
-"Rua Canario, 390, Indianopolis, São Paulo, São Paulo",-23.5996044,-46.6653552,São Paulo
-"Rua Turiassu, 1205, Perdizes, São Paulo, São Paulo",-23.5315747,-46.6746778,São Paulo
-"Avenida Angelica, 526, Santa Cecilia, São Paulo, São Paulo",-23.5374825,-46.654665,São Paulo
-"Rua Voluntarios Da Patria, S/N, Santana, São Paulo, São Paulo",-23.4944879,-46.6263702,São Paulo
-"Avenida Reboucas, 1001, Cerqueira Cesar, São Paulo, São Paulo",-23.5603809,-46.6713758,São Paulo
-"Rua Martim Francisco, 753, Vila Buarque, São Paulo, São Paulo",-23.5475,-46.63611,São Paulo
-"Rua Martim Francisco, 723, Santa Cecília, São Paulo, São Paulo",-23.5429535,-46.6545662,São Paulo
+"Rua Benedito Pereira Goulart, 282, Centro, São Bento Do Sapucaí, São Paulo",-22.68889,-45.73083,São Bento Do Sapucaí
+"Via De Acesso Rod.Joao Bat.Furquim, 180, Rodeio, São Bento Do Sapucaí, São Paulo",-22.68889,-45.73083,São Bento Do Sapucaí
+"Rua Baltazar Borges (Jd Lavínia), 15, Assunção, São Bernardo Do Campo, São Paulo",-23.69389,-46.565,São Bernardo Do Campo
+"Rua Mmdc, 546, Pauliceia, São Bernardo Do Campo, São Paulo",-23.6747014,-46.5915321,São Bernardo Do Campo
+"Rua Cidade De Sao Sebastiao, 201, Jardim Wallace Simonsen, São Bernardo Do Campo, São Paulo",-23.709775,-46.5395554,São Bernardo Do Campo
+"Avenida Senador Flaquer, 862, Vila Euclides, São Bernardo Do Campo, São Paulo",-23.6927638,-46.5586558,São Bernardo Do Campo
+"Rua Casper Libero, 491, Pauliceia, São Bernardo Do Campo, São Paulo",-23.6673537,-46.5941037,São Bernardo Do Campo
+"Estrada Henrique Rosa, 670, Finco (Jd Tupa), São Bernardo Do Campo, São Paulo",-23.69389,-46.565,São Bernardo Do Campo
+"Rua Lazara De Oliveira Leite, 371, Demarchi, São Bernardo Do Campo, São Paulo",-23.7284559,-46.5582636,São Bernardo Do Campo
+"Estrada Luiz Marson, 381, Batistini, São Bernardo Do Campo, São Paulo",-23.7485643,-46.5826605,São Bernardo Do Campo
+"Rua Municipal, 349, Centro, São Bernardo Do Campo, São Paulo",-23.7112629,-46.5474498,São Bernardo Do Campo
+"Rua Tapajós, 80, Centro, São Bernardo Do Campo, São Paulo",-23.6991131,-46.5502833,São Bernardo Do Campo
+"Rua Atlantica, 230, Jardim Do Mar, São Bernardo Do Campo, São Paulo",-23.6910052,-46.5552196,São Bernardo Do Campo
+"Rua Senador Flaquer, 294, São José, São Caetano Do Sul, São Paulo",-23.6340594,-46.5752863,São Caetano Do Sul
+"Alameda Terracota, 545, Ceramica, São Caetano Do Sul, São Paulo",-23.626508,-46.5807647,São Caetano Do Sul
+"Rua Votorantim, 311, Barcelona, São Caetano Do Sul, São Paulo",-23.6191958,-46.5520096,São Caetano Do Sul
+"Avenida Cassiano Ricardo, 1993, Jardim Alvorada, São José Dos Campos, São Paulo",-23.2243586,-45.9118091,São José Dos Campos
+"Rua Sete Lagos, 190, Chacaras Reunidas, São José Dos Campos, São Paulo",-23.2541491,-45.9313672,São José Dos Campos
+"Avenida Doutor Joao Batista Soares De Queiroz Ju, 398, Jardim Das Industrias, São José Dos Campos, São Paulo",-21.48028,-56.13806,São José Dos Campos
+"Avenida Cassiano Ricardo, 401, Pq. Residencial Aquarius, São José Dos Campos, São Paulo",-23.2157301,-45.9094568,São José Dos Campos
+"Avenida Doutor Adhemar De Barros, 563, Jd.Sao Dimas, São José Dos Campos, São Paulo",-23.1953942,-45.8909157,São José Dos Campos
+"Avenida Andromeda, 2811, Jardim Satelite, São José Dos Campos, São Paulo",-23.219906,-45.8914207,São José Dos Campos
+"Avenida Sao Joao, 2555, Jardim Das Colinas, São José Dos Campos, São Paulo",-23.17944,-45.88694,São José Dos Campos
+"Avenida Cassiopeia, 591, Jardim Satelite, São José Dos Campos, São Paulo",-23.2298571,-45.8861203,São José Dos Campos
+"Rua Itororó, 74, Jd. Paulista, São José Dos Campos, São Paulo",-23.17944,-45.88694,São José Dos Campos
+"Rua Benedito Fernandes, 270, Santo Amaro, São Paulo, São Paulo",-23.6610006,-46.7093906,Zona Sul - São Paulo
+"Avenida Rudge, 500, Bom Retiro, São Paulo, São Paulo",-23.523624,-46.6500239,Zona Oeste - São Paulo
+"Rua Padre Adelino, 685, Belém, São Paulo, São Paulo",-23.5439803,-46.5838146,Zona Leste - São Paulo
+"Avenida Engenheiro George Corbisier, 273, Jabaquara, São Paulo, São Paulo",-23.6392403,-46.6419503,Zona Sul - São Paulo
+"Rua Benedito Egídio Barbosa, 11, Vila Brasilândia, São Paulo, São Paulo",-23.4598445,-46.6986945,Zona Norte - São Paulo
+"Avenida Carlos Liviero, 942, Vila Liviero, São Paulo, São Paulo",-23.6441482,-46.5916661,Zona Sul - São Paulo
+"Rua Paim, 201, Bela Vista, São Paulo, São Paulo",-23.5544616,-46.6500849,Zona Oeste - São Paulo
+"Rua Joao Da Cruz E Sousa, 5, Jardim Das Rosas, São Paulo, São Paulo",-23.597507,-46.430098,Zona Leste - São Paulo
+"Avenida Carlos Lacerda, 2170, Pirajussara, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Avenida Dos Latinos, 738, Jardim Santa Teresinha, São Paulo, São Paulo",-23.5728247,-46.4987755,Zona Leste - São Paulo
+"Avenida Inacio Cunha Leme, 301, Jardim Suzana, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Herbart, 47, Lapa, São Paulo, São Paulo",-23.5197686,-46.7014124,Zona Oeste - São Paulo
+"Rua Amambai, 1215, Vila Maria, São Paulo, São Paulo",-23.5177931,-46.5853263,Zona Leste - São Paulo
+"Rua Sebastião Ribeiro, 28, Jardim Sta.Lucia-Capão Redondo, São Paulo, São Paulo",-23.6629,-47.6209,Zona Sul - São Paulo
+"Rua Guaraita, 6, Sao Miguel Paulista, São Paulo, São Paulo",-23.493,-46.43646,Zona Leste - São Paulo
+"Avenida Mutinga, 2426, Pirituba, São Paulo, São Paulo",-23.4855633,-46.7459339,Zona Oeste - São Paulo
+"Rua Lino Pinto Dos Santos, 22, Jardim Felicidade, São Paulo, São Paulo",-23.496228,-46.726804,Zona Oeste - São Paulo
+"Avenida Marechal Tito, 6829, Itaim Paulista, São Paulo, São Paulo",-23.4927223,-46.3885539,Zona Leste - São Paulo
+"Rua Carlos Magalhaes, 283, Vila Andrade, São Paulo, São Paulo",-23.21725,-46.00151,Zona Norte - São Paulo
+"Praça 14 Bis, 26, Bela Vista, São Paulo, São Paulo",-23.5554462,-46.650081,Zona Oeste - São Paulo
+"Avenida Pompeia, 1115, Vila Pompéia, São Paulo, São Paulo",-23.5339352,-46.6874622,Zona Oeste - São Paulo
+"Rua Francisco Inacio Solano, 445, Cantinho Do Ceu, São Paulo, São Paulo",-23.7424958,-46.6618167,Zona Sul - São Paulo
+"Rua Doutor Joao Ribeiro, 304, Penha De Franca, São Paulo, São Paulo",-23.5251778,-46.5467519,Zona Leste - São Paulo
+"Rua Cambuci Do Vale, 52, Cidade Dutra, São Paulo, São Paulo",-23.7142184,-46.7019877,Zona Sul - São Paulo
+"Avenida Elisio Teixeira Leite, 1095, Vila Brasilandia, São Paulo, São Paulo",-23.4570932,-46.714201,Zona Norte - São Paulo
+"Estrada Canal Da Cocaia, 2832, Parque Residencial Cocaia, São Paulo, São Paulo",-23.738973,-46.666526,Zona Sul - São Paulo
+"Avenida Engenheiro Heitor Antonio Eiras Garcia, 5985, Jardim Esmeralda, São Paulo, São Paulo",-23.5916859,-46.7749208,Zona Oeste - São Paulo
+"Rua Secundino Domingues, 70, Vila Prudente, São Paulo, São Paulo",-23.58845,-46.5798,Zona Leste - São Paulo
+"Rua João Teodoro, 842, Brás, São Paulo, São Paulo",-23.5345723,-46.6244535,Zona Oeste - São Paulo
+"Rua Domingos De Morais, 2564, Vila Mariana, São Paulo, São Paulo",-23.5990047,-46.6369432,Zona Oeste - São Paulo
+"Avenida Sapopemba, 7911, Jardim Adutora, São Paulo, São Paulo",-23.5968387,-46.5226399,Zona Leste - São Paulo
+"Rua Haddock Lobo, 328, Cerqueira Cesar, São Paulo, São Paulo",-23.5620377,-46.6659896,Zona Oeste - São Paulo
+"Rua Passaro Preto, 759, Vila Paulistania, São Paulo, São Paulo",-23.6422001,-45.4375369,Zona Sul - São Paulo
+"Avenida Raimundo Pereira De Magalhaes, 14000, Pirituba, São Paulo, São Paulo",-23.4825331,-46.7231692,Zona Oeste - São Paulo
+"Rua Das Palmeiras, 278, Vila Buarque, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Avenida Mascote, 429, Vila Mascote, São Paulo, São Paulo",-23.6486173,-46.6656941,Zona Sul - São Paulo
+"Rua Santo Antonio, 543, Bela Vista, São Paulo, São Paulo",-23.3731639,-45.6717908,Zona Norte - São Paulo
+"Avenida Onze De Junho, 744, Vila Clementino, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Avenida Sapopemba, 1304, Vila Leme, São Paulo, São Paulo",-23.38083,-48.73085,Zona Norte - São Paulo
+"Rua Rosalvo José Da Silva, 23-B, Jardim Carumbé, São Paulo, São Paulo",-22.0,-49.0,Zona Norte - São Paulo
+"Rua Aricá -  Mirim, 63, Vila São Francisco, São Paulo, São Paulo",-23.5245532,-46.4917133,Zona Leste - São Paulo
+"Avenida Renata, 346, Chacara Belenzinho, São Paulo, São Paulo",-23.5733062,-46.5413423,Zona Leste - São Paulo
+"Rua Agenor De Barros, 211, Vila Ponte Rasa, São Paulo, São Paulo",-23.5088206,-46.4894631,Zona Leste - São Paulo
+"Avenida Vereador Abel Ferreira, 2022, Chacara Mafalda, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Avenida Arquiteto Vilanova Artigas, 132, Conj Habit. Teotonio Vilela, São Paulo, São Paulo",-23.6133707,-46.5009539,Zona Sul - São Paulo
+"Avenida Cangaiba, 1659, Cangaiba, São Paulo, São Paulo",-23.5087736,-46.5389309,Zona Leste - São Paulo
+"Avenida Ragueb Chohfi, 4831, Jardim Iguatemi, São Paulo, São Paulo",-23.5944434,-46.4386057,Zona Leste - São Paulo
+"Rua Inacio Cervantes, 1199, Parque Ipê, São Paulo, São Paulo",-23.5937742,-46.7971128,Zona Oeste - São Paulo
+"Rua Frei Caneca, 569, Consolacao, São Paulo, São Paulo",-23.5541787,-46.6524022,Zona Oeste - São Paulo
+"Avenida São Paulo, 88, Chácara Gaivota, São Paulo, São Paulo",-23.2195694,-47.9448753,Zona Norte - São Paulo
+"Rua Fernão Dias, 579, Pinheiros, São Paulo, São Paulo",-23.5663331,-46.6954353,Zona Oeste - São Paulo
+"Rua Araritaguaba, 35, Vila Maria Alta, São Paulo, São Paulo",-23.5139012,-46.583372,Zona Leste - São Paulo
+"Avenida Dr. Francisco Ranieri, 834, Lauzane Pta., São Paulo, São Paulo",-23.476523,-46.6450418,Zona Norte - São Paulo
+"Avenida Tucuruvi, 248, Tucuruvi, São Paulo, São Paulo",-23.4787794,-46.6088101,Zona Norte - São Paulo
+"Avenida Coronel Sezefredo Fagundes, 4800, Tucuruvi, São Paulo, São Paulo",-23.4760075,-46.6092907,Zona Norte - São Paulo
+"Rua Humberto I, 545, Vila Mariana, São Paulo, São Paulo",-23.5848574,-46.6421213,Zona Oeste - São Paulo
+"Rua Mourato Coelho, 1458, Pinheiros, São Paulo, São Paulo",-23.5554328,-46.6928898,Zona Oeste - São Paulo
+"Avenida Armando Ferrentini, 406, Aclimação, São Paulo, São Paulo",-23.5746722,-46.6351096,Zona Oeste - São Paulo
+"Rua Professor Atilio Innocenti, 29, Vila Nova Conceição, São Paulo, São Paulo",-23.70114,-48.10404,Zona Sul - São Paulo
+"Avenida Jardim Japao, 1284, Jardim Brasil, São Paulo, São Paulo",-23.4793728,-46.5819262,Zona Norte - São Paulo
+"Avenida Raimundo Pereira De Magalhaes, 2541, Jardim Iris, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Matheus Grou, 159, Pinheiros, São Paulo, São Paulo",-23.56729,-46.69232,Zona Oeste - São Paulo
+"Rua Gomes De Carvalho, 1614, Vila Olímpia, São Paulo, São Paulo",-23.5950063,-46.6896149,Zona Oeste - São Paulo
+"Avenida Aricanduva, 5555, Vila Matilde, São Paulo, São Paulo",-23.5659937,-46.504011,Zona Leste - São Paulo
+"Rua Parapua, 832, Itaberaba, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Domingos De Morais, 286, Vila Mariana, São Paulo, São Paulo",-23.5796817,-46.6404127,Zona Oeste - São Paulo
+"Rua Bela Vista, 54, Jardim Prainha, São Paulo, São Paulo",-23.1979389,-46.8131823,Zona Norte - São Paulo
+"Rua Paulo Andrighetti, 470, Pari, São Paulo, São Paulo",-23.5263346,-46.6061665,Zona Oeste - São Paulo
+"Rua Jequirituba, 2350, Jardim Castro Alves, São Paulo, São Paulo",-23.6879,-47.6693,Zona Sul - São Paulo
+"Rua Pedro Escobar, 619, Grajau, São Paulo, São Paulo",-23.752215,-46.6665395,Zona Sul - São Paulo
+"Rua Francisco Inacio Solano, 206, Cantinho Do Ceu, São Paulo, São Paulo",-23.7424958,-46.6618167,Zona Sul - São Paulo
+"Rua Dr. Ulpiano Da Costa Manso, 151, Butantã, São Paulo, São Paulo",-23.57374,-46.71936,Zona Oeste - São Paulo
+"Rua Rola Cabocla, 462, Vila Cosmopolita, São Paulo, São Paulo",-23.562324,-46.4221435,Zona Leste - São Paulo
+"Avenida Raimundo Pereira De Magalhaes, 12590, Pirituba, São Paulo, São Paulo",-23.4916534,-46.7322256,Zona Oeste - São Paulo
+"Rua Thomaz Antonio Villani, 205, Vila Santa Maria, São Paulo, São Paulo",-23.00263,-49.89123,Zona Norte - São Paulo
+"Avenida Fiorelli Peccicacco, 323, Vila Fanton, São Paulo, São Paulo",-23.4047725,-46.7411747,Zona Norte - São Paulo
+"Rua Aparecida Do Taboado, 208, Jardim Paulistano, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Avenida Paulista, 854, Bela Vista, São Paulo, São Paulo",-23.5658304,-46.6508381,Zona Oeste - São Paulo
+"Avenida Engenheiro Armando De Arruda Pereira, 4.684, Vila Do Encontro, São Paulo, São Paulo",-23.6531957,-46.6369427,Zona Sul - São Paulo
+"Estrada Da Ligação, 281, Jd.Monte Verde, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Avenida Antonio Louzada Antunes, 205, Jardim Pedro Jose Nunes, São Paulo, São Paulo",-23.5021947,-46.4645312,Zona Leste - São Paulo
+"Avenida Gregorio Bezerra, 400, Jardim Iv Centenário, São Paulo, São Paulo",-23.7066222,-46.6876047,Zona Sul - São Paulo
+"Estrada Campo Limpo, Do, 3000, Vila Prel, São Paulo, São Paulo",-23.3454526,-46.8424578,Zona Norte - São Paulo
+"Rua Manicoba, 880, Jardim Umarizal, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Santa Etelvina, 10, Jardim Santa Teresinha, São Paulo, São Paulo",-23.5250364,-46.4286611,Zona Leste - São Paulo
+"Estrada Dom Joao Neri, 2416, Jardim Bartira, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Geronimo Barbosa Da Silva, 1624, Jardim Nazareth, São Paulo, São Paulo",-23.18111,-46.395,Zona Norte - São Paulo
+"Avenida Dos Latinos, 1264, Jd. Santa Terezinha, São Paulo, São Paulo",-23.36667,-49.16667,Zona Norte - São Paulo
+"Rua Cecilia Meireles, 537, Jardim Japao, São Paulo, São Paulo",-23.5118251,-46.5797465,Zona Leste - São Paulo
+"Avenida Guilherme Cotching, 1746, Vila Maria, São Paulo, São Paulo",-23.5147153,-46.5866614,Zona Leste - São Paulo
+"Avenida Otto Baumgart, 500, Vila Guilherme, São Paulo, São Paulo",-23.5174969,-46.6149398,Zona Oeste - São Paulo
+"Avenida Braz Leme, 2040, Santana, São Paulo, São Paulo",-23.5048653,-46.6409346,Zona Oeste - São Paulo
+"Rua José Getulio, 142, Liberdade, São Paulo, São Paulo",-23.5672233,-46.6360806,Zona Oeste - São Paulo
+"Rua Arbela, 1004, Cidade Antonio Estevao De Carv, São Paulo, São Paulo",-23.5258595,-46.4698864,Zona Leste - São Paulo
+"Avenida Padre Antônio José Dos Santos, 296, Cidade Monções, São Paulo, São Paulo",-20.85028,-50.09167,Zona Norte - São Paulo
+"Rua Luis Gois, 1877, Mirandopolis, São Paulo, São Paulo",-23.6040646,-46.6460655,Zona Sul - São Paulo
+"Avenida Pavão, 61, Recanto Do Paraiso, São Paulo, São Paulo",-23.6083178,-45.3511302,Zona Sul - São Paulo
+"Avenida Lins De Vasconcelos, 733, Cambuci, São Paulo, São Paulo",-23.5734968,-46.6229475,Zona Oeste - São Paulo
+"Rua Ribeiro De Lima, 610, Bom Retiro, São Paulo, São Paulo",-23.5312906,-46.6386411,Zona Oeste - São Paulo
+"Rua Miguel Rodrigues, 62, Vila Madalena, São Paulo, São Paulo",-21.06667,-50.93333,Zona Norte - São Paulo
+"Avenida Dr Gastao Vidigal, 1946, Vl Leopoldina, São Paulo, São Paulo",-23.536284,-46.7376947,Zona Oeste - São Paulo
+"Estrada Dom Joao Neri, 2411, Jardim Bartira, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Eugenio Bosser, 18, Jardim Sapopemba, São Paulo, São Paulo",-23.59556,-46.52472,Zona Leste - São Paulo
+"Rua Otelo Zeloni, 32, Parque Belem, São Paulo, São Paulo",-23.565879,-46.8650012,Zona Oeste - São Paulo
+"Rua Edna Ferber, 359, Parque Belem, São Paulo, São Paulo",-23.4650898,-46.6842514,Zona Norte - São Paulo
+"Praça Comandante Eduardo De Oliveira, 126, Parque Edu Chaves, São Paulo, São Paulo",-23.4771251,-46.5638035,Zona Norte - São Paulo
+"Avenida Itaberaba, 4418, Itaberaba, São Paulo, São Paulo",-23.474322,-46.668385,Zona Norte - São Paulo
+"Avenida Eulina, 145, Jardim Primavera, São Paulo, São Paulo",-23.1825,-46.5775,Zona Norte - São Paulo
+"Avenida Nova Cantareira, 3381, Tucuruvi, São Paulo, São Paulo",-23.47093,-46.617617,Zona Norte - São Paulo
+"Rua Alberto Borges Soveral, 09, Pq.Novo Santo Amaro, São Paulo, São Paulo",-23.6924523,-46.7832438,Zona Sul - São Paulo
+"Avenida Antonelo Da Messina, 1213, Sítio Do Piqueri, São Paulo, São Paulo",-23.4555826,-46.5899705,Zona Norte - São Paulo
+"Avenida Professor Castro Junior, 363, Vila Sabrina, São Paulo, São Paulo",-23.4957893,-46.5757236,Zona Leste - São Paulo
+"Rua Muniz De Souza, 918, Aclimação, São Paulo, São Paulo",-23.5708485,-46.627986,Zona Oeste - São Paulo
+"Rua Das Rosas, 495, Mirandópolis, São Paulo, São Paulo",-23.6061623,-46.6415406,Zona Sul - São Paulo
+"Rua Augusto Carlos Bauman, 980, Itaquera, São Paulo, São Paulo",-23.5336081,-46.4495633,Zona Leste - São Paulo
+"Rua Sao Miguel Do Tapuio, 49, Jardim Peri, São Paulo, São Paulo",-23.4536671,-46.6639692,Zona Norte - São Paulo
+"Avenida General Penha Brasil, 1304, Vila Nova Cachoeirinha, São Paulo, São Paulo",-23.48442,-46.6586,Zona Oeste - São Paulo
+"Rua Santo Antonio, 569, Bela Vista, São Paulo, São Paulo",-23.3731639,-45.6717908,Zona Norte - São Paulo
+"Rua Lucila Da Rocha, 30, Casa Verde Media, São Paulo, São Paulo",-23.50342,-46.664454,Zona Oeste - São Paulo
+"Avenida Santa Marina, 2459, Vila Albertina, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Praça Andre Nunes, 80, Vila Das Merces, São Paulo, São Paulo",-23.6307077,-46.6045437,Zona Sul - São Paulo
+"Rua Libero Badaro, 480, Centro, São Paulo, São Paulo",-21.2639265,-48.5110736,Zona Norte - São Paulo
+"Avenida Nascer Do Sol, 658, Conjunto Habitacional Santa Et, São Paulo, São Paulo",-22.0,-49.0,Zona Norte - São Paulo
+"Rua Caiowaa, 1759, Sumaré, São Paulo, São Paulo",-22.82194,-47.26694,Zona Norte - São Paulo
+"Rua Alcantara, 805, Vila Maria, São Paulo, São Paulo",-23.5227677,-46.5924086,Zona Leste - São Paulo
+"Rua Djalma Dutra, 266, Luz, São Paulo, São Paulo",-23.5337193,-46.6286408,Zona Oeste - São Paulo
+"Avenida Deputado Emilio Carlos, 1129, Limão, São Paulo, São Paulo",-23.496022,-46.6772285,Zona Oeste - São Paulo
+"Avenida Mazzei, 1160, Vila Mazzei, São Paulo, São Paulo",-23.4723641,-46.5997586,Zona Norte - São Paulo
+"Estrada Guavirutuba, 1199, Vila Bom Jardim, São Paulo, São Paulo",-24.18333,-47.61667,Zona Sul - São Paulo
+"Rua Duilio, 636, Agua Branca, São Paulo, São Paulo",-23.5254777,-46.6931616,Zona Oeste - São Paulo
+"Rua Parapua, 1729, Itaberaba, São Paulo, São Paulo",-21.9278104,-50.7385646,Zona Norte - São Paulo
+"Rua Julia Lopes De Almeida, 288, Vila Pauliceia, São Paulo, São Paulo",-23.4883423,-46.6142367,Zona Oeste - São Paulo
+"Avenida Otto Baumgart, 27, Vila Guilherme, São Paulo, São Paulo",-23.511968,-46.6159879,Zona Oeste - São Paulo
+"Rua Joao Amos Comenius, 417, Jardim Sao Bernardo, São Paulo, São Paulo",-23.7577354,-46.70655,Zona Sul - São Paulo
+"Avenida Brigadeiro Luis Antonio, 3300, Jd.Paulista, São Paulo, São Paulo",-23.5742361,-46.6560882,Zona Oeste - São Paulo
+"Avenida Conselheiro Carrao, 1306, Vila Carrao, São Paulo, São Paulo",-23.5430969,-46.5476141,Zona Leste - São Paulo
+"Avenida Professor Joao De Lorenzo, 526, Jardim Sao Jorge, São Paulo, São Paulo",-23.596056,-46.782882,Zona Oeste - São Paulo
+"Rua Dr. Heitor Do Nascimento, 30, Moinho Velho, São Paulo, São Paulo",-23.496633,-46.704758,Zona Oeste - São Paulo
+"Rua Lisa Ansorge, 27, Prque São Lucas, São Paulo, São Paulo",-23.6038195,-46.5381379,Zona Sul - São Paulo
+"Rua Dronsfield, 47, Lapa, São Paulo, São Paulo",-23.5187703,-46.7053525,Zona Oeste - São Paulo
+"Avenida Roland Garros, 1765, Jd.Brasil, São Paulo, São Paulo",-23.4756552,-46.5718114,Zona Norte - São Paulo
+"Avenida Luís Stamatis, 431, Jaçanã, São Paulo, São Paulo",-23.4669058,-46.5811562,Zona Norte - São Paulo
+"Avenida Jardim Japao, 451, Jardim Brasil, São Paulo, São Paulo",-23.4861636,-46.5784059,Zona Leste - São Paulo
+"Rua Cachoeira Dourada, 130, Jardim Maria Estela, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Praça Das Professoras, 07, Cidade Ae Carvalho, São Paulo, São Paulo",-20.48333,-50.01667,Zona Norte - São Paulo
+"Avenida Parada Pinto, 2262, Vila Nova Cachoeirinha, São Paulo, São Paulo",-23.47337,-46.6669789,Zona Norte - São Paulo
+"Rua Br De Ladario, 670, Braz, São Paulo, São Paulo",-23.55,-46.61667,Zona Oeste - São Paulo
+"Rua Jose Vieira Guimaraes, 130, Jardim Santa Teresinha, São Paulo, São Paulo",-23.5233272,-46.4251563,Zona Leste - São Paulo
+"Rua Marechal Argolo Ferrao, 413, Vila Sabrina, São Paulo, São Paulo",-23.48663,-46.56651,Zona Leste - São Paulo
+"Rua Professora Nina Stocco, 845, Jardim Catanduva, São Paulo, São Paulo",-23.635819,-46.7592408,Zona Sul - São Paulo
+"Avenida Itaquera, 2226, V.S.Maria, São Paulo, São Paulo",-23.5542277,-46.4832701,Zona Leste - São Paulo
+"Rua Benedito Egidio Barbosa, 176, Brasilandia, São Paulo, São Paulo",-23.4598445,-46.6986945,Zona Norte - São Paulo
+"Rua Amador Bueno, 229, Santo Amaro, São Paulo, São Paulo",-23.6531847,-46.7102133,Zona Sul - São Paulo
+"Rua Martinho De Campos, 433, Vila Anastacio, São Paulo, São Paulo",-23.515852,-46.7207453,Zona Oeste - São Paulo
+"Rua Paraguacu, 544, Perdrizes, São Paulo, São Paulo",-23.5338774,-46.6672178,Zona Oeste - São Paulo
+"Rua Guaricanga, 321, Lapa, São Paulo, São Paulo",-23.5227167,-46.7104308,Zona Oeste - São Paulo
+"Rua Cardon, 831, Vila Progresso (Zona Leste), São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Nova York, 570, Brooklin Paulista, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Avenida Rodrigues Montemor, 253, Americanópolis, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Silvio Lazzari, 31, Vila Gustavo, São Paulo, São Paulo",-23.4870492,-46.5990058,Zona Leste - São Paulo
+"Rua Dom Vilares, 1700, Vila Das Merces, São Paulo, São Paulo",-23.6252244,-46.611855,Zona Sul - São Paulo
+"Rua Pio Xi, 2360, Lapa, São Paulo, São Paulo",-23.5406793,-46.7169032,Zona Oeste - São Paulo
+"Avenida Santa Monica, 690, Jardim Santa Monica, São Paulo, São Paulo",-23.4762246,-46.7478914,Zona Norte - São Paulo
+"Rua Alencar Araripe, 1435, Sacoma, São Paulo, São Paulo",-23.6130408,-46.5972138,Zona Sul - São Paulo
+"Rua Alvaro Do Vale, 412, Ipiranga, São Paulo, São Paulo",-23.5988682,-46.5962176,Zona Leste - São Paulo
+"Rua Deputado Gouveia Franco, 3, Parque Mandaqui, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Tito Oliani, 1010, Sao Joao Climaro, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Avenida Das Nacoes Unidas, 13947, Vila Gertrudes, São Paulo, São Paulo",-23.34969,-46.74632,Zona Norte - São Paulo
+"Avenida Assembleia, 16, Jardim Miriam, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Benedita Dornellas Claro, 151, Vila Maria Alta, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Otavio Tarquinio De Souza, 268, Aeroporto, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Padre Leonardo, 419, Aeroporto, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Barcelona, 414, Jaguaré, São Paulo, São Paulo",-23.5440225,-46.7487484,Zona Oeste - São Paulo
+"Rua Olavo Egidio, 534, Santana, São Paulo, São Paulo",-23.5002484,-46.6204722,Zona Oeste - São Paulo
+"Rua Delfino Facchina, 628, Americanopolis, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Avenida Eng.Soares De Camargo, 349, Jardim Hercilia, São Paulo, São Paulo",-23.5399002,-46.5029158,Zona Leste - São Paulo
+"Avenida Onze De Junho, 1049, Vila Clementino, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Desembargador Isnard Dos Reis, 1246, Cidade Kemel, São Paulo, São Paulo",-23.50861,-46.35583,Zona Leste - São Paulo
+"Avenida Amador Bueno Da Veiga, 3025, Penha, São Paulo, São Paulo",-23.5218536,-46.5170071,Zona Leste - São Paulo
+"Rua Andarai, 630, Vila Maria, São Paulo, São Paulo",-23.5226024,-46.5900265,Zona Leste - São Paulo
+"Rua Almeida Torres, 428, Aclimacao, São Paulo, São Paulo",-23.569768,-46.6262303,Zona Oeste - São Paulo
+"Rua Barao De Ladario, 312, Bras, São Paulo, São Paulo",-23.5393113,-46.6190086,Zona Oeste - São Paulo
+"Rua Itapeva, 142, Bela Vista, São Paulo, São Paulo",-23.5582442,-46.6508379,Zona Oeste - São Paulo
+"Avenida Diederichsen, 1277, Vila Guarani, São Paulo, São Paulo",-23.6332458,-46.6371398,Zona Sul - São Paulo
+"Avenida Alto Beni, 345, Vila Cosmopolita, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Agostinho De Paiva, 529, C Redondo, São Paulo, São Paulo",-23.6520726,-46.789662,Zona Sul - São Paulo
+"Avenida Satelite, 559 A, Cidade Satelite (São Mateus), São Paulo, São Paulo",-23.60583,-46.47889,Zona Sul - São Paulo
+"Rua Carnot, 388, Pari, São Paulo, São Paulo",-23.5314722,-46.622215,Zona Oeste - São Paulo
+"Avenida Jabaquara, 2592, Planalto Paulista, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Estrada Campo Limpo, Do, 6433, Pirajussara, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Julio Ribeiro, 243, Bras, São Paulo, São Paulo",-23.5372628,-46.6197338,Zona Oeste - São Paulo
+"Rua Barretos, 251, Mooca, São Paulo, São Paulo",-23.5631412,-46.5851009,Zona Leste - São Paulo
+"Avenida Mazzei, 1209, Vila Mazzei, São Paulo, São Paulo",-23.4719455,-46.5994511,Zona Norte - São Paulo
+"Avenida Do Vaticano, 39, Jd João Xxiii, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Doutor Jose Higino, 111, Vila Oratorio, São Paulo, São Paulo",-23.5686126,-46.5793677,Zona Leste - São Paulo
+"Rua Carolus-Duran, 346, Vila Gilda, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Corrientes, 14, Lapa, São Paulo, São Paulo",-23.5220098,-46.7114385,Zona Oeste - São Paulo
+"Avenida Do Café, 156, Vila Guarani, São Paulo, São Paulo",-23.635652,-46.6399683,Zona Sul - São Paulo
+"Avenida Eliseo Cordeiro De Siqueira, 961/963, Jardim Santo Elias, São Paulo, São Paulo",-7.76667,-72.6,Zona Norte - São Paulo
+"Rua Miguel  Rodrigues, 112, Vila Beatriz, São Paulo, São Paulo",-23.5495916,-46.6980264,Zona Oeste - São Paulo
+"Rua Conde Prates, 111, Mooca, São Paulo, São Paulo",-23.5664331,-46.5979351,Zona Leste - São Paulo
+"Rua Isabel Dias, 47, Alto Da Mooca, São Paulo, São Paulo",-23.55801,-46.59508,Zona Leste - São Paulo
+"Rua Manaias, 245, Vila Zelina, São Paulo, São Paulo",-23.5893222,-46.5760476,Zona Leste - São Paulo
+"Rua Jose Zappi, 57, Vila Prudente, São Paulo, São Paulo",-23.5806907,-46.5855316,Zona Leste - São Paulo
+"Rua Das Heras, 470, Vila Lucia, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Azevedo Soares, 2700, Vila Gomes Cardim, São Paulo, São Paulo",-23.5482754,-46.563284,Zona Leste - São Paulo
+"Rua Antonio Camardo, 700, Tatuapé, São Paulo, São Paulo",-23.5489677,-46.5607487,Zona Leste - São Paulo
+"Avenida Professor Francisco Morato, 3030, Butanta, São Paulo, São Paulo",-23.5769521,-46.7078899,Zona Oeste - São Paulo
+"Avenida Raimundo Pereira De Magalhaes, 1600, Jd.Iris, São Paulo, São Paulo",-23.5059366,-46.7161322,Zona Oeste - São Paulo
+"Rua Conselheiro Moreira De Barros, 240, Santana, São Paulo, São Paulo",-23.4965576,-46.6280895,Zona Oeste - São Paulo
+"Rua Domingos De Morais, 1999, Vila Mariana, São Paulo, São Paulo",-23.593603,-46.6360456,Zona Oeste - São Paulo
+"Rua Teodoro Sampaio, 473, Pinheiros, São Paulo, São Paulo",-23.5562987,-46.6752444,Zona Oeste - São Paulo
+"Rua Joaquim Floriano, 254, Itaim Bibi, São Paulo, São Paulo",-23.5838463,-46.672325,Zona Oeste - São Paulo
+"Rua Nestor Pestana, 40, Consolação, São Paulo, São Paulo",-23.55242,-46.65735,Zona Oeste - São Paulo
+"Avenida Prof. Fco . Morato, 946, V Sonia, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Avenida Itaquera, 6735, Cidade Lider, São Paulo, São Paulo",-23.5542277,-46.4832701,Zona Leste - São Paulo
+"Avenida Nagib Farah Maluf, 100, Conj.Jose Bonifacio/Cohab Ii, São Paulo, São Paulo",-23.5386385,-46.4308871,Zona Leste - São Paulo
+"Avenida Ragueb Chohfi, 7001, Jardim Tres Marias, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Avenida Conselheiro Carrao, 3.264, V Carrão, São Paulo, São Paulo",-23.5392496,-46.5535832,Zona Leste - São Paulo
+"Rua Itajuibe, 1168, Jd. Nelia, São Paulo, São Paulo",-23.4331119,-46.4277298,Zona Norte - São Paulo
+"Rua Domenico Ferrara, 32, Jaraguá, São Paulo, São Paulo",-23.4516587,-46.7458602,Zona Norte - São Paulo
+"Rua Capitão Mor Passos, 228, Pari, São Paulo, São Paulo",-23.527587,-46.6153585,Zona Oeste - São Paulo
+"Avenida Milton Da Rocha, 291, Vila Sabrina, São Paulo, São Paulo",-23.489062,-46.5744038,Zona Leste - São Paulo
+"Estrada Cel.Jose Gladiador, 22, Jardim Canaã, São Paulo, São Paulo",-21.76806,-50.77167,Zona Norte - São Paulo
+"Rua Aliança Liberal, 322, Vila Leopoldina, São Paulo, São Paulo",-23.5222368,-46.7253714,Zona Oeste - São Paulo
+"Rua Deputado Lacerda Franco, 553, Pinheiros, São Paulo, São Paulo",-23.5606538,-46.6928092,Zona Oeste - São Paulo
+"Rua Serra De Botucatu, 1703, Tatuapé, São Paulo, São Paulo",-23.5409791,-46.5552198,Zona Leste - São Paulo
+"Avenida Vereador José Diniz, 2329, Brooklin Paulista, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Avenida Giovanni Gronchi, 2799, Morumbi, São Paulo, São Paulo",-23.5951062,-46.7178467,Zona Oeste - São Paulo
+"Rua Canario, 390, Indianopolis, São Paulo, São Paulo",-23.5996044,-46.6653552,Zona Oeste - São Paulo
+"Rua Turiassu, 1205, Perdizes, São Paulo, São Paulo",-23.5315747,-46.6746778,Zona Oeste - São Paulo
+"Avenida Angelica, 526, Santa Cecilia, São Paulo, São Paulo",-23.5374825,-46.654665,Zona Oeste - São Paulo
+"Rua Voluntarios Da Patria, S/N, Santana, São Paulo, São Paulo",-23.4944879,-46.6263702,Zona Oeste - São Paulo
+"Avenida Reboucas, 1001, Cerqueira Cesar, São Paulo, São Paulo",-23.5603809,-46.6713758,Zona Oeste - São Paulo
+"Rua Martim Francisco, 753, Vila Buarque, São Paulo, São Paulo",-23.5475,-46.63611,Centro - São Paulo
+"Rua Martim Francisco, 723, Santa Cecília, São Paulo, São Paulo",-23.5429535,-46.6545662,Centro - São Paulo
 "Via Rodovia Prefeito Quintino De Lima Km 6, Sn, Canguera, São Roque, São Paulo",-23.605259,-47.165196,São Roque
 "Rua Rafael Dias Costa, 140, Dona Catarina, São Roque, São Paulo",-23.4214027,-47.1647888,São Roque
 "Estrada Do Cascalho, 415, Boicucanga, São Sebastião, São Paulo",-23.7787604,-45.6145048,São Sebastião
@@ -653,16 +654,16 @@ Endereço Completo,Latitude,Longitude,Região
 "Rua Edmilson Rodrigues Marcelino, 976, Cidade Miguel Brada, Suzano, São Paulo",-23.5425,-46.31083,Suzano
 "Rua Mussi Jorge Antonio, 314, Jardim Amazonas, Suzano, São Paulo",-23.6483044,-46.3141634,Suzano
 "Rua Sebastiao Moreira, 320, Parque Palmeiras, Suzano, São Paulo",-23.642015,-46.3254909,Suzano
-"Avenida Paulo Ayres, 470, Parque Pinheiros, Taboão Da Serra, São Paulo",-23.6204209,-46.7853307,Taboão da Serra
-"Avenida Sao Paulo, 247, Cidade Intercap, Taboão Da Serra, São Paulo",-23.6056227,-46.779056,Taboão da Serra
-"Rua Geraldo De Araujo Santos, 87, Jd.Beatriz, Taboão Da Serra, São Paulo",-23.6197473,-46.7716109,Taboão da Serra
-"Avenida Laurita Ortega Mari, 1973, Pq. Pinheiros, Taboão Da Serra, São Paulo",-23.6288874,-46.7824264,Taboão da Serra
+"Avenida Paulo Ayres, 470, Parque Pinheiros, Taboão Da Serra, São Paulo",-23.6204209,-46.7853307,Taboão Da Serra
+"Avenida Sao Paulo, 247, Cidade Intercap, Taboão Da Serra, São Paulo",-23.6056227,-46.779056,Taboão Da Serra
+"Rua Geraldo De Araujo Santos, 87, Jd.Beatriz, Taboão Da Serra, São Paulo",-23.6197473,-46.7716109,Taboão Da Serra
+"Avenida Laurita Ortega Mari, 1973, Pq. Pinheiros, Taboão Da Serra, São Paulo",-23.6288874,-46.7824264,Taboão Da Serra
 "Rua Do Cruzeiro, 37, Centro, Tatuí, São Paulo",-23.3511231,-47.8440633,Tatuí
 "Avenida Rosa Belmiro Ramos, 92, Ortizes, Valinhos, São Paulo",-22.9780597,-46.9888118,Valinhos
 "Rua Das Gardenias, 223, Parque Cecap, Valinhos, São Paulo",-22.949446,-46.9813763,Valinhos
 "Rua Jose Carlos Ferrari, 79, Residencial Santa Maria, Valinhos, São Paulo",-22.9430217,-46.9981697,Valinhos
 "Rua Treze De Maio, 1050, Vila Olivo, Valinhos, São Paulo",-22.9703943,-46.9959798,Valinhos
-"Rua Jose Manoel De Almeida, 669, Jd. Europa, Vargem Grande Paulista, São Paulo",-21.83222,-46.89361,Vargem Grande do Sul
+"Rua Jose Manoel De Almeida, 669, Jd. Europa, Vargem Grande Paulista, São Paulo",-21.83222,-46.89361,Vargem Grande Paulista
 "Rua Pedro Gutierrez, 228, Jd.Primavera, Várzea Paulista, São Paulo",-23.2104667,-46.8400222,Várzea Paulista
 "Avenida Bertioga, S/N, Vila Tupi, Várzea Paulista, São Paulo",-23.220093,-46.8402839,Várzea Paulista
 "Avenida Duque De Caxias, 2395, Jd Promeca, Várzea Paulista, São Paulo",-23.21139,-46.82833,Várzea Paulista
@@ -677,5 +678,3 @@ Endereço Completo,Latitude,Longitude,Região
 "Avenida Gisele Constantino, 1870, Parque Bela Vista, Votorantim, São Paulo",-23.5410259,-47.4665175,Votorantim
 "Avenida Octavio Augusto Rangel, 478, Jardim Toledo, Votorantim, São Paulo",-23.5256865,-47.4414441,Votorantim
 "Rodovia Raposo Tavares, S/N, Centro, Votorantim, São Paulo",-23.54667,-47.43778,Votorantim
-"Avenida Pascoal Santi, 328, Cabreuva - São Paulo",-23.2741385,-47.0595016,CABREUVA
-"Rua Pascoal Santi, 328, Cabreuva - São Paulo",-23.3075,-47.13278,CABREUVA

@@ -1,8 +1,5 @@
 # Função auxiliar: solver CVRP por cluster/região
 def solver_cvrp_por_cluster(pedidos, frota, matriz_distancias, pos_processamento=None, coluna_cluster='Cluster', **kwargs):
-    # Remove 'respeitar_regioes_preferidas' de kwargs para evitar conflito
-    if 'respeitar_regioes_preferidas' in kwargs:
-        kwargs.pop('respeitar_regioes_preferidas')
     """
     Executa o solver CVRP separadamente para cada cluster/região, concatenando o resultado.
     - pedidos: DataFrame de pedidos, deve conter coluna de cluster/região.
@@ -15,92 +12,35 @@ def solver_cvrp_por_cluster(pedidos, frota, matriz_distancias, pos_processamento
     import pandas as pd
     import numpy as np
     from .cvrp import solver_cvrp
-    # Permite usar 'RegiaoParaRoteirizacao' como nome padrão de cluster, se existir
     if coluna_cluster not in pedidos.columns:
-        if 'RegiaoParaRoteirizacao' in pedidos.columns:
-            coluna_cluster = 'RegiaoParaRoteirizacao'
-        else:
-            raise ValueError(f"Coluna '{coluna_cluster}' não encontrada nos pedidos para roteirização por cluster.")
+        raise ValueError(f"Coluna '{coluna_cluster}' não encontrada nos pedidos para roteirização por cluster.")
     resultados = []
     clusters = pedidos[coluna_cluster].dropna().unique()
-    # --- NOVO: Mapeamento de veículos para regiões preferidas ---
-    id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else ('Placa' if 'Placa' in frota.columns else None)
-    regioes_preferidas_dict = {}
-    if id_col and 'Regiões Preferidas' in frota.columns:
-        for _, row in frota.iterrows():
-            veic = row.get(id_col)
-            regioes_pref = row.get('Regiões Preferidas', '')
-            regioes_pref_list = [r.strip().lower() for r in str(regioes_pref).split(',') if r.strip()]
-            regioes_preferidas_dict[veic] = regioes_pref_list
-
-    # --- 1º Passo: Alocar pedidos para veículos preferenciais por região ---
-    pedidos_alocados = set()
     for cluster in clusters:
         pedidos_cluster = pedidos[pedidos[coluna_cluster] == cluster].copy()
         if pedidos_cluster.empty:
             continue
-        # Veículos que preferem essa região
-        veics_pref = [v for v, regs in regioes_preferidas_dict.items() if str(cluster).lower() in regs]
-        if not veics_pref:
-            continue  # Não há veículo preferencial para essa região
         # Monta nova matriz de distâncias: depósito + pedidos do cluster
         indices_pedidos = pedidos_cluster.index.tolist()
-        indices_matriz = [0] + [i+1 for i in indices_pedidos]
+        # O depósito é sempre o índice 0 na matriz global
+        indices_matriz = [0] + [i+1 for i in indices_pedidos]  # +1 pois matriz inclui depósito
         matriz_cluster = np.array(matriz_distancias)[np.ix_(indices_matriz, indices_matriz)]
-        # Filtra frota para veículos preferenciais
-        frota_pref = frota[frota[id_col].isin(veics_pref)]
-        if frota_pref.empty:
-            continue
-        # Rodar solver para este cluster apenas com veículos preferenciais
-        rotas_df = solver_cvrp(pedidos_cluster.reset_index(drop=True), frota_pref, matriz_cluster, pos_processamento=pos_processamento, respeitar_regioes_preferidas=True, **kwargs)
+        # Rodar solver para este cluster
+        rotas_df = solver_cvrp(pedidos_cluster.reset_index(drop=True), frota, matriz_cluster, pos_processamento=pos_processamento, **kwargs)
         if not rotas_df.empty:
             rotas_df[coluna_cluster] = cluster
-            # Ajusta Node_Index_OR para o índice global
+            # Ajusta Node_Index_OR para o índice global (opcional, para rastreabilidade)
             if 'Node_Index_OR' in rotas_df.columns:
+                # Mapear do índice local para global
                 node_map = {i+1: idx+1 for i, idx in enumerate(indices_pedidos)}
                 node_map[0] = 0
                 rotas_df['Node_Index_OR_Global'] = rotas_df['Node_Index_OR'].map(node_map)
             resultados.append(rotas_df)
-            # Marca pedidos já alocados
-            pedidos_alocados.update(pedidos_cluster.index.tolist())
-
-    # --- 2º Passo: Alocar pedidos restantes por proximidade regional/distância/capacidade ---
-    pedidos_restantes = pedidos[~pedidos.index.isin(pedidos_alocados)].copy()
-    if not pedidos_restantes.empty:
-        # Monta nova matriz de distâncias: depósito + pedidos restantes
-        indices_pedidos = pedidos_restantes.index.tolist()
-        indices_matriz = [0] + [i+1 for i in indices_pedidos]
-        matriz_restante = np.array(matriz_distancias)[np.ix_(indices_matriz, indices_matriz)]
-        # Frota disponível: todos veículos não usados (ou todos, se permitir reutilização)
-        # Para simplificação, usa toda frota
-        rotas_df_rest = solver_cvrp(pedidos_restantes.reset_index(drop=True), frota, matriz_restante, pos_processamento=pos_processamento, respeitar_regioes_preferidas=False, **kwargs)
-        if not rotas_df_rest.empty:
-            rotas_df_rest[coluna_cluster] = 'OUTROS'
-            # Ajusta Node_Index_OR para o índice global
-            if 'Node_Index_OR' in rotas_df_rest.columns:
-                node_map = {i+1: idx+1 for i, idx in enumerate(indices_pedidos)}
-                node_map[0] = 0
-                rotas_df_rest['Node_Index_OR_Global'] = rotas_df_rest['Node_Index_OR'].map(node_map)
-            resultados.append(rotas_df_rest)
-
     if resultados:
         return pd.concat(resultados, ignore_index=True)
     else:
         return pd.DataFrame()
 def solver_cvrp(pedidos, frota, matriz_distancias, pos_processamento=None, **kwargs):
-    # --- Restrições de Regiões Preferidas dos Veículos ---
-    respeitar_regioes_preferidas = kwargs.get('respeitar_regioes_preferidas', False)
-    regioes_preferidas_dict = {}
-    if respeitar_regioes_preferidas and 'Regiões Preferidas' in frota.columns and 'Região' in pedidos.columns:
-        # Cria um dicionário: veiculo_id -> lista de regiões preferidas (em minúsculo, sem espaços)
-        id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else ('Placa' if 'Placa' in frota.columns else None)
-        if id_col:
-            for _, row in frota.iterrows():
-                veic = row.get(id_col)
-                regioes_pref = row.get('Regiões Preferidas', '')
-                regioes_pref_list = [r.strip().lower() for r in str(regioes_pref).split(',') if r.strip()]
-                regioes_preferidas_dict[veic] = regioes_pref_list
-
     # Validação automática das coordenadas dos pedidos e do depósito
     from routing.utils import validar_coordenadas_dataframe
     ok_coord, msg_coord, df_invalidos = validar_coordenadas_dataframe(pedidos, lat_col='Latitude', lon_col='Longitude', nome_df='Pedidos')
@@ -214,15 +154,15 @@ def solver_cvrp(pedidos, frota, matriz_distancias, pos_processamento=None, **kwa
     search_parameters.first_solution_strategy = (
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
     )
-    # Não define local_search_metaheuristic para compatibilidade com todas as versões do OR-Tools
-    # Reduz o tempo limite para 10 segundos
-    search_parameters.time_limit.seconds = 10
+    search_parameters.local_search_metaheuristic = (
+        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+    )
+    search_parameters.time_limit.seconds = 30 # Adiciona um limite de tempo
 
     # --- Resolução ---
     logger.info("Iniciando a resolução do CVRP com OR-Tools...")
     solution = routing.SolveWithParameters(search_parameters)
     logger.info("Resolução do CVRP concluída.")
-
 
     # --- Montagem do Resultado ---
     routes_data = []
@@ -233,7 +173,7 @@ def solver_cvrp(pedidos, frota, matriz_distancias, pos_processamento=None, **kwa
 
         for vehicle_id in range(n_veiculos):
             index = routing.Start(vehicle_id)
-            sequence = 1
+            sequence = 1 # Começa a sequência em 1 para o primeiro cliente
             vehicle_identifier = (
                 frota['ID Veículo'].iloc[vehicle_id]
                 if 'ID Veículo' in frota.columns and not frota.empty else
@@ -247,96 +187,69 @@ def solver_cvrp(pedidos, frota, matriz_distancias, pos_processamento=None, **kwa
                 load_var = capacity_dimension.CumulVar(index)
                 current_load = solution.Value(load_var)
 
-                if node_index != depot_index:
-                    pedido_original_index = node_index - 1
+                if node_index != depot_index: # Não adiciona o depósito como uma parada na sequência
+                    pedido_original_index = node_index - 1 # Ajusta para índice do DataFrame 'pedidos'
                     if 0 <= pedido_original_index < n_pedidos:
+                        # Verifica se o pedido já foi roteirizado (não deveria acontecer com CVRP padrão)
                         if pedido_original_index in pedidos_roteirizados_indices:
-                            logger.warning(f"Pedido {pedido_original_index} aparecendo em múltiplas rotas (Veículo {vehicle_identifier}). Verifique a lógica.")
+                             logger.warning(f"Pedido {pedido_original_index} aparecendo em múltiplas rotas (Veículo {vehicle_identifier}). Verifique a lógica.")
                         else:
-                            pode_alocar = True
-                            if respeitar_regioes_preferidas and regioes_preferidas_dict:
-                                reg_pedido = str(pedidos.iloc[pedido_original_index]['Região']).strip().lower()
-                                regioes_veic = regioes_preferidas_dict.get(vehicle_identifier, [])
-                                if regioes_veic and reg_pedido not in regioes_veic:
-                                    pode_alocar = False
-                            if pode_alocar:
-                                pedidos_roteirizados_indices.add(pedido_original_index)
-                                pedido_info = pedidos.iloc[pedido_original_index]
-                                routes_data.append({
-                                    'Veículo': vehicle_identifier,
-                                    'Sequencia': sequence,
-                                    'Node_Index_OR': node_index,
-                                    'Pedido_Index_DF': pedido_original_index,
-                                    'ID Pedido': pedido_info.get('ID Pedido', f'Pedido_{pedido_original_index}'),
-                                    'Cliente': pedido_info.get('Cliente', 'N/A'),
-                                    'Endereço': pedido_info.get('Endereço', 'N/A'),
-                                    'Demanda': demands[node_index],
-                                    'Carga_Acumulada': current_load,
-                                })
-                                sequence += 1
-                                route_load_vehicle += demands[node_index]
-                            else:
-                                logger.info(f"Pedido {pedido_original_index} (Região: {pedidos.iloc[pedido_original_index]['Região']}) não alocado ao veículo {vehicle_identifier} por não estar nas regiões preferidas.")
+                            pedidos_roteirizados_indices.add(pedido_original_index)
+                            pedido_info = pedidos.iloc[pedido_original_index]
+                            routes_data.append({
+                                'Veículo': vehicle_identifier,
+                                'Sequencia': sequence,
+                                'Node_Index_OR': node_index, # Índice do nó no OR-Tools (inclui depósito)
+                                'Pedido_Index_DF': pedido_original_index, # Índice no DataFrame 'pedidos' original
+                                'ID Pedido': pedido_info.get('ID Pedido', f'Pedido_{pedido_original_index}'),
+                                'Cliente': pedido_info.get('Cliente', 'N/A'),
+                                'Endereço': pedido_info.get('Endereço', 'N/A'),
+                                'Demanda': demands[node_index],
+                                'Carga_Acumulada': current_load,
+                                # Adicionar Lat/Lon aqui pode ser útil, mas será feito merge depois
+                            })
+                            sequence += 1
+                            route_load_vehicle += demands[node_index] # Soma a demanda do nó atual
                     else:
-                        logger.warning(f"Índice de pedido inválido ({pedido_original_index}) encontrado na rota do veículo {vehicle_identifier}.")
+                         logger.warning(f"Índice de pedido inválido ({pedido_original_index}) encontrado na rota do veículo {vehicle_identifier}.")
 
                 previous_index = index
                 index = solution.Value(routing.NextVar(index))
+                # Calcula a distância do arco
                 arc_distance = routing.GetArcCostForVehicle(previous_index, index, vehicle_id)
                 route_distance_vehicle += arc_distance
 
+            # Adiciona a distância do último nó de volta ao depósito (se houver rota)
             if routing.IsEnd(index) and manager.IndexToNode(previous_index) != depot_index:
-                end_node_index = routing.End(vehicle_id)
-                arc_distance = routing.GetArcCostForVehicle(previous_index, end_node_index, vehicle_id)
-                route_distance_vehicle += arc_distance
+                 end_node_index = routing.End(vehicle_id)
+                 arc_distance = routing.GetArcCostForVehicle(previous_index, end_node_index, vehicle_id)
+                 route_distance_vehicle += arc_distance
 
-            if sequence > 1:
-                logger.info(f"Veículo {vehicle_identifier}: {sequence-1} paradas, Carga={route_load_vehicle}, Dist={route_distance_vehicle/1000:.1f}km")
-                total_distance_solution += route_distance_vehicle
+            if sequence > 1: # Se o veículo fez alguma entrega
+                 logger.info(f"Veículo {vehicle_identifier}: {sequence-1} paradas, Carga={route_load_vehicle}, Dist={route_distance_vehicle/1000:.1f}km")
+                 total_distance_solution += route_distance_vehicle
 
         rotas_df = pd.DataFrame(routes_data)
 
-        # --- INTEGRAÇÃO DAS REGRAS DE PÓS-PROCESSAMENTO ---
-        # 1. Priorizar regiões preferidas (se ativado)
-        from routing.pos_processamento import priorizar_regioes_preferidas, alocar_regiao_predominante_com_agrupamento_vizinho, checar_e_corrigir_excesso_carga, loop_realocacao_pedidos_restritos, balancear_carga_e_usar_todos_veiculos
-        if respeitar_regioes_preferidas:
-            rotas_df, _ = priorizar_regioes_preferidas(rotas_df, frota, pedidos)
-        # 2. Agrupamento flexível de regiões e realocação de pedidos
-        rotas_df = alocar_regiao_predominante_com_agrupamento_vizinho(
-            rotas_df, frota, pedidos, raio_km=25.0, capacidade_min_pct=0.6, min_pedidos=5
-        )
-        # 3. Checagem e correção de excesso de carga
-        rotas_df, _ = checar_e_corrigir_excesso_carga(rotas_df, frota, limite_pct=100)
-        # 4. Marcação de pedidos sem veículo como restritos
-        pedidos_sem_veiculo_indices = rotas_df[rotas_df['Veículo'].isnull()].index
-        if not pedidos_sem_veiculo_indices.empty:
-            rotas_df.loc[pedidos_sem_veiculo_indices, 'Alocacao_Restrita'] = True
-        # 5. Realocação iterativa de pedidos restritos
-        rotas_df, _ = loop_realocacao_pedidos_restritos(rotas_df, frota, pedidos, raio_km=30.0, max_iter=5)
-        # 6. Balanceamento final de carga entre veículos
-        rotas_df = balancear_carga_e_usar_todos_veiculos(rotas_df, frota, pedidos, criterio_balanceamento='peso', priorizar_regiao=True)
-        rotas_df = balancear_carga_e_usar_todos_veiculos(rotas_df, frota, pedidos, criterio_balanceamento='paradas', priorizar_regiao=True)
-
         if rotas_df.empty:
-            logger.warning("Solver CVRP encontrou uma solução, mas nenhuma rota válida foi gerada (talvez nenhum pedido atribuído).")
+             logger.warning("Solver CVRP encontrou uma solução, mas nenhuma rota válida foi gerada (talvez nenhum pedido atribuído).")
         else:
-            logger.info(f"Total de {len(rotas_df)} paradas distribuídas.")
-            logger.info(f"Distância total (solução OR-Tools): {total_distance_solution / 1000:.1f} km")
-            pedidos_nao_roteirizados = n_pedidos - len(pedidos_roteirizados_indices)
-            if pedidos_nao_roteirizados > 0:
-                logger.warning(f"{pedidos_nao_roteirizados} pedidos não foram incluídos nas rotas pela solução.")
+             logger.info(f"Total de {len(rotas_df)} paradas distribuídas.")
+             logger.info(f"Distância total (solução OR-Tools): {total_distance_solution / 1000:.1f} km")
+             # Verifica se todos os pedidos foram roteirizados
+             pedidos_nao_roteirizados = n_pedidos - len(pedidos_roteirizados_indices)
+             if pedidos_nao_roteirizados > 0:
+                  logger.warning(f"{pedidos_nao_roteirizados} pedidos não foram incluídos nas rotas pela solução.")
 
         return rotas_df
 
     else:
         logger.warning("Solver CVRP não encontrou solução.")
-        # Corrige: constantes de status do OR-Tools podem não estar disponíveis como atributos do objeto routing
         status_map = {
-            0: 'NOT_SOLVED',
-            1: 'SUCCESS',
-            2: 'FAIL',
-            3: 'FAIL_TIMEOUT',
-            4: 'INVALID',
+            routing.ROUTING_NOT_SOLVED: 'NOT_SOLVED',
+            routing.ROUTING_FAIL: 'FAIL',
+            routing.ROUTING_FAIL_TIMEOUT: 'FAIL_TIMEOUT',
+            routing.ROUTING_INVALID: 'INVALID',
         }
         logger.warning(f"Status da solução: {routing.status()} ({status_map.get(routing.status(), 'UNKNOWN')})")
         # Tentar fornecer mais detalhes sobre a inviabilidade, se possível

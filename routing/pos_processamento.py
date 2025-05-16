@@ -1,9 +1,568 @@
+def roteirizacao_por_regiao(rotas_df, frota, pedidos, raio_vizinho=20, limite_pct=120):
+    """
+    Pipeline enxuto para roteirização por região:
+    1. Aloca 1 veículo por região (prioriza preferências da frota).
+    2. Checa excesso de carga e desaloca pedidos excedentes.
+    3. Realoca pedidos restritos para regiões vizinhas, se possível.
+    4. Reforça a restrição 1:1 entre região e veículo.
+    """
+    rotas_df = alocar_1_veiculo_por_regiao(rotas_df, frota, pedidos)
+    rotas_df, _ = checar_e_corrigir_excesso_carga(rotas_df, frota, limite_pct=limite_pct)
+    rotas_df, _ = realocar_pedidos_restritos(rotas_df, frota, pedidos, raio_km=raio_vizinho)
+    rotas_df = forcar_1_veiculo_por_regiao_final(rotas_df, frota, pedidos)
+    return rotas_df
+def forcar_1_veiculo_por_regiao_final(rotas_df, frota=None, pedidos=None, marcar_restrito=True):
+    """
+    Garante que cada região seja atendida por no máximo 1 veículo e cada veículo só atenda uma região.
+    Se houver violação, remove pedidos excedentes (marca como restritos ou desaloca).
+    Pode ser chamada ao final do pipeline para garantir a restrição 1:1.
+    """
+    if rotas_df is None or rotas_df.empty or 'Veículo' not in rotas_df.columns or 'Região' not in rotas_df.columns:
+        return rotas_df
+    # Padroniza nomes de regiões
+    rotas_df['Região'] = rotas_df['Região'].astype(str).str.strip().str.title()
+    # 1. Garante que cada região tenha no máximo 1 veículo
+    regioes = rotas_df['Região'].dropna().unique().tolist()
+    for reg in regioes:
+        pedidos_reg = rotas_df[rotas_df['Região'] == reg]
+        veics_reg = pedidos_reg['Veículo'].dropna().unique().tolist()
+        if len(veics_reg) > 1:
+            # Mantém o veículo mais frequente (ou o primeiro), remove dos outros
+            veic_principal = pedidos_reg['Veículo'].mode().iloc[0]
+            idxs_outros = pedidos_reg[pedidos_reg['Veículo'] != veic_principal].index
+            rotas_df.loc[idxs_outros, 'Veículo'] = None
+            if marcar_restrito:
+                rotas_df.loc[idxs_outros, 'Alocacao_Restrita'] = True
+    # 2. Garante que cada veículo só atenda uma região
+    veiculos = rotas_df['Veículo'].dropna().unique().tolist()
+    for veic in veiculos:
+        pedidos_veic = rotas_df[rotas_df['Veículo'] == veic]
+        regioes_veic = pedidos_veic['Região'].dropna().unique().tolist()
+        if len(regioes_veic) > 1:
+            # Mantém a região mais frequente (ou a primeira), remove dos outros
+            reg_principal = pedidos_veic['Região'].mode().iloc[0]
+            idxs_outros = pedidos_veic[pedidos_veic['Região'] != reg_principal].index
+            rotas_df.loc[idxs_outros, 'Veículo'] = None
+            if marcar_restrito:
+                rotas_df.loc[idxs_outros, 'Alocacao_Restrita'] = True
+    return rotas_df
 import pandas as pd
 import numpy as np
-from geopy.distance import geodesic
 import logging
-import json # Adicionado para exportar_rotas_para_geojson
-from datetime import datetime # Adicionado para realocar_pedidos_restritos
+import json
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def listar_regioes_vizinhas(pedidos, raio_km=20):
+    """
+    Lista e imprime as regiões vizinhas de cada região, considerando o centroide e o raio informado.
+    Retorna um dicionário {regiao: [regioes_vizinhas]}
+    """
+    from geopy.distance import geodesic
+    centroides = {}
+    pedidos_copy = pedidos.copy()
+    pedidos_copy['Região'] = pedidos_copy['Região'].astype(str).str.strip().str.title()
+    for reg_nome, grupo_pedidos_regiao in pedidos_copy.groupby('Região'):
+        pedidos_validos_reg = grupo_pedidos_regiao.dropna(subset=['Latitude', 'Longitude'])
+        if not pedidos_validos_reg.empty:
+            lat_centroide_reg = pedidos_validos_reg['Latitude'].mean()
+            lon_centroide_reg = pedidos_validos_reg['Longitude'].mean()
+            centroides[reg_nome] = (lat_centroide_reg, lon_centroide_reg)
+    print(f"\nRaio considerado para vizinhança: {raio_km} km\n")
+    viz_dict = {}
+    for reg1, coord1 in centroides.items():
+        vizinhas = []
+        for reg2, coord2 in centroides.items():
+            if reg1 == reg2:
+                continue
+            dist = geodesic(coord1, coord2).km
+            if dist <= raio_km:
+                vizinhas.append((reg2, round(dist, 2)))
+        viz_dict[reg1] = vizinhas
+        viz_str = ', '.join([f"{v[0]} ({v[1]} km)" for v in vizinhas])
+        print(f"Região '{reg1}' tem vizinhas: {viz_str if viz_str else 'Nenhuma'}")
+    return viz_dict
+
+## Função garantir_ocupacao_minima removida: regra de ocupação mínima por veículo não é mais utilizada.
+# Função para garantir veículos suficientes por região, respeitando capacidade
+def alocar_veiculos_por_capacidade_regiao(rotas_df, frota, pedidos, modo='capacidade', marcar_restrito=True):
+    """
+    Função unificada de alocação de veículos por região.
+    Se modo='capacidade', divide pedidos entre vários veículos respeitando capacidade.
+    Se modo='1_veiculo_por_regiao', cada região recebe no máximo 1 veículo (e cada veículo só atende uma região).
+    Se faltar veículo, pode marcar pedidos como restritos.
+    """
+    """
+    Aloca veículos por região, priorizando veículos com regiões preferidas e garantindo fallback seguro.
+    """
+    # Validação de entrada
+    if rotas_df is None or rotas_df.empty:
+        logging.warning("rotas_df vazio ou None.")
+        return rotas_df
+    if pedidos is None or 'Região' not in pedidos.columns:
+        logging.warning("DataFrame de pedidos inválido ou sem coluna 'Região'.")
+        return rotas_df
+    if 'Região' not in rotas_df.columns:
+        raise KeyError("A coluna 'Região' não está presente no DataFrame rotas_df. Verifique os dados de entrada.")
+    id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
+    veiculos_ativos = frota[id_col].dropna().unique().tolist() if id_col in frota.columns else []
+    capacidade_veic = frota.set_index(id_col)['Capacidade (Kg)'].to_dict() if 'Capacidade (Kg)' in frota.columns else {}
+    regioes = pedidos['Região'].dropna().unique().tolist()
+    veiculos_usados = set()
+    if modo not in ['capacidade', '1_veiculo_por_regiao']:
+        raise ValueError(f"Modo '{modo}' não reconhecido em alocar_veiculos_por_capacidade_regiao.")
+
+    if not veiculos_ativos:
+        logging.warning("Nenhum veículo ativo encontrado na frota.")
+        return rotas_df
+
+    if modo == 'capacidade':
+        # 1. Aloca primeiro todos os pedidos para veículos com regiões preferidas
+        for reg in regioes:
+            veics_pref = frota[frota['Regiões Preferidas'].fillna('').str.lower().str.contains(reg.lower())][id_col].tolist()
+            veic = None
+            for v in veics_pref:
+                if v not in veiculos_usados:
+                    veic = v
+                    break
+            if veic is not None:
+                idxs = rotas_df[rotas_df['Região'] == reg].index
+                rotas_df.loc[idxs, 'Veículo'] = veic
+                veiculos_usados.add(veic)
+        # 2. Aloca os pedidos restantes para outros veículos disponíveis
+        for reg in regioes:
+            idxs = rotas_df[(rotas_df['Região'] == reg) & (rotas_df['Veículo'].isnull())].index
+            if len(idxs) == 0:
+                continue
+            veic = None
+            for v in veiculos_ativos:
+                if v not in veiculos_usados:
+                    veic = v
+                    break
+            if veic is not None:
+                rotas_df.loc[idxs, 'Veículo'] = veic
+                veiculos_usados.add(veic)
+            else:
+                # Não há veículo disponível para essa região
+                if marcar_restrito:
+                    rotas_df.loc[idxs, 'Alocacao_Restrita'] = True
+        return rotas_df
+    elif modo == '1_veiculo_por_regiao':
+        # Garante que cada região receba no máximo 1 veículo, e cada veículo só atenda uma região
+        veiculos_usados = set()
+        regioes_usadas = set()
+        for reg in regioes:
+            if reg in regioes_usadas:
+                continue
+            veics_pref = frota[frota['Regiões Preferidas'].fillna('').str.lower().str.contains(reg.lower())][id_col].tolist()
+            veic = None
+            # Prioriza veículos preferenciais não usados
+            for v in veics_pref:
+                if v not in veiculos_usados:
+                    veic = v
+                    break
+            # Se não houver preferencial disponível, pega qualquer veículo não usado
+            if veic is None:
+                for v in veiculos_ativos:
+                    if v not in veiculos_usados:
+                        veic = v
+                        break
+            if veic is not None:
+                # Marca todos os pedidos dessa região para esse veículo
+                idxs = rotas_df[rotas_df['Região'] == reg].index
+                rotas_df.loc[idxs, 'Veículo'] = veic
+                veiculos_usados.add(veic)
+                regioes_usadas.add(reg)
+            else:
+                # Não há veículo disponível para essa região
+                if marcar_restrito:
+                    idxs = rotas_df[rotas_df['Região'] == reg].index
+                    rotas_df.loc[idxs, 'Alocacao_Restrita'] = True
+        # Após alocação, remove de cada veículo qualquer pedido de outras regiões (garante 1 região por veículo)
+        for veic in veiculos_usados:
+            regioes_veic = rotas_df[rotas_df['Veículo'] == veic]['Região'].unique().tolist()
+            if len(regioes_veic) > 1:
+                # Mantém apenas a região que foi alocada para esse veículo
+                reg_principal = None
+                for reg in regioes:
+                    idxs = rotas_df[(rotas_df['Veículo'] == veic) & (rotas_df['Região'] == reg)].index
+                    if len(idxs) > 0:
+                        reg_principal = reg
+                        break
+                # Remove pedidos de outras regiões desse veículo
+                idxs_outros = rotas_df[(rotas_df['Veículo'] == veic) & (rotas_df['Região'] != reg_principal)].index
+                rotas_df.loc[idxs_outros, 'Veículo'] = None
+                if marcar_restrito:
+                    rotas_df.loc[idxs_outros, 'Alocacao_Restrita'] = True
+        return rotas_df
+def alocar_1_veiculo_por_regiao(rotas_df, frota, pedidos):
+    """
+    Compatibilidade: chama a função unificada com modo '1_veiculo_por_regiao'.
+    """
+    return alocar_veiculos_por_capacidade_regiao(rotas_df, frota, pedidos, modo='1_veiculo_por_regiao', marcar_restrito=True)
+def realocar_pedidos_restritos(rotas_df, frota, pedidos, raio_km=20):
+    # Garante que a frota tenha as colunas de janela de tempo e preenche valores padrão se necessário
+    if 'Janela Início' not in frota.columns:
+        frota['Janela Início'] = '05:00'
+    else:
+        frota['Janela Início'] = frota['Janela Início'].fillna('05:00').replace('', '05:00')
+    if 'Janela Fim' not in frota.columns:
+        frota['Janela Fim'] = '18:00'
+    else:
+        frota['Janela Fim'] = frota['Janela Fim'].fillna('18:00').replace('', '18:00')
+
+    # Garante que rotas_df tenha as colunas de janela de tempo do pedido
+    if 'Janela Início' not in rotas_df.columns:
+        rotas_df['Janela Início'] = '05:00'
+    else:
+        rotas_df['Janela Início'] = rotas_df['Janela Início'].fillna('05:00').replace('', '05:00')
+    if 'Janela Fim' not in rotas_df.columns:
+        rotas_df['Janela Fim'] = '18:00'
+    else:
+        rotas_df['Janela Fim'] = rotas_df['Janela Fim'].fillna('18:00').replace('', '18:00')
+
+    # Define id_col antes de qualquer uso
+    id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
+
+    # Cria dicionário de janelas da frota
+    janela_inicio_frota = frota.set_index(id_col)['Janela Início'].to_dict()
+    janela_fim_frota = frota.set_index(id_col)['Janela Fim'].to_dict()
+
+    # Marca como restrito todo pedido cuja janela não está contida na janela do veículo
+    for idx, row in rotas_df.iterrows():
+        veic = row['Veículo']
+        if pd.isnull(veic):
+            continue
+        janela_ini_ped = row['Janela Início'] if 'Janela Início' in row else '05:00'
+        janela_fim_ped = row['Janela Fim'] if 'Janela Fim' in row else '18:00'
+        janela_ini_veic = janela_inicio_frota.get(veic, '05:00')
+        janela_fim_veic = janela_fim_frota.get(veic, '18:00')
+        # Compara horários (formato HH:MM)
+        try:
+            from datetime import datetime
+            fmt = '%H:%M'
+            ini_ped = datetime.strptime(str(janela_ini_ped), fmt)
+            fim_ped = datetime.strptime(str(janela_fim_ped), fmt)
+            ini_veic = datetime.strptime(str(janela_ini_veic), fmt)
+            fim_veic = datetime.strptime(str(janela_fim_veic), fmt)
+            # Se pedido começa antes do veículo ou termina depois do veículo, marca como restrito
+            if ini_ped < ini_veic or fim_ped > fim_veic:
+                rotas_df.at[idx, 'Alocacao_Restrita'] = True
+                logging.warning(f"Pedido {idx} com janela [{janela_ini_ped}-{janela_fim_ped}] não cabe na janela do veículo {veic} [{janela_ini_veic}-{janela_fim_veic}]. Marcado como restrito.")
+        except Exception as e:
+            logging.warning(f"Erro ao comparar janelas de tempo para pedido {idx}: {e}")
+    """
+    Tenta realocar pedidos marcados como Alocacao_Restrita para outros veículos que atendam até 2 regiões próximas (por nome e raio) e tenham capacidade disponível.
+    Remove a marcação se conseguir realocar. Retorna o DataFrame atualizado e o número de realocações.
+    """
+    from geopy.distance import geodesic
+    import numpy as np
+    import logging
+    # Validação e padronização das colunas essenciais
+    col_essenciais = ['Região', 'Latitude', 'Longitude', 'Veículo', 'Demanda']
+    for col in col_essenciais:
+        if col not in rotas_df.columns:
+            logging.error(f"Coluna obrigatória '{col}' ausente em rotas_df. Abortando realocação.")
+            return rotas_df, 0
+    if pedidos is None or 'Região' not in pedidos.columns or 'Latitude' not in pedidos.columns or 'Longitude' not in pedidos.columns:
+        logging.error("Pedidos DataFrame ausente ou sem colunas essenciais. Abortando realocação.")
+        return rotas_df, 0
+    # Padroniza nomes de regiões (strip, title)
+    rotas_df['Região'] = rotas_df['Região'].astype(str).str.strip().str.title()
+    pedidos['Região'] = pedidos['Região'].astype(str).str.strip().str.title()
+    # Converte coordenadas para float e remove linhas inválidas
+    rotas_df['Latitude'] = pd.to_numeric(rotas_df['Latitude'], errors='coerce')
+    rotas_df['Longitude'] = pd.to_numeric(rotas_df['Longitude'], errors='coerce')
+    pedidos['Latitude'] = pd.to_numeric(pedidos['Latitude'], errors='coerce')
+    pedidos['Longitude'] = pd.to_numeric(pedidos['Longitude'], errors='coerce')
+    # Remove pedidos restritos sem coordenadas válidas
+    pedidos_restritos = rotas_df[(rotas_df['Alocacao_Restrita'] == True) & rotas_df['Latitude'].notnull() & rotas_df['Longitude'].notnull()]
+    if pedidos_restritos.empty:
+        logging.info("Nenhum pedido restrito com coordenadas válidas para realocação.")
+        return rotas_df, 0
+    id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
+    capacidades = frota.set_index(id_col)['Capacidade (Kg)'].to_dict() if 'Capacidade (Kg)' in frota.columns else {}
+    realocados = 0
+    # Pré-calcula centroides de todas as regiões presentes nos pedidos
+    centroides_todas_regioes = {}
+    pedidos_copy = pedidos.copy()
+    pedidos_copy['Região'] = pedidos_copy['Região'].astype(str).str.strip().str.title()
+    for reg_nome, grupo_pedidos_regiao in pedidos_copy.groupby('Região'):
+        pedidos_validos_reg = grupo_pedidos_regiao.dropna(subset=['Latitude', 'Longitude'])
+        if not pedidos_validos_reg.empty:
+            lat_centroide_reg = pedidos_validos_reg['Latitude'].mean()
+            lon_centroide_reg = pedidos_validos_reg['Longitude'].mean()
+            centroides_todas_regioes[reg_nome] = (lat_centroide_reg, lon_centroide_reg)
+
+    for idx, row in pedidos_restritos.iterrows():
+        lat = row['Latitude']
+        lon = row['Longitude']
+        reg_pedido = row['Região']
+        demanda = row['Demanda'] if 'Demanda' in row else 0
+        veic_atual = row['Veículo']
+        if pd.isnull(lat) or pd.isnull(lon) or not reg_pedido or pd.isnull(veic_atual):
+            logging.warning(f"Pedido restrito ignorado por dados faltantes: idx={idx}, regiao={reg_pedido}, lat={lat}, lon={lon}, veic_atual={veic_atual}")
+            continue
+        melhor_veic = None
+        # 1. Tenta veículos preferenciais primeiro
+        veics_pref = frota[frota['Regiões Preferidas'].fillna('').str.lower().str.contains(reg_pedido.lower())][id_col].tolist()
+        veics_teste = veics_pref + [v for v in rotas_df['Veículo'].unique() if v not in veics_pref and v != veic_atual]
+        # Calcula centroide da região do pedido
+        centroide_reg_pedido = centroides_todas_regioes.get(reg_pedido)
+        for veic in veics_teste:
+            if veic == veic_atual:
+                continue
+            pedidos_veic = rotas_df[rotas_df['Veículo'] == veic]
+            if pedidos_veic.empty:
+                continue
+            # Região predominante do veículo
+            regioes_pred = pedidos_veic['Região'].value_counts().index[:1].tolist()
+            if not regioes_pred:
+                continue
+            reg_pred = regioes_pred[0]
+            centroide_reg_pred = centroides_todas_regioes.get(reg_pred)
+            permitido = False
+            motivo_vizinha = False
+            # Permite se a região for igual e o pedido estiver próximo do centroide
+            if reg_pedido == reg_pred and centroide_reg_pred:
+                dist = geodesic((lat, lon), centroide_reg_pred).km
+                if dist <= raio_km:
+                    permitido = True
+            # Permite se a região for vizinha (centroides próximos)
+            elif centroide_reg_pedido and centroide_reg_pred:
+                dist_centroides = geodesic(centroide_reg_pedido, centroide_reg_pred).km
+                dist_pedido_centroide_pedido = geodesic((lat, lon), centroide_reg_pedido).km
+                if dist_centroides <= raio_km and dist_pedido_centroide_pedido <= raio_km:
+                    permitido = True
+                    motivo_vizinha = True
+            if not permitido:
+                continue
+            cap = capacidades.get(veic, None)
+            carga_atual = rotas_df[rotas_df['Veículo'] == veic]['Demanda'].sum() if 'Demanda' in rotas_df.columns else 0
+            if cap is not None and carga_atual + demanda <= cap:
+                melhor_veic = veic
+                if motivo_vizinha:
+                    logging.info(f"Pedido {idx} (Região: {reg_pedido}) realocado para veículo {veic} (Região Pred: {reg_pred}) por ser região vizinha (dist_centroides={dist_centroides:.2f} km, raio={raio_km} km).")
+                break
+        if melhor_veic:
+            rotas_df.at[idx, 'Veículo'] = melhor_veic
+            rotas_df.at[idx, 'Alocacao_Restrita'] = False
+            realocados += 1
+    return rotas_df, realocados
+def restringir_1_regiao_por_veiculo(rotas_df, raio_km=20, pedidos=None):
+    """
+    Para cada veículo, identifica a região predominante.
+    Permite pedidos da região predominante que estejam dentro de um raio_km do seu centroide.
+    Permite pedidos de OUTRAS regiões se o centroide dessas outras regiões estiver próximo ao
+    centroide da região predominante, e o pedido em si estiver próximo ao centroide da sua própria região.
+    Pedidos fora dessas condições são marcados como restritos.
+    """
+    from geopy.distance import geodesic
+    import numpy as np # Adicionado para isnan
+    import pandas as pd # Adicionado para isnull
+
+    if rotas_df is None or rotas_df.empty or 'Veículo' not in rotas_df.columns or 'Região' not in rotas_df.columns:
+        logging.warning("restringir_1_regiao_por_veiculo: rotas_df inválido ou colunas faltando.")
+        return rotas_df
+
+    # Fallback se não houver DataFrame de pedidos ou coordenadas para calcular centroides
+    if pedidos is None or 'Latitude' not in pedidos.columns or 'Longitude' not in pedidos.columns or \
+       'Região' not in pedidos.columns or \
+       'Latitude' not in rotas_df.columns or 'Longitude' not in rotas_df.columns:
+        logging.warning("restringir_1_regiao_por_veiculo: DataFrame de pedidos ou coordenadas ausentes. Usando fallback (restringe apenas por nome da região predominante).")
+        for veic in rotas_df['Veículo'].unique():
+            if pd.isnull(veic): continue
+            pedidos_veic = rotas_df[rotas_df['Veículo'] == veic]
+            if pedidos_veic.empty or pedidos_veic['Região'].isnull().all():
+                continue
+            
+            regiao_pred_series = pedidos_veic['Região'].mode()
+            if regiao_pred_series.empty:
+                continue
+            regiao_pred = regiao_pred_series.iloc[0]
+            
+            fora_regiao_pred = pedidos_veic[pedidos_veic['Região'] != regiao_pred]
+            for idx in fora_regiao_pred.index:
+                rotas_df.at[idx, 'Alocacao_Restrita'] = True
+                pedido_id_log = rotas_df.at[idx, 'Pedido_Index_DF'] if 'Pedido_Index_DF' in rotas_df.columns else idx
+                logging.warning(f"Pedido {pedido_id_log} está fora da região predominante '{regiao_pred}' do veículo {veic} (fallback).")
+        return rotas_df
+
+    # Calcular centroides de todas as regiões uma vez
+    centroides_todas_regioes = {}
+    # Garante que pedidos['Região'] seja string para o groupby e get
+    pedidos_copy = pedidos.copy()
+    pedidos_copy['Região'] = pedidos_copy['Região'].astype(str).str.strip().str.title()
+
+    for reg_nome, grupo_pedidos_regiao in pedidos_copy.groupby('Região'):
+        pedidos_validos_reg = grupo_pedidos_regiao.dropna(subset=['Latitude', 'Longitude'])
+        if not pedidos_validos_reg.empty:
+            lat_centroide_reg = pedidos_validos_reg['Latitude'].mean()
+            lon_centroide_reg = pedidos_validos_reg['Longitude'].mean()
+            centroides_todas_regioes[reg_nome] = (lat_centroide_reg, lon_centroide_reg)
+        else:
+            logging.info(f"Região '{reg_nome}' não possui pedidos com coordenadas válidas para cálculo de centroide.")
+            
+    if not centroides_todas_regioes:
+        logging.warning("Nenhum centroide regional pôde ser calculado. Abortando restrição geográfica.")
+        return rotas_df
+
+    for veic in rotas_df['Veículo'].unique():
+        if pd.isnull(veic): continue
+        pedidos_veic = rotas_df[rotas_df['Veículo'] == veic].copy() # Usar .copy() para evitar SettingWithCopyWarning
+        
+        # Padroniza Região no slice do veículo também
+        pedidos_veic['Região'] = pedidos_veic['Região'].astype(str).str.strip().str.title()
+
+        if pedidos_veic.empty or pedidos_veic['Região'].isnull().all():
+            continue
+        
+        regiao_pred_veic_series = pedidos_veic['Região'].value_counts()
+        if regiao_pred_veic_series.empty:
+            continue
+        regiao_pred_veic_nome = regiao_pred_veic_series.index[0]
+
+        centroide_reg_pred_veic = centroides_todas_regioes.get(regiao_pred_veic_nome)
+        if not centroide_reg_pred_veic:
+            logging.warning(f"Veículo {veic}: Região predominante '{regiao_pred_veic_nome}' não possui centroide. Pedidos podem ser marcados como restritos indevidamente.")
+            # Marcar todos os pedidos deste veículo como restritos se sua região predominante não tem centroide?
+            # Ou pular? Por segurança, marcar como restrito se não puder validar.
+            for idx_veic_ped in pedidos_veic.index:
+                 rotas_df.at[idx_veic_ped, 'Alocacao_Restrita'] = True
+            continue
+
+        for idx, row in pedidos_veic.iterrows():
+            lat_pedido = row['Latitude']
+            lon_pedido = row['Longitude']
+            reg_pedido_nome = row['Região'] # Já padronizado no slice pedidos_veic
+
+            pedido_id_log = row['Pedido_Index_DF'] if 'Pedido_Index_DF' in row and pd.notnull(row['Pedido_Index_DF']) else idx
+
+
+            if pd.isnull(lat_pedido) or pd.isnull(lon_pedido) or pd.isnull(reg_pedido_nome) or reg_pedido_nome == 'Nan':
+                rotas_df.at[idx, 'Alocacao_Restrita'] = True
+                logging.warning(f"Pedido {pedido_id_log} do veículo {veic} marcado como restrito devido a dados faltantes (lat/lon/região).")
+                continue
+
+            permitido = False
+            if reg_pedido_nome == regiao_pred_veic_nome:
+                dist_pedido_a_centroide_pred = geodesic((lat_pedido, lon_pedido), centroide_reg_pred_veic).km
+                if dist_pedido_a_centroide_pred <= raio_km:
+                    permitido = True
+            else:
+                centroide_reg_pedido = centroides_todas_regioes.get(reg_pedido_nome)
+                if centroide_reg_pedido:
+                    dist_centroides_regionais = geodesic(centroide_reg_pedido, centroide_reg_pred_veic).km
+                    if dist_centroides_regionais <= raio_km:
+                        dist_pedido_a_seu_centroide = geodesic((lat_pedido, lon_pedido), centroide_reg_pedido).km
+                        if dist_pedido_a_seu_centroide <= raio_km:
+                            permitido = True
+            
+            if permitido:
+                # Garante que, se permitido, a marcação de restrição seja False (caso tenha sido marcada antes)
+                if 'Alocacao_Restrita' in rotas_df.columns:
+                    rotas_df.at[idx, 'Alocacao_Restrita'] = False
+            else:
+                rotas_df.at[idx, 'Alocacao_Restrita'] = True
+                logging.warning(f"Pedido {pedido_id_log} (Região: {reg_pedido_nome}) do veículo {veic} (Região Pred: {regiao_pred_veic_nome}) marcado como restrito.")
+    return rotas_df
+def priorizar_regioes_preferidas(rotas_df, frota, pedidos):
+    """
+    Move pedidos para veículos que tenham a região do pedido em suas 'Regiões Preferidas' (restrição dura).
+    Se não houver capacidade, aloca para o veículo cuja região preferida seja mais próxima.
+    Se ainda assim não couber, aloca para qualquer veículo disponível.
+    """
+    import pandas as pd
+    import numpy as np
+    from geopy.distance import geodesic
+    if rotas_df is None or rotas_df.empty or 'Veículo' not in rotas_df.columns or 'Pedido_Index_DF' not in rotas_df.columns:
+        return rotas_df, 0
+    if 'Região' not in pedidos.columns:
+        return rotas_df, 0
+    id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
+    regioes_pref_dict = {}
+    regioes_centroides = {}
+    for _, row in frota.iterrows():
+        veic = row.get(id_col)
+        regioes_pref = row.get('Regiões Preferidas', '')
+        regioes_pref_list = [r.strip().lower() for r in str(regioes_pref).split(',') if r.strip()]
+        regioes_pref_dict[veic] = regioes_pref_list
+        # Calcula centroide das regiões preferidas do veículo
+        for reg in regioes_pref_list:
+            if reg and reg not in regioes_centroides and reg in pedidos['Região'].str.lower().values:
+                pedidos_reg = pedidos[pedidos['Região'].str.lower() == reg]
+                if not pedidos_reg.empty:
+                    lat = pedidos_reg['Latitude'].mean()
+                    lon = pedidos_reg['Longitude'].mean()
+                    regioes_centroides[reg] = (lat, lon)
+    pedido_regiao = pedidos['Região'].fillna('').astype(str).str.lower().tolist()
+    pedido_lat = pedidos['Latitude'].tolist() if 'Latitude' in pedidos.columns else None
+    pedido_lon = pedidos['Longitude'].tolist() if 'Longitude' in pedidos.columns else None
+    capacidades = frota.set_index(id_col)['Capacidade (Kg)'].to_dict() if 'Capacidade (Kg)' in frota.columns else {}
+    realocados = 0
+    for idx, row in rotas_df.iterrows():
+        veic_atual = row['Veículo']
+        pedido_idx = row['Pedido_Index_DF']
+        if pd.isnull(pedido_idx):
+            continue
+        pedido_idx = int(pedido_idx)
+        regiao_pedido = pedido_regiao[pedido_idx] if pedido_idx < len(pedido_regiao) else ''
+        lat_pedido = pedido_lat[pedido_idx] if pedido_lat and pedido_idx < len(pedido_lat) else None
+        lon_pedido = pedido_lon[pedido_idx] if pedido_lon and pedido_idx < len(pedido_lon) else None
+        if not regiao_pedido:
+            continue
+        # 1. Tenta alocar para veículos preferenciais (restrição dura)
+        veics_pref = [v for v, regs in regioes_pref_dict.items() if regiao_pedido in regs]
+        demanda = row['Demanda'] if 'Demanda' in row else 0
+        melhor_veic = None
+        menor_carga = None
+        for v in veics_pref:
+            cap = capacidades.get(v, None)
+            if cap is None:
+                continue
+            carga_atual = rotas_df[rotas_df['Veículo'] == v]['Demanda'].sum() if 'Demanda' in rotas_df.columns else 0
+            if carga_atual + demanda > cap:
+                continue
+            if menor_carga is None or carga_atual < menor_carga:
+                melhor_veic = v
+                menor_carga = carga_atual
+        if melhor_veic and melhor_veic != veic_atual:
+            rotas_df.at[idx, 'Veículo'] = melhor_veic
+            realocados += 1
+            continue
+        # 2. Se não couber, busca veículo cuja região preferida seja mais próxima (restrição dura)
+        if veics_pref and not melhor_veic:
+            min_dist = None
+            veic_mais_proximo = None
+            for v, regs in regioes_pref_dict.items():
+                for reg in regs:
+                    if reg in regioes_centroides and lat_pedido is not None and lon_pedido is not None:
+                        dist = geodesic((lat_pedido, lon_pedido), regioes_centroides[reg]).km
+                        cap = capacidades.get(v, None)
+                        carga_atual = rotas_df[rotas_df['Veículo'] == v]['Demanda'].sum() if 'Demanda' in rotas_df.columns else 0
+                        if cap is not None and carga_atual + demanda <= cap:
+                            if min_dist is None or dist < min_dist:
+                                min_dist = dist
+                                veic_mais_proximo = v
+            if veic_mais_proximo and veic_mais_proximo != veic_atual:
+                rotas_df.at[idx, 'Veículo'] = veic_mais_proximo
+                realocados += 1
+                continue
+        # 3. Fallback: NÃO permite alocação para veículos fora das regiões preferidas
+        # Ou seja, pedidos que não couberem em nenhum veículo preferencial permanecem como estão
+        # (Opcional: pode-se marcar esses pedidos para análise posterior)
+        # Exemplo de log para pedidos não alocados:
+        if not veics_pref or (veics_pref and not melhor_veic and not veic_mais_proximo):
+            logging.warning(f"Pedido {pedido_idx} (região '{regiao_pedido}') NÃO será alocado: nenhum veículo com região preferida disponível/capaz. Veículo atual: {veic_atual}.")
+            # Opcional: marcar para análise
+            rotas_df.at[idx, 'Alocacao_Restrita'] = True
+            continue
+    return rotas_df, realocados
+import numpy as np
+import itertools
+import logging
+import pandas as pd
+import json
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -190,7 +749,7 @@ def merge(rotas, matriz_distancias, capacidade_maxima=None, demandas=None):
         else:
             melhorou = False
     return rotas_otimizadas
-    pass
+
 def exportar_rotas_para_csv(rotas, filepath):
     """
     Exporta uma lista de rotas para um arquivo CSV.
@@ -201,7 +760,7 @@ def exportar_rotas_para_csv(rotas, filepath):
     df = pd.DataFrame({'rota': rotas})
     df.to_csv(filepath, index=False, encoding='utf-8')
     logging.info(f"Rotas exportadas para {filepath}")
-    pass
+
 def exportar_rotas_para_geojson(rotas, coordenadas, filepath):
     """
     Exporta rotas para GeoJSON.
@@ -225,17 +784,29 @@ def exportar_rotas_para_geojson(rotas, coordenadas, filepath):
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(geojson, f, ensure_ascii=False, indent=2)
     logging.info(f"Rotas exportadas para {filepath} (GeoJSON)")
-    pass
+
 def balancear_carga_e_usar_todos_veiculos(
     rotas_df, frota, pedidos, max_iter=20, criterio_balanceamento='peso', priorizar_regiao=False
 ):
     """
-    Balanceia a carga entre veículos.
+    Balanceia a carga entre veículos e tenta garantir que todos os veículos ativos sejam usados.
     Permite balancear por 'peso' (Demanda) ou 'paradas' (número de pedidos).
     Se priorizar_regiao=True, tenta manter pedidos da mesma região juntos.
     """
+    import numpy as np
     if rotas_df is None or rotas_df.empty or 'Veículo' not in rotas_df.columns:
         return rotas_df
+    veiculos_ativos = frota['ID Veículo'] if 'ID Veículo' in frota.columns else frota['Placa']
+    veiculos_ativos = veiculos_ativos.dropna().unique().tolist()
+    # Garante que todos os veículos ativos recebam pelo menos um pedido
+    for v in veiculos_ativos:
+        if v not in rotas_df['Veículo'].unique():
+            cargas = rotas_df.groupby('Veículo')['Demanda'].sum()
+            v_max = cargas.idxmax()
+            pedidos_vmax = rotas_df[rotas_df['Veículo'] == v_max].sort_values('Demanda', ascending=False)
+            if not pedidos_vmax.empty:
+                pedido_para_mover = pedidos_vmax.iloc[0]
+                rotas_df.loc[rotas_df.index == pedido_para_mover.name, 'Veículo'] = v
     # --- Balanceamento ---
     for _ in range(max_iter):
         if criterio_balanceamento == 'paradas':
@@ -246,22 +817,42 @@ def balancear_carga_e_usar_todos_veiculos(
         v_min = cargas.idxmin()
         if cargas[v_max] - cargas[v_min] < 1:
             break
-        # Se priorizar região, tenta mover pedido da região predominante do v_max
-        if priorizar_regiao and 'Região' in rotas_df.columns:
-            regiao_predominante = rotas_df[rotas_df['Veículo'] == v_max]['Região'].mode().iloc[0]
-            pedidos_vmax = rotas_df[(rotas_df['Veículo'] == v_max) & (rotas_df['Região'] == regiao_predominante)]
-            if pedidos_vmax.empty:
-                pedidos_vmax = rotas_df[rotas_df['Veículo'] == v_max]
-        else:
+        # --- REGRA: só permite mover pedidos entre veículos da MESMA REGIÃO predominante ---
+        if 'Região' in rotas_df.columns:
+            regiao_pred_max = rotas_df[rotas_df['Veículo'] == v_max]['Região'].mode().iloc[0]
+            regiao_pred_min = rotas_df[rotas_df['Veículo'] == v_min]['Região'].mode().iloc[0]
+            if regiao_pred_max != regiao_pred_min:
+                # Não move pedidos entre veículos de regiões diferentes
+                # Tenta encontrar outro veículo com mesma região predominante que v_max
+                veics_mesma_regiao = [v for v in cargas.index if v != v_max and v != v_min]
+                encontrou = False
+                for v_alt in veics_mesma_regiao:
+                    regiao_pred_alt = rotas_df[rotas_df['Veículo'] == v_alt]['Região'].mode().iloc[0]
+                    if regiao_pred_alt == regiao_pred_max:
+                        v_min = v_alt
+                        encontrou = True
+                        break
+                if not encontrou:
+                    break  # Não há veículo para balancear dentro da mesma região
+        # Seleciona apenas pedidos da região predominante
+        pedidos_vmax = rotas_df[(rotas_df['Veículo'] == v_max) & (rotas_df['Região'] == rotas_df[rotas_df['Veículo'] == v_max]['Região'].mode().iloc[0])]
+        if pedidos_vmax.empty:
             pedidos_vmax = rotas_df[rotas_df['Veículo'] == v_max]
         pedido_para_mover = pedidos_vmax.iloc[0]
-        rotas_df.loc[rotas_df.index == pedido_para_mover.name, 'Veículo'] = v_min
+        # Só move se o pedido for da mesma região predominante do v_min
+        regiao_pred_min = rotas_df[rotas_df['Veículo'] == v_min]['Região'].mode().iloc[0]
+        if pedido_para_mover['Região'] == regiao_pred_min:
+            rotas_df.loc[rotas_df.index == pedido_para_mover.name, 'Veículo'] = v_min
+        else:
+            # Não move para não violar a regra de 1 região por veículo
+            break
     return rotas_df
-    pass
+
 def mover_para_vizinho_proximo(rotas_df, matriz_distancias, depot_index=0, max_iter=10):
     """
     Heurística de vizinhança: move pedidos para veículos que já atendem clientes próximos (minimizando distância incremental).
     """
+    import numpy as np
     if rotas_df is None or rotas_df.empty or 'Veículo' not in rotas_df.columns or 'Node_Index_OR' not in rotas_df.columns:
         return rotas_df
     for _ in range(max_iter):
@@ -325,6 +916,11 @@ def balanceamento_iterativo(rotas_df, frota, pedidos, matriz_distancias, max_ite
             break
     return rotas_df
 
+    """
+    Garante que nenhum veículo ultrapasse o limite de capacidade (ex: 120%).
+    Remove pedidos excedentes e tenta realocar para veículos com espaço.
+    Retorna rotas_df corrigido e lista de veículos com excesso não resolvido.
+    """
 def checar_e_corrigir_excesso_carga(rotas_df, frota, limite_pct=120):
     """
     Garante que nenhum veículo ultrapasse o limite de capacidade (ex: 120%).
@@ -332,6 +928,7 @@ def checar_e_corrigir_excesso_carga(rotas_df, frota, limite_pct=120):
     Retorna rotas_df corrigido e lista de veículos com excesso não resolvido.
     """
     if rotas_df is None or rotas_df.empty or 'Veículo' not in rotas_df.columns or 'Demanda' not in rotas_df.columns:
+        logging.warning("DataFrame de rotas inválido para checagem de excesso de carga.")
         return rotas_df, []
     # Mapeia capacidade dos veículos
     id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
@@ -341,6 +938,7 @@ def checar_e_corrigir_excesso_carga(rotas_df, frota, limite_pct=120):
     for veic, grupo in rotas_df.groupby('Veículo'):
         cap = limite_cap.get(veic, None)
         if cap is None:
+            logging.warning(f"Veículo {veic} sem capacidade definida.")
             continue
         demanda_total = grupo['Demanda'].sum()
         if demanda_total > cap:
@@ -363,6 +961,7 @@ def checar_e_corrigir_excesso_carga(rotas_df, frota, limite_pct=120):
             demanda_atual = rotas_df[rotas_df['Veículo'] == veic]['Demanda'].sum()
             if demanda_atual + row['Demanda'] <= cap:
                 rotas_df.at[idx, 'Veículo'] = veic
+                logging.info(f"Pedido {idx} realocado para veículo {veic} para evitar excesso de carga.")
                 break
     # Recalcula excesso
     excesso_final = []
@@ -375,689 +974,21 @@ def checar_e_corrigir_excesso_carga(rotas_df, frota, limite_pct=120):
             excesso_final.append((veic, demanda_total, cap))
     return rotas_df, excesso_final
 
-## Função garantir_ocupacao_minima removida: regra de ocupação mínima por veículo não é mais utilizada.
-# Função para garantir veículos suficientes por região, respeitando capacidade
-def alocar_veiculos_por_capacidade_regiao(rotas_df, frota, pedidos, modo='capacidade', marcar_restrito=True):
-    """
-    Função unificada de alocação de veículos por região.
-    Se modo='capacidade', divide pedidos entre vários veículos respeitando capacidade.
-    Se modo='1_veiculo_por_regiao', cada região recebe no máximo 1 veículo (e cada veículo só atende uma região).
-    Se faltar veículo, pode marcar pedidos como restritos.
-    """
-    if rotas_df is None or rotas_df.empty or 'Região' not in pedidos.columns:
-        logging.warning("Dados insuficientes para alocação por região/capacidade.")
-        return rotas_df
-    id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
-    veiculos_ativos = frota[id_col].dropna().unique().tolist()
-    capacidade_veic = frota.set_index(id_col)['Capacidade (Kg)'].to_dict() if 'Capacidade (Kg)' in frota.columns else {}
-    regioes = pedidos['Região'].dropna().unique().tolist()
-    veiculos_usados = set()
-    if modo == 'capacidade':
-        for reg in regioes:
-            veics_pref = frota[frota['Regiões Preferidas'].fillna('').str.lower().str.contains(reg.lower())][id_col].tolist()
-            veic = None
-            for v in veics_pref:
-                if v not in veiculos_usados:
-                    veic = v
-                    break
-            if veic is None:
-                for v in veiculos_ativos:
-                    if v not in veiculos_usados:
-                        veic = v
-                        break
-            if veic is not None:
-                idxs = rotas_df[rotas_df['Região'] == reg].index
-                rotas_df.loc[idxs, 'Veículo'] = veic
-                veiculos_usados.add(veic)
-            else:
-                if marcar_restrito:
-                    idxs = rotas_df[rotas_df['Região'] == reg].index
-                    rotas_df.loc[idxs, 'Alocacao_Restrita'] = True
-                logging.warning(f"Não há veículo disponível para a região '{reg}'. Pedidos marcados como restritos.")
-        return rotas_df
-    elif modo == '1_veiculo_por_regiao':
-        veiculos_usados = set()
-        for reg in regioes:
-            veics_pref = frota[frota['Regiões Preferidas'].fillna('').str.lower().str.contains(reg.lower())][id_col].tolist()
-            veic = None
-            for v in veics_pref:
-                if v not in veiculos_usados:
-                    veic = v
-                    break
-            if veic is None:
-                for v in veiculos_ativos:
-                    if v not in veiculos_usados:
-                        veic = v
-                        break
-            if veic is not None:
-                idxs = rotas_df[rotas_df['Região'] == reg].index
-                rotas_df.loc[idxs, 'Veículo'] = veic
-                veiculos_usados.add(veic)
-            else:
-                if marcar_restrito:
-                    idxs = rotas_df[rotas_df['Região'] == reg].index
-                    rotas_df.loc[idxs, 'Alocacao_Restrita'] = True
-                logging.warning(f"Não há veículo disponível para a região '{reg}'. Pedidos marcados como restritos.")
-        return rotas_df
-    else:
-        raise ValueError(f"Modo '{modo}' não reconhecido em alocar_veiculos_por_capacidade_regiao.")
-def alocar_1_veiculo_por_regiao(rotas_df, frota, pedidos):
-    """
-    Compatibilidade: chama a função unificada com modo '1_veiculo_por_regiao'.
-    """
-    return alocar_veiculos_por_capacidade_regiao(rotas_df, frota, pedidos, modo='1_veiculo_por_regiao', marcar_restrito=True)
-def realocar_pedidos_restritos(rotas_df, frota, pedidos, raio_km=5):
-    # Raio padrão fixo de 5km para realocação
-    raio_km = 5
-    # Garante que a frota tenha as colunas de janela de tempo e preenche valores padrão se necessário
-    if 'Janela Início' not in frota.columns:
-        frota['Janela Início'] = '05:00'
-    else:
-        frota['Janela Início'] = frota['Janela Início'].fillna('05:00').replace('', '05:00')
-    if 'Janela Fim' not in frota.columns:
-        frota['Janela Fim'] = '18:00'
-    else:
-        frota['Janelati9 Fim'] = frota['Janela Fim'].fillna('18:00').replace('', '18:00')
-
-    # Garante que rotas_df tenha as colunas de janela de tempo do pedido
-    if 'Janela Início' not in rotas_df.columns:
-        rotas_df['Janela Início'] = '05:00'
-    else:
-        rotas_df['Janela Início'] = rotas_df['Janela Início'].fillna('05:00').replace('', '05:00')
-    if 'Janela Fim' not in rotas_df.columns:
-        rotas_df['Janela Fim'] = '18:00'
-    else:
-        rotas_df['Janela Fim'] = rotas_df['Janela Fim'].fillna('18:00').replace('', '18:00')
-
-    # Define id_col antes de qualquer uso
-    id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
-
-    # Cria dicionário de janelas da frota
-    janela_inicio_frota = frota.set_index(id_col)['Janela Início'].to_dict()
-    janela_fim_frota = frota.set_index(id_col)['Janela Fim'].to_dict()
-
-    # Marca como restrito todo pedido cuja janela não está contida na janela do veículo
-    for idx, row in rotas_df.iterrows():
-        veic = row['Veículo']
-        if pd.isnull(veic):
-            continue
-        janela_ini_ped = row['Janela Início'] if 'Janela Início' in row else '05:00'
-        janela_fim_ped = row['Janela Fim'] if 'Janela Fim' in row else '18:00'
-        janela_ini_veic = janela_inicio_frota.get(veic, '05:00')
-        janela_fim_veic = janela_fim_frota.get(veic, '18:00')
-        # Compara horários (formato HH:MM)
-        try:
-            fmt = '%H:%M'
-            ini_ped = datetime.strptime(str(janela_ini_ped), fmt)
-            fim_ped = datetime.strptime(str(janela_fim_ped), fmt)
-            ini_veic = datetime.strptime(str(janela_ini_veic), fmt)
-            fim_veic = datetime.strptime(str(janela_fim_veic), fmt)
-            # Se pedido começa antes do veículo ou termina depois do veículo, marca como restrito
-            if ini_ped < ini_veic or fim_ped > fim_veic:
-                rotas_df.at[idx, 'Alocacao_Restrita'] = True
-                logging.warning(f"Pedido {idx} com janela [{janela_ini_ped}-{janela_fim_ped}] não cabe na janela do veículo {veic} [{janela_ini_veic}-{janela_fim_veic}]. Marcado como restrito.")
-        except Exception as e:
-            logging.warning(f"Erro ao comparar janelas de tempo para pedido {idx}: {e}")
-    """
-    Tenta realocar pedidos marcados como Alocacao_Restrita para outros veículos que atendam até 2 regiões próximas (por nome e raio) e tenham capacidade disponível.
-    Remove a marcação se conseguir realocar. Retorna o DataFrame atualizado e o número de realocações.
-    """
-    # Validação e padronização das colunas essenciais
-    col_essenciais = ['Região', 'Latitude', 'Longitude', 'Veículo', 'Demanda']
-    for col in col_essenciais:
-        if col not in rotas_df.columns:
-            logging.error(f"Coluna obrigatória '{col}' ausente em rotas_df. Abortando realocação.")
-            return rotas_df, 0
-    if pedidos is None or 'Região' not in pedidos.columns or 'Latitude' not in pedidos.columns or 'Longitude' not in pedidos.columns:
-        logging.error("Pedidos DataFrame ausente ou sem colunas essenciais. Abortando realocação.")
-        return rotas_df, 0
-    # Padroniza nomes de regiões (strip, title)
-    rotas_df['Região'] = rotas_df['Região'].astype(str).str.strip().str.title()
-    pedidos['Região'] = pedidos['Região'].astype(str).str.strip().str.title()
-    # Converte coordenadas para float e remove linhas inválidas
-    rotas_df['Latitude'] = pd.to_numeric(rotas_df['Latitude'], errors='coerce')
-    rotas_df['Longitude'] = pd.to_numeric(rotas_df['Longitude'], errors='coerce')
-    pedidos['Latitude'] = pd.to_numeric(pedidos['Latitude'], errors='coerce')
-    pedidos['Longitude'] = pd.to_numeric(pedidos['Longitude'], errors='coerce')
-    # Remove pedidos restritos sem coordenadas válidas
-    pedidos_restritos = rotas_df[(rotas_df['Alocacao_Restrita'] == True) & rotas_df['Latitude'].notnull() & rotas_df['Longitude'].notnull()]
-    if pedidos_restritos.empty:
-        logging.info("Nenhum pedido restrito com coordenadas válidas para realocação.")
-        return rotas_df, 0
-    id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
-    capacidades = frota.set_index(id_col)['Capacidade (Kg)'].to_dict() if 'Capacidade (Kg)' in frota.columns else {}
-    realocados = 0
-    for idx, row in pedidos_restritos.iterrows():
-        lat = row['Latitude']
-        lon = row['Longitude']
-        reg_pedido = row['Região']
-        demanda = row['Demanda'] if 'Demanda' in row else 0
-        veic_atual = row['Veículo']
-        if pd.isnull(lat) or pd.isnull(lon) or not reg_pedido or pd.isnull(veic_atual):
-            logging.warning(f"Pedido restrito ignorado por dados faltantes: idx={idx}, regiao={reg_pedido}, lat={lat}, lon={lon}, veic_atual={veic_atual}")
-            continue
-        melhor_veic = None
-        menor_carga = None
-        for veic in rotas_df['Veículo'].unique():
-            if veic == veic_atual:
-                continue
-            pedidos_veic = rotas_df[rotas_df['Veículo'] == veic]
-            if pedidos_veic.empty:
-                continue
-            regioes_pred = pedidos_veic['Região'].value_counts().index[:1].tolist()
-            centroides = []
-            for reg in regioes_pred:
-                pedidos_regiao = pedidos[pedidos['Região'] == reg]
-                if not pedidos_regiao.empty and 'Latitude' in pedidos_regiao.columns and 'Longitude' in pedidos_regiao.columns:
-                    lat_centroide = pedidos_regiao['Latitude'].mean()
-                    lon_centroide = pedidos_regiao['Longitude'].mean()
-                    centroides.append((reg, (lat_centroide, lon_centroide)))
-            permitido = False
-            for reg, (lat_c, lon_c) in centroides:
-                if reg_pedido == reg:
-                    dist = geodesic((lat, lon), (lat_c, lon_c)).km
-                    if dist <= raio_km:
-                        permitido = True
-                        break
-            if not permitido:
-                continue
-            cap = capacidades.get(veic, None)
-            carga_atual = rotas_df[rotas_df['Veículo'] == veic]['Demanda'].sum() if 'Demanda' in rotas_df.columns else 0
-            if cap is not None and carga_atual + demanda <= cap:
-                if menor_carga is None or carga_atual < menor_carga:
-                    melhor_veic = veic
-                    menor_carga = carga_atual
-        if melhor_veic:
-            rotas_df.at[idx, 'Veículo'] = melhor_veic
-            rotas_df.at[idx, 'Alocacao_Restrita'] = False
-            realocados += 1
-    return rotas_df, realocados
-
-def alocar_regiao_predominante_com_agrupamento_vizinho(rotas_df, frota, pedidos, raio_km=5, capacidade_min_pct=0.5, min_pedidos=5, capacidade_col='Capacidade (Kg)', demanda_col='Demanda'):
-    """
-    Aloca pedidos priorizando a região predominante do veículo, permitindo agrupamento
-    com uma região vizinha mais próxima se o veículo estiver subutilizado.
-
-    Regras:
-    1. Veículo foca na sua região predominante.
-    2. Se ocupação < capacidade_min_pct ou num_pedidos < min_pedidos, pode buscar
-       pedidos na região vizinha mais próxima (centroide_vizinha a centroide_predominante <= raio_km).
-    3. Pedidos da região predominante devem estar a <= raio_km do centroide da predominante.
-    4. Pedidos de uma região vizinha (se agrupada) devem estar a <= raio_km do
-       centroide da sua própria região.
-    5. Pedidos fora dessas condições são marcados como 'Alocacao_Restrita'.
-    """
-    # Raio padrão fixo de 5km para agrupamento
-    raio_km = 5
-    if rotas_df is None or rotas_df.empty:
-        logging.warning("alocar_regiao_predominante_com_agrupamento_vizinho: rotas_df vazio.")
-        return rotas_df
-    if frota is None or frota.empty:
-        logging.warning("alocar_regiao_predominante_com_agrupamento_vizinho: frota vazia.")
-        return rotas_df
-    if pedidos is None or pedidos.empty:
-        logging.warning("alocar_regiao_predominante_com_agrupamento_vizinho: pedidos vazio.")
-        return rotas_df
-
-    id_col_frota = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
-    cols_rotas_obrigatorias = ['Veículo', 'Região', 'Latitude', 'Longitude', demanda_col]
-    cols_pedidos = ['Região', 'Latitude', 'Longitude']
-    cols_frota = [id_col_frota, capacidade_col]
-
-    for col in cols_rotas_obrigatorias:
-        if col not in rotas_df.columns:
-            logging.error(f"Coluna obrigatória '{col}' ausente em rotas_df.")
-            return rotas_df
-    for col in cols_pedidos:
-        if col not in pedidos.columns:
-            logging.error(f"Coluna '{col}' ausente em pedidos.")
-            return rotas_df
-    for col in cols_frota:
-        if col not in frota.columns:
-            logging.error(f"Coluna '{col}' ausente em frota.")
-            return rotas_df
-            
-    rotas_df_proc = rotas_df.copy()
-    rotas_df_proc['Alocacao_Restrita'] = False # Inicializa/Reseta
-
-    pedidos_proc = pedidos.copy()
-    for df in [pedidos_proc, rotas_df_proc]:
-        df['Região'] = df['Região'].astype(str).str.strip().str.title()
-        df['Latitude'] = pd.to_numeric(df['Latitude'], errors='coerce')
-        df['Longitude'] = pd.to_numeric(df['Longitude'], errors='coerce')
-    
-    rotas_df_proc[demanda_col] = pd.to_numeric(rotas_df_proc[demanda_col], errors='coerce').fillna(0)
-    frota[capacidade_col] = pd.to_numeric(frota[capacidade_col], errors='coerce')
-    capacidades_veic = frota.set_index(id_col_frota)[capacidade_col].to_dict()
-
-    centroides_todas_regioes = {}
-    for reg_nome, grupo_pedidos_regiao in pedidos_proc.groupby('Região'):
-        pedidos_validos_reg = grupo_pedidos_regiao.dropna(subset=['Latitude', 'Longitude'])
-        if not pedidos_validos_reg.empty:
-            centroides_todas_regioes[reg_nome] = (pedidos_validos_reg['Latitude'].mean(), pedidos_validos_reg['Longitude'].mean())
-        else:
-            logging.info(f"Região '{reg_nome}' não tem coordenadas válidas para centroide.")
-            
-    if not centroides_todas_regioes:
-        logging.warning("Nenhum centroide regional pôde ser calculado. Abortando agrupamento e validação geográfica.")
-        return rotas_df_proc 
-
-    veiculos_no_rotas_df = rotas_df_proc['Veículo'].dropna().unique()
-    for veic_id in veiculos_no_rotas_df:
-        pedidos_do_veiculo_atual_loop = rotas_df_proc[rotas_df_proc['Veículo'] == veic_id]
-        if pedidos_do_veiculo_atual_loop.empty:
-            continue
-
-        capacidade_do_veiculo = capacidades_veic.get(veic_id)
-        if capacidade_do_veiculo is None or pd.isnull(capacidade_do_veiculo):
-            logging.warning(f"Veículo {veic_id} sem capacidade válida na frota. Pulando agrupamento.")
-            continue
-
-        carga_atual_kg = pedidos_do_veiculo_atual_loop[demanda_col].sum()
-        num_pedidos_atual = len(pedidos_do_veiculo_atual_loop)
-        
-        regioes_veiculo_atual = pedidos_do_veiculo_atual_loop['Região'].dropna()
-        if regioes_veiculo_atual.empty:
-            logging.info(f"Veículo {veic_id} sem pedidos com região definida. Pulando agrupamento.")
-            continue
-        
-        regiao_pred_veic_nome = regioes_veiculo_atual.mode()
-        regiao_pred_veic_nome = regiao_pred_veic_nome[0] if not regiao_pred_veic_nome.empty else regioes_veiculo_atual.value_counts().index[0]
-
-        centroide_reg_pred_veic = centroides_todas_regioes.get(regiao_pred_veic_nome)
-        if not centroide_reg_pred_veic:
-            logging.warning(f"Veículo {veic_id}: Região predominante '{regiao_pred_veic_nome}' sem centroide. Pulando agrupamento.")
-            continue
-            
-        precisa_agrupar = False
-        if capacidade_do_veiculo > 0 and (carga_atual_kg / capacidade_do_veiculo) < capacidade_min_pct:
-            precisa_agrupar = True
-        if num_pedidos_atual < min_pedidos:
-            precisa_agrupar = True
-        
-        if precisa_agrupar:
-            logging.info(f"Veículo {veic_id} (Região Pred: {regiao_pred_veic_nome}, Carga: {carga_atual_kg}/{capacidade_do_veiculo} kg, Pedidos: {num_pedidos_atual}) subutilizado. Buscando em regiões vizinhas.")
-            # NOVO: Permitir múltiplas regiões vizinhas dentro do raio
-            regioes_vizinhas = []
-            for reg_vizinha_cand_nome, centroide_reg_vizinha_cand in centroides_todas_regioes.items():
-                if reg_vizinha_cand_nome == regiao_pred_veic_nome:
-                    continue
-                dist_pred_a_vizinha = geodesic(centroide_reg_pred_veic, centroide_reg_vizinha_cand).km
-                if dist_pred_a_vizinha <= raio_km:
-                    regioes_vizinhas.append(reg_vizinha_cand_nome)
-
-            if regioes_vizinhas:
-                logging.info(f"Veículo {veic_id}: Regiões vizinhas dentro do raio: {regioes_vizinhas}.")
-                pedidos_candidatos_vizinhos = rotas_df_proc[
-                    rotas_df_proc['Região'].isin(regioes_vizinhas) &
-                    ((rotas_df_proc['Veículo'] != veic_id) | rotas_df_proc['Veículo'].isnull())
-                ].copy()
-
-                for idx_pedido_vizinho, pedido_vizinho_row in pedidos_candidatos_vizinhos.iterrows():
-                    coord_pedido_vizinho = (pedido_vizinho_row['Latitude'], pedido_vizinho_row['Longitude'])
-                    demanda_pedido_vizinho = pedido_vizinho_row[demanda_col]
-
-                    if pd.isnull(coord_pedido_vizinho[0]) or pd.isnull(coord_pedido_vizinho[1]) or pd.isnull(demanda_pedido_vizinho):
-                        continue
-                    # Checa se o pedido está próximo do centroide da sua própria região
-                    centroide_reg_vizinha = centroides_todas_regioes.get(pedido_vizinho_row['Região'])
-                    if centroide_reg_vizinha is None:
-                        continue
-                    dist_ped_vizinho_a_centroide_vizinha = geodesic(coord_pedido_vizinho, centroide_reg_vizinha).km
-                    if dist_ped_vizinho_a_centroide_vizinha <= raio_km:
-                        if carga_atual_kg + demanda_pedido_vizinho <= capacidade_do_veiculo:
-                            veiculo_anterior = rotas_df_proc.at[idx_pedido_vizinho, 'Veículo']
-                            rotas_df_proc.at[idx_pedido_vizinho, 'Veículo'] = veic_id
-                            rotas_df_proc.at[idx_pedido_vizinho, 'Alocacao_Restrita'] = False
-                            carga_atual_kg += demanda_pedido_vizinho
-                            num_pedidos_atual += 1
-                            pedido_id_log_vizinho = pedido_vizinho_row.get('Pedido_Index_DF', idx_pedido_vizinho)
-                            logging.info(f"Pedido {pedido_id_log_vizinho} (Reg: {pedido_vizinho_row['Região']}) movido do veículo '{veiculo_anterior if pd.notnull(veiculo_anterior) else 'NÃO ALOCADO'}' para veículo {veic_id} (Região Pred: {regiao_pred_veic_nome}).")
-    
-    for veic_id_final in rotas_df_proc['Veículo'].dropna().unique():
-        pedidos_veic_final = rotas_df_proc[rotas_df_proc['Veículo'] == veic_id_final]
-        if pedidos_veic_final.empty:
-            continue
-        
-        regioes_veic_final = pedidos_veic_final['Região'].dropna()
-        if regioes_veic_final.empty:
-            logging.info(f"Veículo {veic_id_final} (final): sem pedidos com região. Marcando todos como restritos se houver algum.")
-            for idx_ped_veic_final in pedidos_veic_final.index: # Marcar mesmo se não tiver região?
-                 rotas_df_proc.at[idx_ped_veic_final, 'Alocacao_Restrita'] = True
-            continue
-        
-        regiao_pred_veic_final_nome_series = regioes_veic_final.mode()
-        regiao_pred_veic_final_nome = regiao_pred_veic_final_nome_series[0] if not regiao_pred_veic_final_nome_series.empty else regioes_veic_final.value_counts().index[0]
-        centroide_reg_pred_veic_final = centroides_todas_regioes.get(regiao_pred_veic_final_nome)
-
-        if not centroide_reg_pred_veic_final:
-            logging.warning(f"Veículo {veic_id_final} (final): Região predominante '{regiao_pred_veic_final_nome}' sem centroide. Marcado restrito.")
-            for idx_ped_veic_final in pedidos_veic_final.index:
-                rotas_df_proc.at[idx_ped_veic_final, 'Alocacao_Restrita'] = True
-            continue
-
-        for idx_ped, ped_row in pedidos_veic_final.iterrows():
-            lat_ped, lon_ped, reg_ped_nome = ped_row['Latitude'], ped_row['Longitude'], ped_row['Região']
-            pedido_id_log = ped_row.get('Pedido_Index_DF', idx_ped)
-
-            if pd.isnull(lat_ped) or pd.isnull(lon_ped) or pd.isnull(reg_ped_nome) or reg_ped_nome == 'Nan':
-                rotas_df_proc.at[idx_ped, 'Alocacao_Restrita'] = True
-                logging.warning(f"Pedido {pedido_id_log} (V: {veic_id_final}) marcado restrito: dados geo/região faltantes.")
-                continue
-
-            permitido = False
-            centroide_reg_ped = centroides_todas_regioes.get(reg_ped_nome)
-            if not centroide_reg_ped:
-                rotas_df_proc.at[idx_ped, 'Alocacao_Restrita'] = True
-                logging.warning(f"Pedido {pedido_id_log} (Reg: {reg_ped_nome}, V: {veic_id_final}): Região do pedido sem centroide. Marcado restrito.")
-                continue
-
-            if reg_ped_nome == regiao_pred_veic_final_nome:
-                if geodesic((lat_ped, lon_ped), centroide_reg_pred_veic_final).km <= raio_km:
-                    permitido = True
-            else:
-                if geodesic(centroide_reg_ped, centroide_reg_pred_veic_final).km <= raio_km:
-                    if geodesic((lat_ped, lon_ped), centroide_reg_ped).km <= raio_km:
-                        permitido = True
-            
-            rotas_df_proc.at[idx_ped, 'Alocacao_Restrita'] = not permitido
-            if not permitido:
-                logging.warning(f"Pedido {pedido_id_log} (Reg: {reg_ped_nome}, V: {veic_id_final}, Pred: {regiao_pred_veic_final_nome}) não atende critérios de proximidade. Marcado restrito.")
-                
-    return rotas_df_proc
-
-# Funcao antiga, substituida por alocar_regiao_predominante_com_agrupamento_vizinho
-# def restringir_1_regiao_por_veiculo(rotas_df, raio_km=20, pedidos=None):
-#     """
-#     Para cada veículo, identifica a região predominante.
-#     Permite pedidos da região predominante que estejam dentro de um raio_km do seu centroide.
-#     Permite pedidos de OUTRAS regiões se o centroide dessas outras regiões estiver próximo ao
-#     centroide da região predominante, e o pedido em si estiver próximo ao centroide da sua própria região.
-#     Pedidos fora dessas condições são marcados como restritos.
-#     """
-#     from geopy.distance import geodesic
-#     import numpy as np # Adicionado para isnan
-#     import pandas as pd # Adicionado para isnull
-
-#     if rotas_df is None or rotas_df.empty or 'Veículo' not in rotas_df.columns or 'Região' not in rotas_df.columns:
-#         logging.warning("restringir_1_regiao_por_veiculo: rotas_df inválido ou colunas faltando.")
-#         return rotas_df
-
-#     # Fallback se não houver DataFrame de pedidos ou coordenadas para calcular centroides
-#     if pedidos is None or 'Latitude' not in pedidos.columns or 'Longitude' not in pedidos.columns or \\
-#        'Região' not in pedidos.columns or \\
-#        'Latitude' not in rotas_df.columns or 'Longitude' not in rotas_df.columns:
-#         logging.warning("restringir_1_regiao_por_veiculo: DataFrame de pedidos ou coordenadas ausentes. Usando fallback (restringe apenas por nome da região predominante).")
-#         for veic in rotas_df['Veículo'].unique():
-#             if pd.isnull(veic): continue
-#             pedidos_veic = rotas_df[rotas_df['Veículo'] == veic]
-#             if pedidos_veic.empty or pedidos_veic['Região'].isnull().all():
-#                 continue
-            
-#             regiao_pred_series = pedidos_veic['Região'].mode()
-#             if regiao_pred_series.empty:
-#                 continue
-#             regiao_pred = regiao_pred_series.iloc[0]
-            
-#             fora_regiao_pred = pedidos_veic[pedidos_veic['Região'] != regiao_pred]
-#             for idx in fora_regiao_pred.index:
-#                 rotas_df.at[idx, 'Alocacao_Restrita'] = True
-#                 pedido_id_log = rotas_df.at[idx, 'Pedido_Index_DF'] if 'Pedido_Index_DF' in rotas_df.columns else idx
-#                 logging.warning(f"Pedido {pedido_id_log} está fora da região predominante '{regiao_pred}' do veículo {veic} (fallback).")
-#         return rotas_df
-
-#     # Calcular centroides de todas as regiões uma vez
-#     centroides_todas_regioes = {}
-#     # Garante que pedidos['Região'] seja string para o groupby e get
-#     pedidos_copy = pedidos.copy()
-#     pedidos_copy['Região'] = pedidos_copy['Região'].astype(str).str.strip().str.title()
-
-#     for reg_nome, grupo_pedidos_regiao in pedidos_copy.groupby('Região'):
-#         pedidos_validos_reg = grupo_pedidos_regiao.dropna(subset=['Latitude', 'Longitude'])
-#         if not pedidos_validos_reg.empty:
-#             lat_centroide_reg = pedidos_validos_reg['Latitude'].mean()
-#             lon_centroide_reg = pedidos_validos_reg['Longitude'].mean()
-#             centroides_todas_regioes[reg_nome] = (lat_centroide_reg, lon_centroide_reg)
-#         else:
-#             logging.info(f"Região '{reg_nome}' não possui pedidos com coordenadas válidas para cálculo de centroide.")
-            
-#     if not centroides_todas_regioes:
-#         logging.warning("Nenhum centroide regional pôde ser calculado. Abortando restrição geográfica.")
-#         return rotas_df
-
-#     for veic in rotas_df['Veículo'].unique():
-#         if pd.isnull(veic): continue
-#         pedidos_veic = rotas_df[rotas_df['Veículo'] == veic].copy() # Usar .copy() para evitar SettingWithCopyWarning
-        
-#         # Padroniza Região no slice do veículo também
-#         pedidos_veic['Região'] = pedidos_veic['Região'].astype(str).str.strip().str.title()
-
-#         if pedidos_veic.empty or pedidos_veic['Região'].isnull().all():
-#             continue
-        
-#         regiao_pred_veic_series = pedidos_veic['Região'].value_counts()
-#         if regiao_pred_veic_series.empty:
-#             continue
-#         regiao_pred_veic_nome = regiao_pred_veic_series.index[0]
-
-#         centroide_reg_pred_veic = centroides_todas_regioes.get(regiao_pred_veic_nome)
-#         if not centroide_reg_pred_veic:
-#             logging.warning(f"Veículo {veic}: Região predominante '{regiao_pred_veic_nome}' não possui centroide. Pedidos podem ser marcados como restritos indevidamente.")
-#             # Marcar todos os pedidos deste veículo como restritos se sua região predominante não tem centroide?
-#             # Ou pular? Por segurança, marcar como restrito se não puder validar.
-#             for idx_veic_ped in pedidos_veic.index:
-#                  rotas_df.at[idx_veic_ped, 'Alocacao_Restrita'] = True
-#             continue
-
-#         for idx, row in pedidos_veic.iterrows():
-#             lat_pedido = row['Latitude']
-#             lon_pedido = row['Longitude']
-#             reg_pedido_nome = row['Região'] # Já padronizado no slice pedidos_veic
-
-#             pedido_id_log = row['Pedido_Index_DF'] if 'Pedido_Index_DF' in row and pd.notnull(row['Pedido_Index_DF']) else idx
-
-
-#             if pd.isnull(lat_pedido) or pd.isnull(lon_pedido) or pd.isnull(reg_pedido_nome) or reg_pedido_nome == 'Nan':
-#                 rotas_df.at[idx, 'Alocacao_Restrita'] = True
-#                 logging.warning(f"Pedido {pedido_id_log} do veículo {veic} marcado como restrito devido a dados faltantes (lat/lon/região).")
-#                 continue
-
-#             permitido = False
-#             if reg_pedido_nome == regiao_pred_veic_nome:
-#                 dist_pedido_a_centroide_pred = geodesic((lat_pedido, lon_pedido), centroide_reg_pred_veic).km
-#                 if dist_pedido_a_centroide_pred <= raio_km:
-#                     permitido = True
-#             else:
-#                 centroide_reg_pedido = centroides_todas_regioes.get(reg_pedido_nome)
-#                 if centroide_reg_pedido:
-#                     dist_centroides_regionais = geodesic(centroide_reg_pedido, centroide_reg_pred_veic).km
-#                     if dist_centroides_regionais <= raio_km:
-#                         dist_pedido_a_seu_centroide = geodesic((lat_pedido, lon_pedido), centroide_reg_pedido).km
-#                         if dist_pedido_a_seu_centroide <= raio_km:
-#                             permitido = True
-            
-#             if permitido:
-#                 # Garante que, se permitido, a marcação de restrição seja False (caso tenha sido marcada antes)
-#                 if 'Alocacao_Restrita' in rotas_df.columns:
-#                     rotas_df.at[idx, 'Alocacao_Restrita'] = False
-#             else:
-#                 rotas_df.at[idx, 'Alocacao_Restrita'] = True
-#                 logging.warning(f"Pedido {pedido_id_log} (Região: {reg_pedido_nome}) do veículo {veic} (Região Pred: {regiao_pred_veic_nome}) marcado como restrito.")
-#     return rotas_df
-
-def priorizar_regioes_preferidas(rotas_df, frota, pedidos):
-    """
-    Move pedidos para veículos que tenham a região do pedido em suas 'Regiões Preferidas' (restrição dura).
-    Se não houver capacidade, aloca para o veículo cuja região preferida seja mais próxima.
-    Se ainda assim não couber, aloca para qualquer veículo disponível.
-    """
-    import pandas as pd
-    import numpy as np
-    from geopy.distance import geodesic
-    if rotas_df is None or rotas_df.empty or 'Veículo' not in rotas_df.columns or 'Pedido_Index_DF' not in rotas_df.columns:
-        return rotas_df, 0
-    if 'Região' not in pedidos.columns:
-        return rotas_df, 0
-    id_col = 'ID Veículo' if 'ID Veículo' in frota.columns else 'Placa'
-    regioes_pref_dict = {}
-    regioes_centroides = {}
-    for _, row in frota.iterrows():
-        veic = row.get(id_col)
-        regioes_pref = row.get('Regiões Preferidas', '')
-        regioes_pref_list = [r.strip().lower() for r in str(regioes_pref).split(',') if r.strip()]
-        regioes_pref_dict[veic] = regioes_pref_list
-        # Calcula centroide das regiões preferidas do veículo
-        for reg in regioes_pref_list:
-            if reg and reg not in regioes_centroides and reg in pedidos['Região'].str.lower().values:
-                pedidos_reg = pedidos[pedidos['Região'].str.lower() == reg]
-                if not pedidos_reg.empty:
-                    lat = pedidos_reg['Latitude'].mean()
-                    lon = pedidos_reg['Longitude'].mean()
-                    regioes_centroides[reg] = (lat, lon)
-    pedido_regiao = pedidos['Região'].fillna('').astype(str).str.lower().tolist()
-    pedido_lat = pedidos['Latitude'].tolist() if 'Latitude' in pedidos.columns else None
-    pedido_lon = pedidos['Longitude'].tolist() if 'Longitude' in pedidos.columns else None
-    capacidades = frota.set_index(id_col)['Capacidade (Kg)'].to_dict() if 'Capacidade (Kg)' in frota.columns else {}
-    realocados = 0
-    for idx, row in rotas_df.iterrows():
-        veic_atual = row['Veículo']
-        pedido_idx = row['Pedido_Index_DF']
-        if pd.isnull(pedido_idx):
-            continue
-        pedido_idx = int(pedido_idx)
-        regiao_pedido = pedido_regiao[pedido_idx] if pedido_idx < len(pedido_regiao) else ''
-        lat_pedido = pedido_lat[pedido_idx] if pedido_lat and pedido_idx < len(pedido_lat) else None
-        lon_pedido = pedido_lon[pedido_idx] if pedido_lon and pedido_idx < len(pedido_lon) else None
-        if not regiao_pedido:
-            continue
-        # 1. Tenta alocar para veículos preferenciais (restrição dura)
-        veics_pref = [v for v, regs in regioes_pref_dict.items() if regiao_pedido in regs]
-        demanda = row['Demanda'] if 'Demanda' in row else 0
-        melhor_veic = None
-        menor_carga = None
-        for v in veics_pref:
-            cap = capacidades.get(v, None)
-            if cap is None:
-                continue
-            carga_atual = rotas_df[rotas_df['Veículo'] == v]['Demanda'].sum() if 'Demanda' in rotas_df.columns else 0
-            if carga_atual + demanda > cap:
-                continue
-            if menor_carga is None or carga_atual < menor_carga:
-                melhor_veic = v
-                menor_carga = carga_atual
-        if melhor_veic and melhor_veic != veic_atual:
-            rotas_df.at[idx, 'Veículo'] = melhor_veic
-            realocados += 1
-            continue
-        # 2. Se não couber, busca veículo cuja região preferida seja mais próxima (restrição dura)
-        if veics_pref and not melhor_veic:
-            min_dist = None
-            veic_mais_proximo = None
-            for v, regs in regioes_pref_dict.items():
-                for reg in regs:
-                    if reg in regioes_centroides and lat_pedido is not None and lon_pedido is not None:
-                        dist = geodesic((lat_pedido, lon_pedido), regioes_centroides[reg]).km
-                        cap = capacidades.get(v, None)
-                        carga_atual = rotas_df[rotas_df['Veículo'] == v]['Demanda'].sum() if 'Demanda' in rotas_df.columns else 0
-                        if cap is not None and carga_atual + demanda <= cap:
-                            if min_dist is None or dist < min_dist:
-                                min_dist = dist
-                                veic_mais_proximo = v
-            if veic_mais_proximo and veic_mais_proximo != veic_atual:
-                rotas_df.at[idx, 'Veículo'] = veic_mais_proximo
-                realocados += 1
-                continue
-        # 3. Fallback: NÃO permite alocação para veículos fora das regiões preferidas
-        # Ou seja, pedidos que não couberem em nenhum veículo preferencial permanecem como estão
-        # (Opcional: pode-se marcar esses pedidos para análise posterior)
-        # Exemplo de log para pedidos não alocados:
-        if not veics_pref or (veics_pref and not melhor_veic and not veic_mais_proximo):
-            logging.warning(f"Pedido {pedido_idx} (região '{regiao_pedido}') NÃO será alocado: nenhum veículo com região preferida disponível/capaz. Veículo atual: {veic_atual}.")
-            # Opcional: marcar para análise
-            rotas_df.at[idx, 'Alocacao_Restrita'] = True
-            continue
-    return rotas_df, realocados
-
-# --- NOVAS FUNÇÕES DE LOOPS INTELIGENTES ---
-def loop_realocacao_pedidos_restritos(rotas_df, frota, pedidos, raio_km=5, max_iter=10):
-    """
-    Repete a realocação de pedidos restritos até que o número de pedidos restritos não diminua mais.
-    Retorna o DataFrame final e o número de realocações totais.
-    """
-    n_restritos_ant = -1
-    total_realocados = 0
-    for _ in range(max_iter):
-        n_restritos = rotas_df['Alocacao_Restrita'].sum() if 'Alocacao_Restrita' in rotas_df.columns else 0
-        if n_restritos_ant == n_restritos:
-            break
-        rotas_df, realocados = realocar_pedidos_restritos(rotas_df, frota, pedidos, raio_km=raio_km)
-        total_realocados += realocados
-        n_restritos_ant = n_restritos
-    return rotas_df, total_realocados
-
-def loop_reserva_dinamica_veiculos(rotas_df, frota, pedidos, max_iter=5, n_reservas=1):
-    """
-    Reserva veículos para regiões críticas de forma adaptativa, recalculando as regiões a cada iteração.
-    Útil para cenários onde o volume de pedidos muda após realocações/balanceamentos.
-    """
-    for _ in range(max_iter):
-        regioes_criticas = pedidos['Região'].value_counts().head(n_reservas).index.tolist()
-        veiculos_ativos = frota['ID Veículo'] if 'ID Veículo' in frota.columns else frota['Placa']
-        veiculos_ativos = veiculos_ativos.dropna().unique().tolist()
-        for i, reg in enumerate(regioes_criticas):
-            if i < len(veiculos_ativos):
-                veic = veiculos_ativos[i]
-                idxs = rotas_df[rotas_df['Região'] == reg].index
-                rotas_df.loc[idxs, 'Veículo'] = veic
-        # Após reserva, pode-se rebalancear ou realocar pedidos restritos, se desejado
-    return rotas_df
-
-def loop_simulacao_cenarios(
-    rotas_df, frota, pedidos, matriz_distancias,
-    cenarios,
-    funcao_roteirizacao,
-    metrica_avaliacao=None
-):
-    """
-    Executa múltiplos cenários de roteirização variando parâmetros e retorna um comparativo dos resultados.
-    - cenarios: lista de dicionários com parâmetros a variar (ex: [{'capacidade': 1000, 'raio': 20}, ...])
-    - funcao_roteirizacao: função que executa o pipeline de roteirização dado um conjunto de parâmetros
-    - metrica_avaliacao: função que recebe rotas_df e retorna um dicionário de métricas (ex: total km, balanceamento, etc)
-    Retorna: lista de resultados por cenário
-    """
-    resultados = []
-    for params in cenarios:
-        # Executa pipeline de roteirização com os parâmetros do cenário
-        rotas_df_copia = rotas_df.copy(deep=True)
-        frota_copia = frota.copy(deep=True)
-        pedidos_copia = pedidos.copy(deep=True)
-        rotas_result = funcao_roteirizacao(
-            rotas_df_copia, frota_copia, pedidos_copia, matriz_distancias, **params
-        )
-        if metrica_avaliacao:
-            metricas = metrica_avaliacao(rotas_result, frota_copia, pedidos_copia, matriz_distancias)
-        else:
-            metricas = {'n_pedidos': len(rotas_result), 'n_veiculos': rotas_result['Veículo'].nunique()}
-        resultados.append({'parametros': params, 'metricas': metricas, 'rotas_df': rotas_result})
-    return resultados
-
 # Placeholder para balanceamento visual/interativo
 # (Sugestão: usar Streamlit AgGrid, Dash, ou JS para drag-and-drop)
 def balanceamento_visual_placeholder():
     """
-    Placeholder para futura integração de balanceamento visual/interativo.
+    Placeholder para futura implementação de balanceamento visual/interativo.
+    Sugestão: usar Streamlit, Dash ou JS para drag-and-drop.
     """
     pass
 
 # Placeholder para agrupamento por aprendizado de máquina
 def sugerir_agrupamento_ml(pedidos, historico=None):
     """
-    Sugere agrupamento de pedidos usando modelo de ML treinado (placeholder).
+    Placeholder para futura implementação de agrupamento inteligente via ML.
     """
-    # Exemplo: usar clustering, classificação, ou regras aprendidas do histórico
-    # Integrar com routing/aprendizado.py futuramente
-    pedidos['Cluster_ML'] = 0 # TODO: implementar
-    return pedidos
+    pass
 
 # --- IDEIAS EXTRAS PARA BALANCEAMENTO E AGRUPAMENTO INTELIGENTE ---
 # 1. Balanceamento multi-critério: combinar peso, número de paradas e distância total.
@@ -1101,137 +1032,3 @@ def exemplo_uso():
 
 if __name__ == '__main__':
     exemplo_uso()
-
-# --- FIM DAS NOVAS FUNÇÕES DE LOOPS INTELIGENTES ---
-
-def executar_pos_processamento_completo(rotas_df_inicial, frota_df, pedidos_df, matriz_distancias, progress_callback=None, **kwargs):
-    """
-    Orquestra o fluxo completo de pós-processamento das rotas.
-
-    Args:
-        rotas_df_inicial (pd.DataFrame): DataFrame com a alocação inicial.
-        frota_df (pd.DataFrame): DataFrame com informações da frota.
-        pedidos_df (pd.DataFrame): DataFrame com informações dos pedidos.
-        matriz_distancias (np.ndarray): Matriz de distâncias.
-        progress_callback (function, optional): Função para reportar progresso.
-        respeitar_regioes_preferidas (bool, optional): Se True, executa priorização de regiões preferidas.
-        raio_km_realocacao_restritos (float, optional): Raio em km para realocação de pedidos restritos.
-        Outros kwargs opcionais podem ser adicionados conforme necessário.
-
-    Returns:
-        pd.DataFrame: DataFrame de rotas pós-processado.
-    """
-    # Permite argumentos opcionais
-    import inspect
-    frame = inspect.currentframe()
-    args, _, _, values = inspect.getargvalues(frame)
-    kwargs = values.get('kwargs', {}) if 'kwargs' in values else {}
-
-    # Suporte a argumentos opcionais
-    from typing import Any
-    def get_kwarg(name: str, default: Any):
-        if name in values:
-            return values[name]
-        if name in kwargs:
-            return kwargs[name]
-        return default
-
-    respeitar_regioes_preferidas = get_kwarg('respeitar_regioes_preferidas', False)
-    raio_km_realocacao_restritos = get_kwarg('raio_km_realocacao_restritos', 30.0)
-
-    # Definição das suas constantes de configuração
-    RAIO_KM_AGRUPAMENTO = 25.0
-    CAPACIDADE_MIN_PCT_AGRUPAMENTO = 0.6
-    MIN_PEDIDOS_AGRUPAMENTO = 5
-    LIMITE_SOBRECARGA_PCT = 100
-    RAIO_KM_REALOCACAO_RESTRITOS = raio_km_realocacao_restritos
-    MAX_ITER_REALOCACAO = 5
-
-    rotas_df = rotas_df_inicial.copy()
-
-    if 'Alocacao_Restrita' not in rotas_df.columns:
-        rotas_df['Alocacao_Restrita'] = False
-    else:
-        rotas_df['Alocacao_Restrita'] = rotas_df['Alocacao_Restrita'].fillna(False)
-
-    logging.info("Iniciando Pós-processamento Completo.")
-    if progress_callback: progress_callback(0.0, "Iniciando Pós-processamento...")
-
-    # Etapa 1: Alocação inicial por capacidade e região
-    if progress_callback: progress_callback(0.05, "Etapa 1/7: Alocação inicial por capacidade e região...")
-    logging.info("Etapa 1: Alocação inicial por capacidade e região.")
-    rotas_df = alocar_veiculos_por_capacidade_regiao(rotas_df, frota_df, pedidos_df, 
-                                                     modo='capacidade', marcar_restrito=False)
-    logging.info(f"Após alocação inicial: {len(rotas_df[rotas_df['Veículo'].notnull()])} pedidos alocados.")
-    if progress_callback: progress_callback(0.15, "Etapa 1/7: Concluída.")
-
-    # Etapa 2: Priorizar regiões preferidas (condicional)
-    if respeitar_regioes_preferidas:
-        if progress_callback: progress_callback(0.20, "Etapa 2/7: Priorizando regiões preferidas...")
-        logging.info("Etapa 2: Priorizando regiões preferidas...")
-        rotas_df, realocados_pref = priorizar_regioes_preferidas(rotas_df, frota_df, pedidos_df)
-        logging.info(f"{realocados_pref} pedidos foram movidos para veículos com região preferida.")
-        if progress_callback: progress_callback(0.30, "Etapa 2/7: Concluída.")
-    else:
-        if progress_callback: progress_callback(0.20, "Etapa 2/7: Pulando priorização de regiões preferidas...")
-        logging.info("Etapa 2: Priorização de regiões preferidas pulada (opção desativada).")
-        if progress_callback: progress_callback(0.30, "Etapa 2/7: Pulada.")
-    
-    # Etapa 3: Alocação por Região Predominante com Agrupamento Flexível
-    if progress_callback: progress_callback(0.35, "Etapa 3/7: Aplicando agrupamento flexível de regiões...")
-    logging.info("Etapa 3: Aplicando alocação por região predominante com agrupamento flexível...")
-    rotas_df = alocar_regiao_predominante_com_agrupamento_vizinho(
-        rotas_df, frota_df, pedidos_df,
-        raio_km=RAIO_KM_AGRUPAMENTO,
-        capacidade_min_pct=CAPACIDADE_MIN_PCT_AGRUPAMENTO,
-        min_pedidos=MIN_PEDIDOS_AGRUPAMENTO
-    )
-    pedidos_restritos_apos_agrupamento = rotas_df['Alocacao_Restrita'].sum()
-    logging.info(f"Após agrupamento flexível: {pedidos_restritos_apos_agrupamento} pedidos marcados como Alocacao_Restrita.")
-    if progress_callback: progress_callback(0.50, "Etapa 3/7: Concluída.")
-
-    # Etapa 4: Checar e Corrigir Excesso de Carga
-    if progress_callback: progress_callback(0.55, "Etapa 4/7: Checando e corrigindo excesso de carga...")
-    logging.info("Etapa 4: Checando e corrigindo excesso de carga...")
-    rotas_df, excesso_final = checar_e_corrigir_excesso_carga(rotas_df, frota_df, limite_pct=LIMITE_SOBRECARGA_PCT)
-    if excesso_final:
-        logging.warning(f"Veículos com excesso de carga não resolvido: {excesso_final}")
-    pedidos_sem_veiculo_apos_correcao_carga = rotas_df['Veículo'].isnull().sum()
-    logging.info(f"{pedidos_sem_veiculo_apos_correcao_carga} pedidos ficaram sem veículo após correção de excesso de carga.")
-    if progress_callback: progress_callback(0.65, "Etapa 4/7: Concluída.")
-
-    # Etapa 5: Marcar Pedidos Sem Veículo como Restritos
-    if progress_callback: progress_callback(0.70, "Etapa 5/7: Marcando pedidos sem veículo como restritos...")
-    logging.info("Etapa 5: Marcando pedidos sem veículo como restritos...")
-    pedidos_sem_veiculo_indices = rotas_df[rotas_df['Veículo'].isnull()].index
-    if not pedidos_sem_veiculo_indices.empty:
-        rotas_df.loc[pedidos_sem_veiculo_indices, 'Alocacao_Restrita'] = True
-
-        logging.info(f"{len(pedidos_sem_veiculo_indices)} pedidos sem veículo foram marcados como Alocacao_Restrita.")
-    if progress_callback: progress_callback(0.75, "Etapa 5/7: Concluída.")
-
-    # Etapa 6: Realocar Pedidos Restritos (Iterativamente)
-    if progress_callback: progress_callback(0.75, "Etapa 6/7: Realocando pedidos restritos...")
-    logging.info("Etapa 6: Tentando realocar pedidos restritos...")
-    rotas_df, total_realocados_loop = loop_realocacao_pedidos_restritos(
-        rotas_df, frota_df, pedidos_df,
-        raio_km=RAIO_KM_REALOCACAO_RESTRITOS,
-        max_iter=MAX_ITER_REALOCACAO
-    )
-    logging.info(f"{total_realocados_loop} pedidos restritos foram realocados.")
-    pedidos_restritos_final = rotas_df['Alocacao_Restrita'].sum()
-    logging.info(f"Após loop de realocação: {pedidos_restritos_final} pedidos permanecem como Alocacao_Restrita.")
-    if progress_callback: progress_callback(0.85, "Etapa 6/7: Concluída.")
-
-    # Etapa 7: Balanceamento de Carga Final
-    if progress_callback: progress_callback(0.85, "Etapa 7/7: Balanceando carga final...")
-    logging.info("Etapa 7: Balanceando carga entre veículos utilizados...")
-    rotas_df = balancear_carga_e_usar_todos_veiculos(rotas_df, frota_df, pedidos_df, 
-                                                     criterio_balanceamento='peso', priorizar_regiao=True)
-    rotas_df = balancear_carga_e_usar_todos_veiculos(rotas_df, frota_df, pedidos_df, 
-                                                     criterio_balanceamento='paradas', priorizar_regiao=True)
-    logging.info("Balanceamento de carga finalizado.")
-    if progress_callback: progress_callback(1.0, "Pós-processamento Concluído.")
-    
-    logging.info("Pós-processamento Completo Finalizado.")
-    return rotas_df

@@ -15,6 +15,10 @@ def validar_coordenadas_dataframe(df, lat_col='Latitude', lon_col='Longitude', n
     """
     if lat_col not in df.columns or lon_col not in df.columns:
         return False, f"Colunas '{lat_col}' e/ou '{lon_col}' ausentes em {nome_df}.", df
+    # Conversão explícita para float (força erros para NaN)
+    df = df.copy()
+    df[lat_col] = pd.to_numeric(df[lat_col], errors='coerce')
+    df[lon_col] = pd.to_numeric(df[lon_col], errors='coerce')
     # Critérios de validade
     cond_na = df[lat_col].isna() | df[lon_col].isna()
     cond_zero = (df[lat_col] == 0) | (df[lon_col] == 0)
