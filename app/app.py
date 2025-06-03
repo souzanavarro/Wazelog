@@ -19,6 +19,7 @@ from roteirizacao_page import show as show_roteirizacao
 from mapas_page import show as show_mapas
 from cnpj_page import show as show_cnpj
 from pedagios_page import show as show_pedagios
+from login_page import show as show_login, checar_login
 
 # --- Toggle de tema ---
 # Remover título e centralizar layout do menu
@@ -570,6 +571,7 @@ else: # Tema Escuro
 
 # --- Menu lateral minimalista com ícones ---
 menu_itens = [
+    ("Login", "🔐"),
     ("Dashboard", "🏠"),
     ("Frota", "🚚"),
     ("Pedidos", "📦"),
@@ -590,20 +592,24 @@ with st.sidebar:
     st.markdown("<hr class='menu-divider'>", unsafe_allow_html=True)
 
 # --- Renderização das páginas ---
-pagina = st.session_state.get('pagina_selecionada', 'Dashboard')
-if pagina == "Dashboard":
-    show_dashboard()
-elif pagina == "Frota":
-    show_frota()
-elif pagina == "Pedidos":
-    show_pedidos()
-elif pagina == "Roteirização":
-    show_roteirizacao()
-elif pagina == "Mapas":
-    show_mapas()
-elif pagina == "Busca CNPJ":
-    show_cnpj()
-elif pagina == "Pedágios":
-    show_pedagios()
+pagina = st.session_state.get('pagina_selecionada', 'Login')
+if pagina == "Login":
+    show_login()
 else:
-    show_dashboard()
+    checar_login()
+    if pagina == "Dashboard":
+        show_dashboard()
+    elif pagina == "Frota":
+        show_frota()
+    elif pagina == "Pedidos":
+        show_pedidos()
+    elif pagina == "Roteirização":
+        show_roteirizacao()
+    elif pagina == "Mapas":
+        show_mapas()
+    elif pagina == "Busca CNPJ":
+        show_cnpj()
+    elif pagina == "Pedágios":
+        show_pedagios()
+    else:
+        show_dashboard()
