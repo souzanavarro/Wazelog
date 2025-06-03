@@ -20,3 +20,4 @@ plotly
 numpy
 matplotlib
 seaborn
+PyPDF2

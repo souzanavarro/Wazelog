@@ -143,10 +143,13 @@ def show():
             # Custo por Carga (agrupamento único)
             if 'Carga' in df.columns and 'Valor da carga na AP' in df.columns:
                 por_carga = df.drop_duplicates('Carga')[['Carga', 'Valor da carga na AP']].copy()
-                # Corrige a conversão: remove só pontos de milhar e troca vírgula decimal por ponto
                 por_carga['Valor da carga na AP'] = por_carga['Valor da carga na AP'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
                 por_carga['Valor da carga na AP'] = pd.to_numeric(por_carga['Valor da carga na AP'], errors='coerce')
-                por_carga['Valor da carga na AP'] = por_carga['Valor da carga na AP'].apply(lambda x: f'R$ {x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
+                def formatar_moeda(valor):
+                    if pd.isna(valor):
+                        return ''
+                    return f"R$ {valor:,.2f}".replace(',', 'v').replace('.', ',').replace('v', '.')
+                por_carga['Valor da carga na AP'] = por_carga['Valor da carga na AP'].apply(formatar_moeda)
                 por_carga = por_carga.sort_values('Valor da carga na AP', ascending=False)
                 st.subheader('Valor por Carga (único por viagem/bloco)')
                 st.dataframe(por_carga)
