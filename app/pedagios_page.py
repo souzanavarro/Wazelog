@@ -27,6 +27,26 @@ def show():
         df_pedagio['data de utilizacao'] = pd.to_datetime(df_pedagio['data de utilizacao'], errors='coerce')
         df_carga['data carga'] = pd.to_datetime(df_carga['data carga'], errors='coerce')
 
+        # Carrega a frota para mapear placas para transportador
+        try:
+            df_frota = pd.read_csv('data/Frota.csv')
+            df_frota.columns = [c.strip().lower() for c in df_frota.columns]
+        except Exception as e:
+            st.warning(f"Erro ao carregar Frota.csv: {e}")
+            df_frota = None
+
+        # Junta transportador nas placas dos pedágios
+        if df_frota is not None:
+            df_pedagio = pd.merge(
+                df_pedagio,
+                df_frota[['placa', 'transportador']],
+                on='placa',
+                how='left'
+            )
+            df_pedagio['transportador'] = df_pedagio['transportador'].fillna('Analisar Transportador')
+        else:
+            df_pedagio['transportador'] = 'Analisar Transportador'
+
         # Mesclar por placa e data
         merged = pd.merge(
             df_pedagio,
@@ -36,23 +56,57 @@ def show():
             how='left',
             indicator=True
         )
-        # Filtrar pedágios sem carregamento correspondente
         pedagios_sem_carga = merged[merged['_merge'] == 'left_only']
 
         st.subheader("Pedágios sem Carregamento no mesmo dia:")
         if not pedagios_sem_carga.empty:
-            placas = sorted(pedagios_sem_carga['placa'].dropna().unique())
-            placa_sel = st.multiselect('Filtrar por Placa', placas, default=placas)
-            df_filtrado = pedagios_sem_carga[
-                pedagios_sem_carga['placa'].isin(placa_sel)
-            ]
-            st.dataframe(df_filtrado[['placa', 'data de utilizacao', 'valor cobrado']])
-            st.download_button(
-                "Baixar resultado em CSV",
-                df_filtrado[['placa', 'data de utilizacao', 'valor cobrado']].to_csv(index=False).encode('utf-8'),
-                file_name="pedagios_sem_carregamento.csv",
-                mime="text/csv"
-            )
+            transportadores = sorted(pedagios_sem_carga['transportador'].fillna('Desconhecido').unique())
+            transportadores = ['Desconhecido'] + [t for t in transportadores if t != 'Desconhecido']
+            transportador_sel = st.selectbox('Filtrar por Transportador', transportadores)
+            if transportador_sel == 'Desconhecido':
+                # Mostra todos os transportadores e soma total
+                df_filtrado = pedagios_sem_carga.copy()
+                # Conversão segura do valor cobrado
+                df_filtrado['valor cobrado'] = (
+                    df_filtrado['valor cobrado']
+                    .astype(str)
+                    .str.replace('R$', '', regex=False)
+                    .str.replace('.', '', regex=False)
+                    .str.replace(',', '.', regex=False)
+                    .str.strip()
+                )
+                df_filtrado['valor cobrado'] = pd.to_numeric(df_filtrado['valor cobrado'], errors='coerce').fillna(0)
+                soma_float = df_filtrado['valor cobrado'].sum()
+                st.dataframe(df_filtrado[['placa', 'data de utilizacao', 'valor cobrado', 'transportador']])
+                st.markdown(f"**Total de pedágios indevidos para TODOS os transportadores: R$ {soma_float:,.2f}**")
+                st.download_button(
+                    "Baixar resultado em CSV",
+                    df_filtrado[['placa', 'data de utilizacao', 'valor cobrado', 'transportador']].to_csv(index=False).encode('utf-8'),
+                    file_name="pedagios_sem_carregamento_todos.csv",
+                    mime="text/csv"
+                )
+            else:
+                df_filtrado = pedagios_sem_carga[
+                    pedagios_sem_carga['transportador'] == transportador_sel
+                ]
+                df_filtrado['valor cobrado'] = (
+                    df_filtrado['valor cobrado']
+                    .astype(str)
+                    .str.replace('R$', '', regex=False)
+                    .str.replace('.', '', regex=False)
+                    .str.replace(',', '.', regex=False)
+                    .str.strip()
+                )
+                df_filtrado['valor cobrado'] = pd.to_numeric(df_filtrado['valor cobrado'], errors='coerce').fillna(0)
+                soma_float = df_filtrado['valor cobrado'].sum()
+                st.dataframe(df_filtrado[['placa', 'data de utilizacao', 'valor cobrado', 'transportador']])
+                st.markdown(f"**Total de pedágios indevidos para {transportador_sel}: R$ {soma_float:,.2f}**")
+                st.download_button(
+                    "Baixar resultado em CSV",
+                    df_filtrado[['placa', 'data de utilizacao', 'valor cobrado', 'transportador']].to_csv(index=False).encode('utf-8'),
+                    file_name=f"pedagios_sem_carregamento_{transportador_sel}.csv",
+                    mime="text/csv"
+                )
         else:
             st.info("Nenhum pedágio sem carregamento encontrado.")
     else:
