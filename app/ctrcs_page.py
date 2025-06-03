@@ -170,7 +170,10 @@ def show():
                 for col in ['Tipo de Veiculo', 'Regiao', 'Destino', 'Data']:
                     if col in df.columns and col not in agrupadores:
                         agg_dict[col] = 'first'
-                viagens = df.groupby(agrupadores).agg(agg_dict).reset_index()
+                if agg_dict:
+                    viagens = df.groupby(agrupadores).agg(agg_dict).reset_index()
+                else:
+                    viagens = df.groupby(agrupadores).first().reset_index()
                 viagens['Aproveitamento'] = viagens['Peso Carga'] / viagens['Cap. Veiculo (KG)']
                 if 'Destino' in viagens.columns:
                     viagens['Paletizado'] = viagens['Destino'].str.upper().apply(lambda x: any(c in x for c in clientes_paletizados))
