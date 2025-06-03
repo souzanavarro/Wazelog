@@ -3,130 +3,240 @@ import pandas as pd
 import PyPDF2
 import re
 import os
+import unicodedata
 
-def extrair_tabela_pdf(pdf_path):
-    reader = PyPDF2.PdfReader(pdf_path)
-    texto = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
-    linhas = texto.splitlines()
-    dados = []
-    preview = []
-    # Regexes super tolerantes
-    chaves = {
-        'placa': r'placa[^\w\d]*([A-Z]{3}-?\d{4})',
-        'tipo de veiculo': r'tipo de ve[ií]culo[^\w\d]*([\w\s/]+)',
-        'cap. veiculo (kg)': r'cap(acidade)?( do)? ve[ií]culo[^\w\d]*([\d\.]+)\s*kg',
-        'peso': r'peso( da)? carga[^\w\d]*([\d\.]+)',
-        's frete': r'frete[\w\s:.-]*([\d\.]+,[\d]{2})'
-    }
-    # Busca todos os campos em todas as linhas e armazena pares campo:valor
-    campos_encontrados = {k: [] for k in chaves}
-    for idx, linha in enumerate(linhas):
-        for campo, padrao in chaves.items():
-            m = re.search(padrao, linha, re.IGNORECASE)
-            if m:
-                valor = m.groups()[-1].strip()
-                preview.append(f"Linha {idx+1} | {campo}: {valor}")
-                if campo in ['s frete', 'cap. veiculo (kg)', 'peso']:
-                    valor = valor.replace('.', '').replace(',', '.')
-                campos_encontrados[campo].append(valor)
-    # Monta registros combinando os campos encontrados por ordem de aparição
-    n = max(len(v) for v in campos_encontrados.values())
-    for i in range(n):
-        registro = {campo: campos_encontrados[campo][i] if i < len(campos_encontrados[campo]) else '' for campo in chaves}
-        # Só adiciona se pelo menos placa e frete existirem
-        if registro['placa'] and registro['s frete']:
-            dados.append(registro)
-    df = pd.DataFrame(dados)
-    return df, texto, preview
+def normaliza(s):
+    return unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('ASCII')
+
+def extrair_ctrcs_pdf(pdf_path):
+    try:
+        reader = PyPDF2.PdfReader(pdf_path)
+        texto = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
+        linhas = texto.splitlines()
+        preview = []
+        linhas_norm = [normaliza(l) for l in linhas]
+        texto_unico = " ".join(linhas_norm)
+        # Regex para cabeçalho de bloco
+        padrao_topo = re.compile(r"Placa:\s*([A-Z0-9-]+).*?Tipo de ve[ií]culo\s*:?[\s]*([\w\s/]+).*?Cap[\.]?(acidade)?(\s*de)? Ve[ií]culo\s*:?[\s]*([\d\.]+)\s*KG", re.IGNORECASE)
+        # Regex para encontrar linhas de CTRC (busca data e valores na linha)
+        padrao_data = re.compile(r"(\d{2}/\d{2}/\d{4})")
+        padrao_peso_carga = re.compile(r"Peso Carga:?\s*([\d\.]+)")
+        padrao_frete_ap = re.compile(r"Valor da carga na AP\s*[:]??\s*([\d\.,]+)")
+        padrao_carga = re.compile(r"Carga:?\s*([\d\.]+)")
+        dados = []
+        bloco = {'Placa': '', 'Tipo de Veiculo': '', 'Cap. Veiculo (KG)': ''}
+        registros_bloco = []
+        peso_carga_bloco = None
+        frete_ap_bloco = None
+        carga_bloco = None
+        for idx, linha in enumerate(linhas_norm):
+            m_topo = padrao_topo.search(linha)
+            if m_topo:
+                # Salva registros do bloco anterior, preenchendo Frete e Peso Carga
+                if registros_bloco:
+                    for r in registros_bloco:
+                        r['Valor da carga na AP'] = frete_ap_bloco if frete_ap_bloco is not None else ''
+                        r['Peso Carga'] = peso_carga_bloco if peso_carga_bloco is not None else ''
+                        r['Carga'] = carga_bloco if carga_bloco is not None else ''
+                        dados.append(r)
+                    registros_bloco = []
+                bloco['Placa'] = m_topo.group(1)
+                bloco['Tipo de Veiculo'] = m_topo.group(2).strip()
+                bloco['Cap. Veiculo (KG)'] = m_topo.group(5).replace('.', '')
+                peso_carga_bloco = None
+                frete_ap_bloco = None
+                carga_bloco = None
+                preview.append(f"Linha {idx+1} | NOVO BLOCO: Placa: {bloco['Placa']} | Tipo: {bloco['Tipo de Veiculo']} | Cap: {bloco['Cap. Veiculo (KG)']}")
+            m_peso_carga = padrao_peso_carga.search(linha)
+            if m_peso_carga:
+                peso_carga_bloco = float(m_peso_carga.group(1).replace('.', ''))
+                preview.append(f"Linha {idx+1} | Peso Carga detectado: {peso_carga_bloco}")
+            m_frete_ap = padrao_frete_ap.search(linha)
+            if m_frete_ap:
+                frete_ap_bloco = float(m_frete_ap.group(1).replace('.', '').replace(',', '.'))
+                preview.append(f"Linha {idx+1} | Frete AP detectado: {frete_ap_bloco}")
+            m_carga = padrao_carga.search(linha)
+            if m_carga:
+                carga_bloco = m_carga.group(1)
+                preview.append(f"Linha {idx+1} | Carga detectada: {carga_bloco}")
+            if padrao_data.search(linha) and bloco['Placa']:
+                valores = re.findall(r"\d{1,3}(?:\.\d{3})*,\d{2}", linha)
+                numeros = re.findall(r"\d{3,}", linha)
+                if len(numeros) >= 1:
+                    peso_str = numeros[-1].replace('.', '')
+                    peso = float(peso_str) if peso_str.isdigit() else 0
+                else:
+                    peso = 0
+                registro = {
+                    'Placa': bloco['Placa'],
+                    'Tipo de Veiculo': bloco['Tipo de Veiculo'],
+                    'Cap. Veiculo (KG)': bloco['Cap. Veiculo (KG)'],
+                    'Carga': carga_bloco if carga_bloco is not None else '',
+                    'Valor da carga na AP': '',  # será preenchido ao fechar o bloco
+                    'Peso Carga': ''  # será preenchido ao fechar o bloco
+                }
+                preview.append(f"Linha {idx+1} | Peso Carga: {peso_carga_bloco} | Valor da carga na AP: {frete_ap_bloco}")
+                registros_bloco.append(registro)
+        # Ao final, salva o último bloco
+        if registros_bloco:
+            for r in registros_bloco:
+                r['Valor da carga na AP'] = frete_ap_bloco if frete_ap_bloco is not None else ''
+                r['Peso Carga'] = peso_carga_bloco if peso_carga_bloco is not None else ''
+                r['Carga'] = carga_bloco if carga_bloco is not None else ''
+                dados.append(r)
+        if not dados:
+            raise ValueError('Nenhum registro CTRC encontrado no PDF.')
+        df = pd.DataFrame(dados)
+        return df, preview, None
+    except Exception as e:
+        return None, [], str(e)
+
+def extrair_ctrcs_csv(file):
+    try:
+        df = pd.read_csv(file, sep=None, engine='python')
+        return df, None
+    except Exception as e:
+        return None, str(e)
 
 def show():
-    st.title("Análise de Pagamento de CTRCs")
-    st.write("Faça upload de uma planilha extraída do PDF de fechamento de fretes para análise detalhada ou envie um PDF.")
+    st.title('Conversor e Análise de CTRCs (PDF/CSV)')
+    st.write('Faça upload de um PDF de fechamento de fretes ou de um arquivo CSV já convertido.')
 
-    file = st.file_uploader("Planilha de CTRCs (extraída do PDF) ou PDF", type=None, accept_multiple_files=False)
-
+    file = st.file_uploader('Envie o PDF ou CSV', type=['pdf', 'csv'])
+    erro = None
     df = None
-    texto_pdf = None
-    preview = None
+    preview = []
+
     if file:
-        if file.name.endswith(".csv"):
-            df = pd.read_csv(file, sep=None, engine='python')
-        elif file.name.endswith(".xlsx"):
-            df = pd.read_excel(file)
-        elif file.name.endswith(".pdf"):
+        nome = file.name.lower()
+        if nome.endswith('.pdf'):
             temp_path = os.path.join('data', 'temp_ctrcs.pdf')
             with open(temp_path, 'wb') as f:
                 f.write(file.read())
-            df, texto_pdf, preview = extrair_tabela_pdf(temp_path)
+            df, preview, erro = extrair_ctrcs_pdf(temp_path)
             os.remove(temp_path)
-        if df is not None and not df.empty:
-            df.columns = [c.strip().lower() for c in df.columns]
-
-            # Filtros básicos
-            st.sidebar.header("Filtros")
-            placas = sorted(df['placa'].dropna().unique())
-            placa_sel = st.sidebar.multiselect('Filtrar por Placa', placas, default=placas)
-            tipos = sorted(df['tipo de veiculo'].dropna().unique()) if 'tipo de veiculo' in df.columns else []
-            tipo_sel = st.sidebar.multiselect('Filtrar por Tipo de Veículo', tipos, default=tipos)
-            df_filt = df[df['placa'].isin(placa_sel)]
-            if tipo_sel:
-                df_filt = df_filt[df_filt['tipo de veiculo'].isin(tipo_sel)]
-
-            st.subheader("Tabela de CTRCs")
-            st.dataframe(df_filt)
-
-            # Análise por veículo
-            st.subheader("Custo total e percentual por veículo")
-            if 's frete' in df_filt.columns:
-                df_filt['s frete'] = pd.to_numeric(df_filt['s frete'], errors='coerce').fillna(0)
-                resumo = df_filt.groupby(['placa', 'tipo de veiculo', 'cap. veiculo (kg)'], dropna=False)['s frete'].sum().reset_index()
-                total = resumo['s frete'].sum()
-                resumo['% do total'] = resumo['s frete'] / total * 100
-                st.dataframe(resumo)
-                st.markdown(f"**Total pago em fretes: R$ {total:,.2f}**")
-                st.bar_chart(resumo.set_index('placa')['s frete'])
-
-            # Eficiência de carga
-            st.subheader("Eficiência de Carga por Veículo")
-            if 'peso' in df_filt.columns and 'cap. veiculo (kg)' in df_filt.columns:
-                df_filt['peso'] = pd.to_numeric(df_filt['peso'], errors='coerce').fillna(0)
-                df_filt['cap. veiculo (kg)'] = pd.to_numeric(df_filt['cap. veiculo (kg)'], errors='coerce').fillna(0)
-                df_filt['aproveitamento'] = (df_filt['peso'] / df_filt['cap. veiculo (kg)']).replace([float('inf'), -float('inf')], 0)
-                aproveitamento = df_filt.groupby('placa')['aproveitamento'].mean().reset_index()
-                st.dataframe(aproveitamento)
-                st.bar_chart(aproveitamento.set_index('placa'))
-
-            # Custo por tonelada transportada
-            st.subheader("Custo por Tonelada Transportada")
-            if 's frete' in df_filt.columns and 'peso' in df_filt.columns:
-                custo_ton = df_filt.groupby('placa').apply(lambda x: x['s frete'].sum() / (x['peso'].sum()/1000) if x['peso'].sum() > 0 else 0).reset_index(name='R$/ton')
-                st.dataframe(custo_ton)
-
-            # Ranking de veículos mais caros
-            st.subheader("Ranking de Veículos Mais Caros")
-            if 's frete' in df_filt.columns:
-                ranking = resumo.sort_values('s frete', ascending=False).head(10)
-                st.dataframe(ranking)
-
-            # Alertas
-            st.subheader("Alertas e Insights")
-            if 'aproveitamento' in df_filt.columns:
-                baixo_aprov = aproveitamento[aproveitamento['aproveitamento'] < 0.5]
-                if not baixo_aprov.empty:
-                    st.warning(f"Veículos com baixo aproveitamento de carga (<50%): {', '.join(baixo_aprov['placa'])}")
-            if 's frete' in df_filt.columns:
-                media = resumo['s frete'].mean()
-                acima_media = resumo[resumo['s frete'] > media]
-                if not acima_media.empty:
-                    st.info(f"Veículos com custo acima da média: {', '.join(acima_media['placa'])}")
+            if df is not None:
+                # Oferece download do CSV convertido
+                csv_convertido = os.path.join('data', 'CTRCs_CONVERTIDO.csv')
+                df.to_csv(csv_convertido, index=False)
+                with open(csv_convertido, 'rb') as f:
+                    st.download_button('Baixar CSV convertido', f, file_name='CTRCs_CONVERTIDO.csv')
+        elif nome.endswith('.csv'):
+            df, erro = extrair_ctrcs_csv(file)
         else:
-            st.warning("Não foi possível extrair dados estruturados do PDF enviado. Veja abaixo o texto extraído para ajudar no ajuste do layout ou envie um exemplo para suporte.")
-            if texto_pdf:
-                with st.expander("Texto extraído do PDF (debug)"):
-                    st.text(texto_pdf)
-                if preview:
-                    st.markdown("**Preview das capturas encontradas:**")
-                    for p in preview:
-                        st.text(p)
+            erro = f'Formato de arquivo não suportado: {file.name}'
+
+        if erro:
+            st.error(f'Erro ao processar arquivo: {erro}')
+        elif df is not None and not df.empty:
+            st.success('Arquivo processado com sucesso!')
+            # Exibe apenas as colunas desejadas
+            colunas_exibir = [c for c in ['Placa', 'Tipo de Veiculo', 'Cap. Veiculo (KG)', 'Carga', 'Peso Carga', 'Valor da carga na AP'] if c in df.columns]
+            st.dataframe(df[colunas_exibir])
+            # Relatórios automáticos
+            st.header('Relatórios e Análises')
+            # Custo total
+            if 'Valor da carga na AP' in df.columns:
+                df['Valor da carga na AP'] = df['Valor da carga na AP'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
+                total_frete = pd.to_numeric(df['Valor da carga na AP'], errors='coerce').sum()
+                st.metric('Total pago em fretes', f'R$ {total_frete:,.2f}')
+            # Custo por Carga (agrupamento único)
+            if 'Carga' in df.columns and 'Valor da carga na AP' in df.columns:
+                por_carga = df.drop_duplicates('Carga')[['Carga', 'Valor da carga na AP']].copy()
+                # Corrige a conversão: remove só pontos de milhar e troca vírgula decimal por ponto
+                por_carga['Valor da carga na AP'] = por_carga['Valor da carga na AP'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
+                por_carga['Valor da carga na AP'] = pd.to_numeric(por_carga['Valor da carga na AP'], errors='coerce')
+                por_carga['Valor da carga na AP'] = por_carga['Valor da carga na AP'].apply(lambda x: f'R$ {x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
+                por_carga = por_carga.sort_values('Valor da carga na AP', ascending=False)
+                st.subheader('Valor por Carga (único por viagem/bloco)')
+                st.dataframe(por_carga)
+            # Eficiência de carga e agrupamento correto por bloco (Peso Carga)
+            if 'Peso Carga' in df.columns and 'Cap. Veiculo (KG)' in df.columns and 'Carga' in df.columns:
+                df['Peso Carga'] = pd.to_numeric(df['Peso Carga'], errors='coerce').fillna(0)
+                df['Cap. Veiculo (KG)'] = pd.to_numeric(df['Cap. Veiculo (KG)'], errors='coerce').fillna(0)
+                df['Valor da carga na AP'] = pd.to_numeric(df['Valor da carga na AP'], errors='coerce').fillna(0)
+                clientes_paletizados = ['CARREFOUR', 'TRIMAIS', 'JBS', 'ANDORINHA', 'WALMART']
+                agrupadores = ['Carga', 'Placa', 'Cap. Veiculo (KG)', 'Tipo de Veiculo', 'Peso Carga', 'Valor da carga na AP']
+                if 'Regiao' in df.columns:
+                    agrupadores.append('Regiao')
+                if 'Destino' in df.columns:
+                    agrupadores.append('Destino')
+                if 'Data' in df.columns:
+                    agrupadores.append('Data')
+                agg_dict = {}
+                for col in ['Tipo de Veiculo', 'Regiao', 'Destino', 'Data']:
+                    if col in df.columns and col not in agrupadores:
+                        agg_dict[col] = 'first'
+                viagens = df.groupby(agrupadores).agg(agg_dict).reset_index()
+                viagens['Aproveitamento'] = viagens['Peso Carga'] / viagens['Cap. Veiculo (KG)']
+                if 'Destino' in viagens.columns:
+                    viagens['Paletizado'] = viagens['Destino'].str.upper().apply(lambda x: any(c in x for c in clientes_paletizados))
+                    viagens.loc[viagens['Paletizado'], 'Aproveitamento'] = 1.0
+                viagens['Aproveitamento (%)'] = (viagens['Aproveitamento'] * 100).round(2)
+                if 'Destino' in viagens.columns:
+                    st.subheader('Aproveitamento de carga por viagem (bloco do PDF)')
+                    st.dataframe(viagens[['Carga', 'Placa', 'Tipo de Veiculo', 'Cap. Veiculo (KG)', 'Peso Carga', 'Destino', 'Aproveitamento (%)', 'Valor da carga na AP', 'Paletizado']].style.apply(lambda row: ['background-color: #ffe599' if row['Paletizado'] else '' for _ in row], axis=1))
+                else:
+                    st.subheader('Aproveitamento de carga por viagem (bloco do PDF)')
+                    st.dataframe(viagens[['Carga', 'Placa', 'Tipo de Veiculo', 'Cap. Veiculo (KG)', 'Peso Carga', 'Aproveitamento (%)', 'Valor da carga na AP']])
+                viagens['R$/kg'] = viagens.apply(lambda x: x['Valor da carga na AP']/x['Peso Carga'] if x['Peso Carga'] > 0 else 0, axis=1)
+                st.subheader('Custo por kilo transportado (por viagem/bloco)')
+                st.dataframe(viagens[['Carga', 'Placa', 'Destino' if 'Destino' in viagens.columns else agrupadores[-1], 'R$/kg', 'Peso Carga', 'Valor da carga na AP']])
+                st.markdown(f"**Total de kilos transportados (todas as viagens):** {viagens['Peso Carga'].sum():,.0f} kg")
+                ranking = viagens.sort_values('Valor da carga na AP', ascending=False).head(10)
+                st.subheader('Ranking de viagens mais caras (bloco do PDF)')
+                st.dataframe(ranking[['Carga', 'Placa', 'Destino' if 'Destino' in viagens.columns else agrupadores[-1], 'Valor da carga na AP', 'Peso Carga']])
+                st.subheader('Alertas e Insights')
+                baixo_aprov = viagens[viagens['Aproveitamento'] < 0.5]
+                if not baixo_aprov.empty:
+                    tabela_baixo = baixo_aprov[['Carga', 'Placa', 'Destino' if 'Destino' in viagens.columns else agrupadores[-1], 'Aproveitamento', 'Paletizado' if 'Paletizado' in baixo_aprov.columns else None]].copy()
+                    tabela_baixo['Aproveitamento (%)'] = (tabela_baixo['Aproveitamento'] * 100).round(2)
+                    st.markdown('**Viagens com baixo aproveitamento de carga (<50%)**')
+                    st.dataframe(tabela_baixo, use_container_width=True)
+            # Ranking
+            if 'Valor da carga na AP' in df.columns:
+                ranking = por_veiculo.head(10)
+                st.subheader('Ranking de veículos mais caros')
+                st.dataframe(ranking)
+            # Alertas
+            st.subheader('Alertas e Insights')
+            if 'Aproveitamento' in df.columns:
+                if 'Destino' in df.columns:
+                    baixo_aprov = aproveitamento[(aproveitamento['Aproveitamento'] < 0.5)]
+                    if not baixo_aprov.empty:
+                        tabela_baixo = baixo_aprov[['Placa', 'Destino', 'Aproveitamento', 'Paletizado']].copy()
+                        tabela_baixo['Aproveitamento (%)'] = (tabela_baixo['Aproveitamento'] * 100).round(2)
+                        tabela_baixo = tabela_baixo[['Placa', 'Destino', 'Aproveitamento (%)', 'Paletizado']]
+                        st.markdown('**Veículos com baixo aproveitamento de carga (<50%)**')
+                        st.dataframe(tabela_baixo.style.apply(lambda row: ['background-color: #ffe599' if row['Paletizado'] else '' for _ in row], axis=1), use_container_width=True)
+                else:
+                    baixo_aprov = aproveitamento[aproveitamento['Aproveitamento'] < 0.5]
+                    if not baixo_aprov.empty:
+                        tabela_baixo = baixo_aprov[['Placa', 'Aproveitamento']].copy()
+                        tabela_baixo['Aproveitamento (%)'] = (tabela_baixo['Aproveitamento'] * 100).round(2)
+                        tabela_baixo = tabela_baixo[['Placa', 'Aproveitamento (%)']]
+                        st.markdown('**Veículos com baixo aproveitamento de carga (<50%)**')
+                        st.dataframe(tabela_baixo, use_container_width=True)
+            if 'Valor da carga na AP' in df.columns:
+                media = por_veiculo['Valor da carga na AP'].mean()
+                acima_media = por_veiculo[por_veiculo['Valor da carga na AP'] > media]
+                if not acima_media.empty:
+                    if 'Destino' in df.columns and 'Destino' in df:
+                        tabela_custo = df[df['Placa'].isin(acima_media['Placa'])][['Placa', 'Destino', 'Valor da carga na AP']].copy()
+                        tabela_custo['Paletizado'] = tabela_custo['Destino'].str.upper().apply(lambda x: any(c in x for c in clientes_paletizados))
+                        tabela_custo['Valor da carga na AP'] = pd.to_numeric(tabela_custo['Valor da carga na AP'], errors='coerce').round(2)
+                        st.markdown('**Veículos com custo acima da média**')
+                        st.dataframe(tabela_custo.style.apply(lambda row: ['background-color: #ffe599' if row['Paletizado'] else '' for _ in row], axis=1), use_container_width=True)
+                    else:
+                        tabela_custo = acima_media[['Placa', 'Valor da carga na AP']].copy()
+                        tabela_custo['Valor da carga na AP'] = pd.to_numeric(tabela_custo['Valor da carga na AP'], errors='coerce').round(2)
+                        st.markdown('**Veículos com custo acima da média**')
+                        st.dataframe(tabela_custo, use_container_width=True)
+            # Preview do parser
+            if preview:
+                st.markdown('**Preview das capturas encontradas:**')
+                st.code("\n".join(preview), language='text')
+        else:
+            st.warning('Nenhum dado extraído do arquivo enviado.')
     else:
-        st.info("Envie uma planilha extraída do PDF ou o próprio PDF para análise.")
+        st.info('Envie um PDF ou CSV para iniciar a análise/conversão.')
