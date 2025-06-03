@@ -18,6 +18,7 @@ from pedidos_page import show as show_pedidos
 from roteirizacao_page import show as show_roteirizacao
 from mapas_page import show as show_mapas
 from cnpj_page import show as show_cnpj
+from pedagios_page import show as show_pedagios
 
 # --- Toggle de tema ---
 # Remover título e centralizar layout do menu
@@ -574,7 +575,8 @@ menu_itens = [
     ("Pedidos", "📦"),
     ("Roteirização", "🗺️"),
     ("Mapas", "🗾"),
-    ("Busca CNPJ", "🔎")
+    ("Busca CNPJ", "🔎"),
+    ("Pedágios", "💸")
 ]
 
 with st.sidebar:
@@ -601,5 +603,7 @@ elif pagina == "Mapas":
     show_mapas()
 elif pagina == "Busca CNPJ":
     show_cnpj()
+elif pagina == "Pedágios":
+    show_pedagios()
 else:
     show_dashboard()
