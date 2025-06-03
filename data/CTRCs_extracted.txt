@@ -1,0 +1,23 @@
+0000021 - FLAMBOIÃ ALIMENTOS LTDA.
+Fechamento de fretes - Tipo Logístico : Resfriado CIF
+Dados da Fatura
+Fatura Doc. Fin. Transportador AP Emissão Vencimento
+ 5717 32408 2.337 - TRANSPORTADORA CASARIM LOUVEIRA LTDA EPP  281176 31/05/2025 13/06/2025
+Conta Agencia Banco  7.717,92 Fretes de Entregas - Mercado Interno (Vendas)
+Total da fatura :  7.717,92 0000000007989-8 02254-3 1 - BRASIL
+Visto de Emissão Autorização Logística Autorização Financeiro
+CT-es da Fatura
+Carga: 1.275.010
+Placa: TKC6G01Tipo de veículo : Carreta Cap. Veículo : 28000 KG
+Região:  Itapevi Peso Carga: 16.388Aprov. Carga:  58,53%
+Frete KG:  0,4709
+$ Frete Peso N.Fiscal Destino Origem Emissão Série CTRC
+45431 2 27/05/2025 21 - FLAMBOIÃ ALIMENTOS LTDA. 4.855 - CARREFOUR COMERCIO E INDUSTRIA LTDA  2.443.845  11.728  7.717,92
+21 - FLAMBOIÃ ALIMENTOS LTDA. 4.855 - CARREFOUR COMERCIO E INDUSTRIA LTDA  2.443.846  1.052
+21 - FLAMBOIÃ ALIMENTOS LTDA. 4.855 - CARREFOUR COMERCIO E INDUSTRIA LTDA  2.443.847  3.609
+Valor da carga na AP : 7.717,92 ** Valor do frete aplicado na carga : 4.397,40 Valor sugerido de frete na carga : 4.397,40
+** O Valor da carga na AP está divergente em R$ 3.320,52 ao Valor do frete aplicado na carga .
+Fatura:  5.717 / Resfriado CIF  Impressão:  02/06/2025 15:33:44
+Transportador : 2.337 - TRANSPORTADORA CASARIM LOUVEIRA LTDA EPPPage 1 of 2
+Fatura:  5.717 / Resfriado CIF  Impressão:  02/06/2025 15:33:44
+Transportador : 2.337 - TRANSPORTADORA CASARIM LOUVEIRA LTDA EPPPage 2 of 2
