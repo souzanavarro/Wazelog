@@ -185,42 +185,22 @@ def show():
                 # Soma geral de todos os transportadores
                 soma_geral = df_filtrado['Valor Cobrado'].astype(str).str.replace('R$', '', regex=False).str.replace('.', '', regex=False).str.replace(',', '.', regex=False).str.strip()
                 soma_geral = pd.to_numeric(soma_geral, errors='coerce').fillna(0).sum()
+                # Referência ao mês do relatório
+                try:
+                    datas = pd.to_datetime(df_filtrado['Data De Utilizacao'], errors='coerce')
+                    mes_ano = datas.dt.strftime('%m/%Y').dropna().unique()
+                    referencia = ', '.join(sorted(set(mes_ano))) if len(mes_ano) > 0 else 'Indefinido'
+                except Exception:
+                    referencia = 'Indefinido'
+                csv_buffer.write(f'Referência do relatório (mês/ano):,{referencia}\n')
                 csv_buffer.write(f'Total de pedágios indevidos para TODOS os transportadores:,R$ {soma_geral:,.2f}\n')
+                csv_buffer.write('Relatório gerado por Orlando Navarro\n')
                 st.download_button(
                     "Baixar resultado em CSV",
                     csv_buffer.getvalue().encode('utf-8'),
                     file_name="pedagios_sem_carregamento_todos.csv",
                     mime="text/csv"
                 )
-                # Botão para baixar PDF
-                import io
-                from reportlab.lib.pagesizes import landscape, A4
-                from reportlab.pdfgen import canvas
-                from reportlab.lib import colors
-                from reportlab.platypus import Table, TableStyle, SimpleDocTemplate
-                pdf_buffer = io.BytesIO()
-                pdf = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4))
-                data = [colunas_exibir] + relatorio_df[colunas_exibir].astype(str).values.tolist()
-                table = Table(data)
-                table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ]))
-                elements = [table]
-                pdf.build(elements)
-                pdf_buffer.seek(0)
-                st.download_button(
-                    label="Baixar PDF",
-                    data=pdf_buffer,
-                    file_name="pedagios_sem_carregamento_todos.pdf",
-                    mime="application/pdf"
-                )
-                st.markdown('<button onclick="window.print()">Imprimir</button>', unsafe_allow_html=True)
             else:
                 st.markdown(f"**Total de pedágios indevidos para {transportador_sel}: R$ {soma_float:,.2f}**")
                 st.download_button(
@@ -229,35 +209,6 @@ def show():
                     file_name=f"pedagios_sem_carregamento_{transportador_sel}.csv",
                     mime="text/csv"
                 )
-                # PDF e imprimir para filtro individual
-                import io
-                from reportlab.lib.pagesizes import landscape, A4
-                from reportlab.pdfgen import canvas
-                from reportlab.lib import colors
-                from reportlab.platypus import Table, TableStyle, SimpleDocTemplate
-                pdf_buffer = io.BytesIO()
-                pdf = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4))
-                data = [colunas_exibir] + df_filtrado[colunas_exibir].astype(str).values.tolist()
-                table = Table(data)
-                table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ]))
-                elements = [table]
-                pdf.build(elements)
-                pdf_buffer.seek(0)
-                st.download_button(
-                    label="Baixar PDF",
-                    data=pdf_buffer,
-                    file_name=f"pedagios_sem_carregamento_{transportador_sel}.pdf",
-                    mime="application/pdf"
-                )
-                st.markdown('<button onclick="window.print()">Imprimir</button>', unsafe_allow_html=True)
         else:
             st.info("Nenhum pedágio sem carregamento encontrado.")
     else:
