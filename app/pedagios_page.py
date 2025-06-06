@@ -53,6 +53,10 @@ def show():
         ]
         df_pedagio = df_pedagio[[col for col in colunas_uteis if col in df_pedagio.columns]]
 
+        # Ajuste para aceitar 'Placa Veiculo' como nome alternativo para 'Placa' na planilha de carregamento
+        if 'Placa Veiculo' in df_carga.columns and 'Placa' not in df_carga.columns:
+            df_carga = df_carga.rename(columns={'Placa Veiculo': 'Placa'})
+
         # Mesclar por placa e data
         merged = pd.merge(
             df_pedagio,
