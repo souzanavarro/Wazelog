@@ -35,7 +35,7 @@ def show():
                 return
 
         # Ajuste para garantir que as colunas obrigatórias existam na planilha de carregamento
-        colunas_carga_esperadas = ['Placa', 'Data carga', 'Transportador']
+        colunas_carga_esperadas = ['Placa Veículo', 'Data carga', 'Transportador']
         for col in colunas_carga_esperadas:
             if col not in df_carga.columns:
                 st.error(f"Coluna obrigatória não encontrada na planilha de carregamento: {col}")
