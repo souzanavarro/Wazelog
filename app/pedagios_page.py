@@ -41,11 +41,11 @@ def show():
                 st.error(f"Coluna obrigatória não encontrada na planilha de carregamento: {col}")
                 return
 
-        # Conversão das datas para datetime
-        df_pedagio['Data de utilizacao'] = pd.to_datetime(df_pedagio['Data de utilizacao'], errors='coerce')
-        df_carga['Data carga'] = pd.to_datetime(df_carga['Data carga'], errors='coerce')
+        # Conversão das datas para datetime (garantindo formato brasileiro DD/MM/YYYY)
+        df_pedagio['Data de utilizacao'] = pd.to_datetime(df_pedagio['Data de utilizacao'], errors='coerce', dayfirst=True)
+        df_carga['Data carga'] = pd.to_datetime(df_carga['Data carga'], errors='coerce', dayfirst=True)
 
-        # Seleciona apenas as colunas necessárias da planilha de pedágios
+        # Seleciona apenas as colunas necessárias da planilha de pedágios (usando nomes normalizados)
         colunas_uteis = [
             'Placa', 'Data de utilizacao', 'Hora de untrada',
             'Nome do estabelecimento', 'Endereco do estabelecimento',
@@ -53,8 +53,8 @@ def show():
         ]
         df_pedagio = df_pedagio[[col for col in colunas_uteis if col in df_pedagio.columns]]
 
-        # Ajuste para aceitar 'Placa', 'Placa Veículo' ou 'Placa Veiculo' como nome da coluna de placa na planilha de carregamento
-        placa_colunas = ['Placa', 'Placa Veículo', 'Placa Veiculo']
+        # Ajuste para aceitar variações de nome da coluna de placa na planilha de carregamento (tudo normalizado)
+        placa_colunas = ['Placa', 'Placa veiculo', 'Placa veículo']
         placa_encontrada = None
         for nome in placa_colunas:
             if nome in df_carga.columns:
@@ -63,7 +63,7 @@ def show():
         if placa_encontrada and placa_encontrada != 'Placa':
             df_carga = df_carga.rename(columns={placa_encontrada: 'Placa'})
 
-        # Mesclar por placa e data
+        # Mesclar por placa e data (usando nomes normalizados)
         merged = pd.merge(
             df_pedagio,
             df_carga,
@@ -172,38 +172,56 @@ def show():
             totais['Valor Cobrado'] = totais['Valor Cobrado'].apply(lambda x: f"R$ {x:,.2f}".replace('.', 'X').replace(',', '.').replace('X', ','))
             st.markdown('**Total de pedágios indevidos por Transportador:**')
             st.dataframe(totais.rename(columns={'Valor Cobrado': 'Total Pedágios Indevidos'}))
+            st.download_button(
+                "Baixar totais por transportador em CSV",
+                totais.rename(columns={'Valor Cobrado': 'Total Pedágios Indevidos'}).to_csv(index=False).encode('utf-8'),
+                file_name="totais_pedagios_por_transportador.csv",
+                mime="text/csv"
+            )
 
-            # Adiciona três linhas: em branco, total geral, em branco
-            st.markdown('<br>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-weight:bold;">Total de pedágios indevidos para o transportador: R$ {soma_float:,.2f}</div>', unsafe_allow_html=True)
-            st.markdown('<br>', unsafe_allow_html=True)
+            # Adiciona apenas a linha detalhada de total para o transportador selecionado
+            st.markdown(f"Total de pedágios indevidos para {transportador_sel}: R$ {soma_float:,.2f}")
 
             if transportador_sel == 'Desconhecido':
-                st.markdown(f"**Total de pedágios indevidos para TODOS os transportadores: R$ {soma_float:,.2f}**")
-                # Monta CSV agrupado por transportador, com linhas em branco e total ao final de cada grupo
+                # Monta CSV agrupado por transportador, com linha de total na coluna correta (Valor Cobrado)
                 import io
                 csv_buffer = io.StringIO()
+                # Remove as colunas 'Nome Do Estabelecimento' e 'Informacao 1' do relatório de exportação
+                colunas_exportar = [col for col in colunas_exibir if col not in ['Nome Do Estabelecimento', 'Informacao 1']]
                 for transportador, grupo in df_filtrado.groupby('Transportador', sort=False):
-                    grupo[colunas_exibir].to_csv(csv_buffer, index=False, header=True)
+                    grupo[colunas_exportar].to_csv(csv_buffer, index=False, header=True)
                     csv_buffer.write('\n')
                     # Soma dos valores desse transportador
                     valores_float = grupo['Valor Cobrado'].astype(str).str.replace('R$', '', regex=False).str.replace('.', '', regex=False).str.replace(',', '.', regex=False).str.strip()
                     valores_float = pd.to_numeric(valores_float, errors='coerce').fillna(0)
                     total = valores_float.sum()
-                    csv_buffer.write(f'Total de pedágios indevidos para o transportador {transportador}:,R$ {total:,.2f}\n')
+                    # Linha de total: texto na coluna Placa, as próximas 3 vazias, valor na coluna Valor Cobrado
+                    linha_total = ["" for _ in colunas_exportar]
+                    linha_total[0] = f"Total de pedágios indevidos para {transportador}"
+                    # As colunas 1,2,3 (Data De Utilizacao, Hora De Untrada, Endereco Do Estabelecimento) já ficam vazias
+                    idx_valor = colunas_exportar.index('Valor Cobrado')
+                    linha_total[idx_valor] = f"R$ {total:.2f}"
+                    csv_buffer.write(",".join(linha_total) + "\n")
                     csv_buffer.write('\n')
                 # Soma geral de todos os transportadores
                 soma_geral = df_filtrado['Valor Cobrado'].astype(str).str.replace('R$', '', regex=False).str.replace('.', '', regex=False).str.replace(',', '.', regex=False).str.strip()
                 soma_geral = pd.to_numeric(soma_geral, errors='coerce').fillna(0).sum()
-                # Referência ao mês do relatório
+                # Referência ao mês do relatório (corrigido para garantir robustez)
                 try:
-                    datas = pd.to_datetime(df_filtrado['Data De Utilizacao'], errors='coerce')
-                    mes_ano = datas.dt.strftime('%m/%Y').dropna().unique()
+                    # Cria coluna auxiliar de datas convertidas
+                    datas_aux = pd.to_datetime(df_filtrado['Data De Utilizacao'], errors='coerce', dayfirst=True)
+                    mes_ano = datas_aux.dt.strftime('%m/%Y').dropna().unique()
                     referencia = ', '.join(sorted(set(mes_ano))) if len(mes_ano) > 0 else 'Indefinido'
                 except Exception:
                     referencia = 'Indefinido'
+                total_geral_str = f"R$ {soma_geral:.2f}"
+                # Linha de total geral: texto na primeira coluna, valor só na última coluna
+                linha_total_geral = ["" for _ in colunas_exportar]
+                linha_total_geral[0] = "Total de pedágios indevidos para TODOS os transportadores:"
+                idx_valor = colunas_exportar.index('Valor Cobrado')
+                linha_total_geral[idx_valor] = total_geral_str
+                csv_buffer.write(",".join(linha_total_geral) + "\n")
                 csv_buffer.write(f'Referência do relatório (mês/ano):,{referencia}\n')
-                csv_buffer.write(f'Total de pedágios indevidos para TODOS os transportadores:,R$ {soma_geral:,.2f}\n')
                 csv_buffer.write('Relatório gerado por Orlando Navarro\n')
                 st.download_button(
                     "Baixar resultado em CSV",
@@ -212,7 +230,6 @@ def show():
                     mime="text/csv"
                 )
             else:
-                st.markdown(f"**Total de pedágios indevidos para {transportador_sel}: R$ {soma_float:,.2f}**")
                 st.download_button(
                     "Baixar resultado em CSV",
                     df_filtrado[colunas_exibir].to_csv(index=False).encode('utf-8'),
