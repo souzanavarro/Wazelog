@@ -21,6 +21,7 @@ from cnpj_page import show as show_cnpj
 from pedagios_page import show as show_pedagios
 from login_page import show as show_login, checar_login
 from ctrcs_page import show as show_ctrcs
+from cliente_prioridade_page import show as show_cliente_prioridade
 
 # --- Toggle de tema ---
 # Remover título e centralizar layout do menu
@@ -580,7 +581,8 @@ menu_itens = [
     ("Mapas", "🗾"),
     ("Busca CNPJ", "🔎"),
     ("Pedágios", "💸"),
-    ("CTRCs", "📑")
+    ("CTRCs", "📑"),
+    ("Clientes Prioridades", "⭐"),
 ]
 
 with st.sidebar:
@@ -615,5 +617,7 @@ else:
         show_pedagios()
     elif pagina == "CTRCs":
         show_ctrcs()
+    elif pagina == "Clientes Prioridades":
+        show_cliente_prioridade()
     else:
         show_dashboard()
