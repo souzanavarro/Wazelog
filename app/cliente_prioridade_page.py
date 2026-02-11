@@ -39,6 +39,7 @@ def horario_por_grupo(grupo):
     if "ENXUTO" in g: return "ATE 12:00"
     if "REDE MUFFATO" in g: return "ATE 12:00"
     if "SENDAS" in g: return "ATE 10:00"
+    if "INFANGER" in g: return "ATE 11:00"
     if "COOPERCICA" in g: return "ATE 11:00"
     if "TRIMAIS" in g or "SABORES TRIMAIS" in g: return "ATE 11:00"
     return ""
