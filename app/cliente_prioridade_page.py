@@ -7,9 +7,19 @@ def normaliza_codigo(cod):
     return ''.join(re.findall(r'\d+', str(cod).strip()))
 
 def normaliza_horario(h):
-    s = str(h).strip().upper().replace("ATÉ", "ATE")
-    while "  " in s:
-        s = s.replace("  ", " ")
+    # Normaliza variantes e espaços
+    s = str(h).strip().upper()
+    # normaliza acentos e termos mais comuns
+    s = (s.replace("ATÉ", "ATE")
+           .replace("ÀS", "AS")
+           .replace("À", "A")
+           .replace("Ã", "A").replace("Á", "A").replace("Â", "A").replace("À", "A")
+           .replace("É", "E").replace("Ê", "E").replace("Í", "I")
+           .replace("Ó", "O").replace("Ô", "O").replace("Õ", "O")
+           .replace("Ú", "U").replace("Ç", "C"))
+    # padroniza separadores e remove duplicidades de espaço
+    s = s.replace("\u00A0", " ")  # NBSP
+    s = re.sub(r"\s+", " ", s).strip()
     return s
 
 def normaliza_grupo(grupo):
@@ -30,7 +40,7 @@ def horario_por_grupo(grupo):
     if "GIGA" in g: return "DAS 09:00 ATE 11:00"
     if "TENDA ATACADO" in g or "TENDA" in g: return "ATE 11:00"
     if "COVABRA" in g: return "ATE 12:00"
-    if "IRMAOS BOA" in g or "IRMÃOS BOA" in g or "BOA" in g: return "ATE 13:00"
+    if "IRMAOS BOA" in g or "IRMAOS" in g or "BOA" in g: return "ATE 13:00"
     if "WAL-MART" in g or "WAL MART" in g or "WALMART" in g: return "ATE 11:00"
     if "BERGAMINI" in g: return "ATE 11:00"
     if "TRIMAIS" in g or "SABORES TRIMAIS" in g: return "ATE 11:00"
@@ -54,46 +64,98 @@ def limitar_cliente15(s):
                 ultima_espaco = True
     return out.strip()
 
+# --------- Parsers robustos para o EMAIL ---------
+_sep_regex = re.compile(r'[-–—;,\t|]')  # separadores comuns
+
+def _split_codigo_hora(linha: str):
+    """Aceita formatos: 
+       123456 - ATE 11:00
+       123456;ATE 11:00
+       123456<TAB>ATE 11:00
+       123456    ATE 11:00  (múltiplos espaços)
+       123456 ATE 11:00     (se segunda parte 'parece horário')
+    """
+    ln = (linha or "").replace("\u00A0", " ").strip()
+    ln = ln.replace("–", "-").replace("—", "-")
+
+    # 1) Separadores explícitos: -, ; , , tab, |
+    if _sep_regex.search(ln):
+        parts = _sep_regex.split(ln, maxsplit=1)
+        if len(parts) == 2:
+            return parts[0].strip(), parts[1].strip()
+
+    # 2) Múltiplos espaços (padrão colagem do Excel)
+    m = re.match(r'^\s*(\d{3,})\s{2,}(.+?)\s*$', ln)
+    if m:
+        return m.group(1).strip(), m.group(2).strip()
+
+    # 3) Um espaço apenas, se a direita "parece horário"
+    m = re.match(r'^\s*(\d{3,})\s+(.+?)\s*$', ln)
+    if m:
+        direita = m.group(2).strip()
+        if re.search(r'(\d{1,2}[:h]\d{2}|ATE|ATÉ|DAS|AS)', direita, re.I):
+            return m.group(1).strip(), direita
+
+    # 4) fallback: só código
+    return ln, ""
+
 def importar_email_cru(df_email):
-    # Espera coluna A com texto tipo "COD - HORARIO"
+    # df_email pode vir com 1 coluna (A) ou 2 colunas (cod/horario)
     df = df_email.copy()
     if df.shape[1] == 1:
         df.columns = ["A"]
-    df["A"] = df["A"].astype(str).str.replace("–", "-").str.replace("—", "-")
-    cods, horas = [], []
-    for txt in df["A"]:
-        txt = txt.strip()
-        if not txt:
-            continue
-        p = txt.find("-")
-        if p >= 0:
-            cod = txt[:p].strip()
-            hora = txt[p+1:].strip()
-        else:
-            cod = txt
-            hora = ""
-        cod_norm = normaliza_codigo(cod)
-        if cod_norm:  # Só adiciona se o código for válido
-            cods.append(cod_norm)
-            horas.append(normaliza_horario(hora))
-    return pd.DataFrame({"CÓD. CLIENTE": cods, "HORÁRIO": horas})
+        fontes = df["A"].astype(str).tolist()
+        cods, horas = [], []
+        for txt in fontes:
+            cod, hora = _split_codigo_hora(txt)
+            cod_norm = normaliza_codigo(cod)
+            if cod_norm:
+                cods.append(cod_norm)
+                horas.append(normaliza_horario(hora))
+        return pd.DataFrame({"CÓD. CLIENTE": cods, "HORÁRIO": horas})
+
+    # 2+ colunas: tenta mapear cabeçalhos
+    cols_map = {}
+    for c in df.columns:
+        cname = str(c).strip().upper()
+        if ("COD" in cname or "CÓD" in cname) and "CLIENTE" in cname:
+            cols_map[c] = "CÓD. CLIENTE"
+        elif "HOR" in cname:
+            cols_map[c] = "HORÁRIO"
+        elif cname in ("A", "COLUNA A"):
+            cols_map[c] = "A"
+
+    if cols_map:
+        df = df.rename(columns=cols_map)
+
+    # Se não tem as duas colunas, tenta reconstruir a partir de "A"
+    if not {"CÓD. CLIENTE", "HORÁRIO"}.issubset(df.columns):
+        if "A" in df.columns:
+            fontes = df["A"].astype(str).tolist()
+            cods, horas = [], []
+            for txt in fontes:
+                cod, hora = _split_codigo_hora(txt)
+                cod_norm = normaliza_codigo(cod)
+                if cod_norm:
+                    cods.append(cod_norm)
+                    horas.append(normaliza_horario(hora))
+            return pd.DataFrame({"CÓD. CLIENTE": cods, "HORÁRIO": horas})
+
+    # Se já tem as duas, só normaliza
+    df["CÓD. CLIENTE"] = df["CÓD. CLIENTE"].astype(str).apply(normaliza_codigo)
+    df["HORÁRIO"] = df["HORÁRIO"].astype(str).apply(normaliza_horario)
+    df = df[df["CÓD. CLIENTE"] != ""]
+    return df[["CÓD. CLIENTE", "HORÁRIO"]].reset_index(drop=True)
 
 def importar_email_cru_from_text(texto):
-    linhas = texto.strip().splitlines()
+    linhas = (texto or "").strip().splitlines()
     cods, horas = [], []
     for linha in linhas:
-        linha = linha.strip().replace("–", "-").replace("—", "-")
-        if not linha:
+        if not linha.strip():
             continue
-        p = linha.find("-")
-        if p >= 0:
-            cod = linha[:p].strip()
-            hora = linha[p+1:].strip()
-        else:
-            cod = linha
-            hora = ""
+        cod, hora = _split_codigo_hora(linha)
         cod_norm = normaliza_codigo(cod)
-        if cod_norm:  # Só adiciona se o código for válido
+        if cod_norm:
             cods.append(cod_norm)
             horas.append(normaliza_horario(hora))
     return pd.DataFrame({"CÓD. CLIENTE": cods, "HORÁRIO": horas})
@@ -101,18 +163,21 @@ def importar_email_cru_from_text(texto):
 def atualizar_horarios_prioridades(df_prior, df_email):
     # df_prior: DataFrame com colunas: Placa, Nº Ped., Grupo Cliente, Cód. Cliente, Cliente, Horário
     # df_email: DataFrame com colunas: CÓD. CLIENTE, HORÁRIO
-    dict_email = {normaliza_codigo(row["CÓD. CLIENTE"]): normaliza_horario(row["HORÁRIO"])
-                  for _, row in df_email.iterrows() if normaliza_codigo(row["CÓD. CLIENTE"])}
+    dict_email = {
+        normaliza_codigo(row["CÓD. CLIENTE"]): normaliza_horario(row["HORÁRIO"])
+        for _, row in df_email.iterrows()
+        if normaliza_codigo(row["CÓD. CLIENTE"])
+    }
     horarios = []
     origem = []
     for _, row in df_prior.iterrows():
-        grupo = row.get("Grupo Cliente", "")
-        cod = normaliza_codigo(row.get("Cód. Cliente", ""))
+        grupo = row.get("Grupo Cliente", "") or row.get("GRUPO CLIENTE", "") or ""
+        cod = normaliza_codigo(row.get("Cód. Cliente", "") or row.get("COD CLIENTE", ""))
         hora_grupo = horario_por_grupo(grupo)
         if hora_grupo:
             horarios.append(hora_grupo)
             origem.append("Grupo Cliente")
-        elif cod in dict_email and dict_email[cod].strip():  # Verifica se tem horário válido no email
+        elif cod in dict_email and dict_email[cod].strip():
             horarios.append(dict_email[cod])
             origem.append("EMAIL")
         else:
@@ -136,9 +201,7 @@ def gerar_bloco_por_placa(df_prior):
         for _, row in grupo.iterrows():
             cod = row["Cód. Cliente"]
             cliente = row["Cliente"]
-            hora = row["Horário"]
-            if not hora:
-                hora = "SEM HORARIO"
+            hora = row["Horário"] if row["Horário"] else "SEM HORARIO"
             item = f"{cod} - {cliente} ENTREGAR {hora}"
             itens.append(item)
         linha = " | ".join(itens)
@@ -150,6 +213,7 @@ def show():
     st.write("Automação de prioridades: importa e-mails, aplica regras de horário por grupo/cliente e gera bloco por placa.")
 
     st.subheader("1. Informe os dados do EMAIL")
+    st.caption("Aceita formatos: 'COD - ATE 11:00', 'COD;ATE 11:00', 'COD\\tATE 11:00', 'COD    ATE 11:00' ou 'COD ATE 11:00'.")
     email_text = st.text_area(
         "Cole aqui o conteúdo da planilha EMAIL (coluna A: texto ou CÓD. CLIENTE/HORÁRIO, um por linha):",
         height=200,
@@ -192,16 +256,22 @@ def show():
         if df_prior_redes is not None:
             frames.append(df_prior_redes)
         df_prior = pd.concat(frames, ignore_index=True, sort=False)
-        # Normaliza nomes de colunas comuns (várias variações vindas das planilhas)
+
+        # Normaliza nomes de colunas comuns (variações vindas das planilhas)
         cols_map = {}
         for c in df_prior.columns:
             cname = str(c).strip().upper()
-            if "CÓD" in cname or "COD" in cname:
+            if ("COD" in cname or "CÓD" in cname) and "CLIENTE" in cname:
                 cols_map[c] = "Cód. Cliente"
             elif "PLACA" in cname:
                 cols_map[c] = "Placa"
-            elif "CLIENTE" == cname or "NOME" in cname and "CLIENTE" in cname:
+            elif "GRUPO" in cname and "CLIENTE" in cname:
+                cols_map[c] = "Grupo Cliente"
+            elif cname in ("CLIENTE", "NOME CLIENTE", "NOME DO CLIENTE", "CLIENTE NOME"):
                 cols_map[c] = "Cliente"
+            elif (("Nº" in c) or ("NO" in cname) or ("NUM" in cname)) and ("PED" in cname):
+                cols_map[c] = "Nº Ped."
+
         if cols_map:
             df_prior = df_prior.rename(columns=cols_map)
 
@@ -210,14 +280,17 @@ def show():
             df_prior["Cód. Cliente"] = df_prior["Cód. Cliente"].astype(str).apply(normaliza_codigo)
         if "Placa" in df_prior.columns:
             df_prior["Placa"] = df_prior["Placa"].astype(str).str.upper().str.strip()
+        if "Cliente" in df_prior.columns:
+            df_prior["Cliente"] = df_prior["Cliente"].astype(str).str.strip()
 
-        # Remove duplicatas pelo par (Cód. Cliente, Placa) se ambas as colunas existirem
+        # Remove duplicatas pelo par (Cód. Cliente, Placa)
         if "Cód. Cliente" in df_prior.columns and "Placa" in df_prior.columns:
             antes = len(df_prior)
             df_prior = df_prior.drop_duplicates(subset=["Cód. Cliente", "Placa"])
             removidos = antes - len(df_prior)
             if removidos > 0:
                 st.success(f"Removidos {removidos} registros duplicados (mesmo Cód. Cliente + mesma Placa).")
+
         st.success("Planilhas combinadas.")
         st.dataframe(df_prior, use_container_width=True)
 
