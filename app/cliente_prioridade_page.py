@@ -87,8 +87,8 @@ def _reduzir_prefixo(nome: str, prefixo: str, abreviado: str) -> str:
 def reduzir_prefixos_retail(nome: str) -> str:
     """
     Aplica reduções:
-      - SUPERMERCADO / SUPERMERCADOS -> SUPERM.
-      - HIPERMERCADO / HIPERMERCADOS -> HIPERM.
+      - SUPERMERCADO / SUPERMERCADOS -> SUP.
+      - HIPERMERCADO / HIPERMERCADOS -> HIP.
       - ATACAREJO / ATACAREJOS -> ATAC.
       - MINIMERCADO / MINIMERCADOS -> MINIM.
     """
