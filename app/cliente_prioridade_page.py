@@ -42,17 +42,17 @@ def horario_por_grupo(grupo):
     if "DIVINO FOGAO" in g: return "ATE 10:00"
     if "GIGA" in g: return "DAS 07:00 AS 11:00"
     if "INFANGER" in g: return "ATE 11:00"
-    # evitar falso-positivo com "BOA" genérico → checa apenas IRMAOS/IRMÃOS BOA
-    if "IRMAOS BOA" in g or "IRMAO BOA" in g or "IRMÃOS BOA" in g: return "ATE 15:00"
+    # Evita falso-positivo com "BOA" genérico
+    if "IRMAOS BOA" in g or "IRMÃOS BOA" in g or "IRMAO BOA" in g: return "ATE 15:00"
     if "MAMBO" in g: return "ATE 15:00"
     if "NEGREIROS" in g: return "ATE 14:00"
-    if "REDE MARCHE" in g or (g.startswith("MARCHE") or " MARCHE" in g): return "ATE 11:00"
+    if "REDE MARCHE" in g or g.startswith("MARCHE") or " MARCHE" in g: return "ATE 11:00"
     if "ROSSI" in g: return "ATE 16:00"
     if "SENDAS" in g: return "ATE 11:00"
     if "TENDA ATACADO" in g or "TENDA" in g: return "ATE 11:00"
     if "TRIMAIS" in g: return "ATE 11:00"
 
-    # ---- Outros que já existiam e continuam válidos ----
+    # ---- Outros que seguem válidos ----
     if "WAL-MART" in g or "WAL MART" in g or "WALMART" in g: return "ATE 11:00"
 
     # Sem regra → cai para horário do EMAIL
@@ -63,7 +63,7 @@ def horario_por_grupo(grupo):
 # =========================
 def _reduzir_prefixo(nome: str, prefixo: str, abreviado: str) -> str:
     """
-    Reduz prefixo (SUPERMERCADO(S), HIPERMERCADO(S), ATACAREJO(S), MINIMERCADO(S), etc.)
+    Reduz prefixo (SUPERMERCADO(S), HIPERMERCADO(S), ATACAREJO(S), MINIMERCADO(S), ATACADISTA(S))
     para abreviação desejada, preservando o restante do nome com acentos/caixa originais.
     Aceita com/sem espaço após o prefixo.
     """
@@ -91,16 +91,19 @@ def reduzir_prefixos_retail(nome: str) -> str:
       - HIPERMERCADO / HIPERMERCADOS -> HIP.
       - ATACAREJO / ATACAREJOS -> ATAC.
       - MINIMERCADO / MINIMERCADOS -> MINIM.
+      - ATACADISTA / ATACADISTAS -> ATAC.
     """
     s = str(nome or "")
-    s = _reduzir_prefixo(s, "SUPERMERCADOS", "SUPERM.")
-    s = _reduzir_prefixo(s, "SUPERMERCADO",  "SUPERM.")
-    s = _reduzir_prefixo(s, "HIPERMERCADOS", "HIPERM.")
-    s = _reduzir_prefixo(s, "HIPERMERCADO",  "HIPERM.")
+    s = _reduzir_prefixo(s, "SUPERMERCADOS", "SUP.")
+    s = _reduzir_prefixo(s, "SUPERMERCADO",  "SUP.")
+    s = _reduzir_prefixo(s, "HIPERMERCADOS", "HIP.")
+    s = _reduzir_prefixo(s, "HIPERMERCADO",  "HIP.")
     s = _reduzir_prefixo(s, "ATACAREJOS",    "ATAC.")
     s = _reduzir_prefixo(s, "ATACAREJO",     "ATAC.")
     s = _reduzir_prefixo(s, "MINIMERCADOS",  "MINIM.")
     s = _reduzir_prefixo(s, "MINIMERCADO",   "MINIM.")
+    s = _reduzir_prefixo(s, "ATACADISTAS",   "ATAC.")
+    s = _reduzir_prefixo(s, "ATACADISTA",    "ATAC.")
     return s
 
 def limitar_cliente15(s):
@@ -161,7 +164,6 @@ def extrai_horario(texto: str) -> str:
     if m:
         h1 = _fmt_hm(m.group('h1'), m.group('m1'))
         h2 = _fmt_hm(m.group('h2'), m.group('m2'))
-        # Mantém exatamente "AS" quando vier com AS (não converte para ATE)
         if " AS " in t:
             return f"DAS {h1} AS {h2}"
         return f"DAS {h1} ATE {h2}"
@@ -342,6 +344,7 @@ def construir_dict_email(df_email: pd.DataFrame) -> dict:
 
 def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFrame) -> pd.DataFrame:
     """
+    PRIORIDADE INVERTIDA: EMAIL → Grupo → SEM HORARIO
     df_prior deve conter: Placa, Nº Ped., Grupo Cliente, Cód. Cliente, Cliente
     """
     dict_email = construir_dict_email(df_email)
@@ -356,17 +359,18 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
         if gnorm in ("NENHUM", "NONE", "SEM GRUPO"):
             gnorm = ""
 
-        # Prioridade: Grupo > EMAIL > SEM HORARIO
-        hora_grupo = horario_por_grupo(gnorm)
-        if hora_grupo:
-            horarios.append(hora_grupo)
-            origem.append("Grupo Cliente")
-        elif cod in dict_email and dict_email[cod].strip():
+        # >>> EMAIL primeiro
+        if cod in dict_email and dict_email[cod].strip():
             horarios.append(dict_email[cod])
             origem.append("EMAIL")
         else:
-            horarios.append("SEM HORARIO")
-            origem.append("SEM HORARIO")
+            hora_grupo = horario_por_grupo(gnorm)
+            if hora_grupo:
+                horarios.append(hora_grupo)
+                origem.append("Grupo Cliente")
+            else:
+                horarios.append("SEM HORARIO")
+                origem.append("SEM HORARIO")
 
     out = df_prior.copy()
     out["Horário"] = horarios
