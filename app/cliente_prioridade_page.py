@@ -28,55 +28,83 @@ def normaliza_grupo(grupo):
     return _sem_acentos_upper(grupo)
 
 # =========================
-# Regras de horário por Grupo Cliente
+# Regras de horário por Grupo Cliente (atualizadas)
 # =========================
 def horario_por_grupo(grupo):
     g = normaliza_grupo(grupo)
-    if "MARCHE" in g: return "ATE 15:00"
-    if "CARREFOUR" in g: return "ATE 11:00"
+
+    # ---- Lista solicitada ----
     if "ASP" in g: return "ATE 12:00"
-    if "GIGA" in g: return "DAS 09:00 ATE 11:00"
-    if "TENDA ATACADO" in g or "TENDA" in g: return "ATE 11:00"
-    if "COVABRA" in g: return "ATE 12:00"
-    if "IRMAOS BOA" in g or "IRMÃOS BOA" in g or "IRMOS BOA" in g or "BOA" in g: return "ATE 13:00"
-    if "WAL-MART" in g or "WAL MART" in g or "WALMART" in g: return "ATE 11:00"
     if "BERGAMINI" in g: return "ATE 11:00"
-    if "TRIMAIS" in g or "SABORES TRIMAIS" in g: return "ATE 11:00"
-    # Demais grupos sem regra → volta vazio para cair no EMAIL
+    if "CARREFOUR" in g: return "ATE 11:00"
+    if "COOPERCICA" in g: return "ATE 10:00"
+    if "COVABRA" in g: return "ATE 12:00"
+    if "DIVINO FOGAO" in g: return "ATE 10:00"
+    if "GIGA" in g: return "DAS 07:00 AS 11:00"
+    if "INFANGER" in g: return "ATE 11:00"
+    # evitar falso-positivo com "BOA" genérico → checa apenas IRMAOS/IRMÃOS BOA
+    if "IRMAOS BOA" in g or "IRMAO BOA" in g or "IRMÃOS BOA" in g: return "ATE 15:00"
+    if "MAMBO" in g: return "ATE 15:00"
+    if "NEGREIROS" in g: return "ATE 14:00"
+    if "REDE MARCHE" in g or (g.startswith("MARCHE") or " MARCHE" in g): return "ATE 11:00"
+    if "ROSSI" in g: return "ATE 16:00"
+    if "SENDAS" in g: return "ATE 11:00"
+    if "TENDA ATACADO" in g or "TENDA" in g: return "ATE 11:00"
+    if "TRIMAIS" in g: return "ATE 11:00"
+
+    # ---- Outros que já existiam e continuam válidos ----
+    if "WAL-MART" in g or "WAL MART" in g or "WALMART" in g: return "ATE 11:00"
+
+    # Sem regra → cai para horário do EMAIL
     return ""
 
 # =========================
-# Regras específicas para nome do cliente
+# Abreviações do nome do cliente
 # =========================
-def reduzir_prefixo_supermercado(nome: str) -> str:
+def _reduzir_prefixo(nome: str, prefixo: str, abreviado: str) -> str:
     """
-    Se começar com SUPERMERCADO ou SUPERMERCADOS (qualquer acento/caixa),
-    substitui o prefixo por 'SUPERM.' mantendo o restante.
+    Reduz prefixo (SUPERMERCADO(S), HIPERMERCADO(S), ATACAREJO(S), MINIMERCADO(S), etc.)
+    para abreviação desejada, preservando o restante do nome com acentos/caixa originais.
+    Aceita com/sem espaço após o prefixo.
     """
-    s = str(nome or "")
+    s = str(nome or "").strip()
     su = _sem_acentos_upper(s)
-    if su.startswith("SUPERMERCADOS "):
-        # pega o restante da string original preservando caixa/acentos do resto
-        resto = s.strip()[len(s.split()[0]) + len(s.split()[1]) if s.upper().startswith("SUPERMERCADOS ") else len("SUPERMERCADOS "):]
-        # abordagem mais simples e robusta: corta pelo comprimento do prefixo em su, aplicado em s
-        idx = len("SUPERMERCADOS ")
-        return "SUPERM. " + s.strip()[idx:].lstrip()
-    if su.startswith("SUPERMERCADO "):
-        idx = len("SUPERMERCADO ")
-        return "SUPERM. " + s.strip()[idx:].lstrip()
-    # também cobre casos sem espaço depois (ex.: "SUPERMERCADOSFAMILIA ...")
-    if su.startswith("SUPERMERCADOS"):
-        idx = len("SUPERMERCADOS")
-        resto = s.strip()[idx:].lstrip(" -_.")
-        return "SUPERM. " + resto
-    if su.startswith("SUPERMERCADO"):
-        idx = len("SUPERMERCADO")
-        resto = s.strip()[idx:].lstrip(" -_.")
-        return "SUPERM. " + resto
+
+    # Com espaço após o prefixo (ex.: "SUPERMERCADOS FAMILIA ...")
+    pref_espaco = prefixo + " "
+    if su.startswith(pref_espaco):
+        idx = len(pref_espaco)
+        return f"{abreviado} {s[idx:].lstrip()}"
+
+    # Sem espaço (ex.: "SUPERMERCADOSFAMILIA ...")
+    if su.startswith(prefixo):
+        idx = len(prefixo)
+        resto = s[idx:].lstrip(" -_.")
+        return f"{abreviado} {resto}"
+
     return s
 
-# Limita nome do cliente a 15 letras (mantém espaços)
+def reduzir_prefixos_retail(nome: str) -> str:
+    """
+    Aplica reduções:
+      - SUPERMERCADO / SUPERMERCADOS -> SUPERM.
+      - HIPERMERCADO / HIPERMERCADOS -> HIPERM.
+      - ATACAREJO / ATACAREJOS -> ATAC.
+      - MINIMERCADO / MINIMERCADOS -> MINIM.
+    """
+    s = str(nome or "")
+    s = _reduzir_prefixo(s, "SUPERMERCADOS", "SUPERM.")
+    s = _reduzir_prefixo(s, "SUPERMERCADO",  "SUPERM.")
+    s = _reduzir_prefixo(s, "HIPERMERCADOS", "HIPERM.")
+    s = _reduzir_prefixo(s, "HIPERMERCADO",  "HIPERM.")
+    s = _reduzir_prefixo(s, "ATACAREJOS",    "ATAC.")
+    s = _reduzir_prefixo(s, "ATACAREJO",     "ATAC.")
+    s = _reduzir_prefixo(s, "MINIMERCADOS",  "MINIM.")
+    s = _reduzir_prefixo(s, "MINIMERCADO",   "MINIM.")
+    return s
+
 def limitar_cliente15(s):
+    """Limita a 15 letras (mantém espaços simples)."""
     s = str(s).upper().strip()
     out = ""
     letras = 0
@@ -95,17 +123,15 @@ def limitar_cliente15(s):
         # ignora dígitos/pontuação
     return out.strip()
 
-# Pipeline de tratamento do nome do cliente
 def preparar_nome_cliente(nome: str) -> str:
-    # 1) reduzir prefixo SUPERMERCADO(S) → SUPERM.
-    reduzido = reduzir_prefixo_supermercado(nome)
-    # 2) aplicar limite de 15 letras
+    """Reduz prefixos de varejo e aplica limite de 15 letras."""
+    reduzido = reduzir_prefixos_retail(nome)
     return limitar_cliente15(reduzido)
 
 # =========================
 # Extração robusta de horário de qualquer texto
 # =========================
-_TIME_TOKEN = r'(?P<h>\d{1,2})[:H]?(?P<m>\d{2})?'  # 9:00, 09:00, 9h00, 900 (m opcional)
+_TIME_TOKEN = r'(?P<h>\d{1,2})[:H]?(?P<m>\d{2})?'  # 9:00, 09:00, 9h00, 900 (minutos opcionais)
 _INTERVAL_RE = re.compile(
     rf'\bDAS\b\s*(?P<h1>\d{{1,2}})[:H]?(?P<m1>\d{{2}})?\s*(?:\bAS\b|\bATE\b)\s*(?P<h2>\d{{1,2}})[:H]?(?P<m2>\d{{2}})?\b'
 )
@@ -116,7 +142,7 @@ _COMPACT_RE = re.compile(r'\b(?P<d>\d{3,4})\b')
 
 def _fmt_hm(hh: str, mm: str | None) -> str:
     H = int(hh)
-    M = int(mm) if (mm and mm.isdigit()) else (0 if mm is None else 0)
+    M = int(mm) if (mm and mm.isdigit()) else 0
     return f"{H:02d}:{M:02d}"
 
 def _fmt_compact_to_hm(d: str) -> str:
@@ -135,6 +161,9 @@ def extrai_horario(texto: str) -> str:
     if m:
         h1 = _fmt_hm(m.group('h1'), m.group('m1'))
         h2 = _fmt_hm(m.group('h2'), m.group('m2'))
+        # Mantém exatamente "AS" quando vier com AS (não converte para ATE)
+        if " AS " in t:
+            return f"DAS {h1} AS {h2}"
         return f"DAS {h1} ATE {h2}"
 
     # 2) "ATE HH[:MM]"
@@ -172,13 +201,9 @@ _SEP_REGEX = re.compile(r'[-–—;,\t|]')  # separadores comuns
 def _split_codigo_hora(linha: str):
     """
     Aceita:
-      123456 - ATE 11:00
-      123456;ATE 11:00
-      123456<TAB>ATE 11:00
-      123456    ATE 11:00
-      123456 - CLIENTE XYZ - ATE 11:00
-      123456 - CLIENTE XYZ DAS 09:00 ATE 11:00
-      123456 11:00
+      123456 - ATE 11:00 ; 123456;ATE 11:00 ; 123456<TAB>ATE 11:00
+      123456    ATE 11:00 ; 123456 - CLIENTE XYZ - ATE 11:00
+      123456 - ... DAS 07:00 AS 11:00 ; 123456 11:00
     Retorna (codigo, resto) — o horário é extraído depois via extrai_horario().
     """
     ln = str(linha or "").replace("\u00A0", " ").strip()
@@ -355,7 +380,7 @@ def gerar_bloco_por_placa(df_prior: pd.DataFrame) -> str:
     df = df_prior.copy()
     df["Placa"] = df["Placa"].astype(str).str.upper().str.strip()
     df["Cód. Cliente"] = df["Cód. Cliente"].astype(str).apply(normaliza_codigo)
-    # aplica regra SUPERM. + limite 15 letras
+    # aplica retail + 15 letras
     df["Cliente"] = df["Cliente"].astype(str).apply(preparar_nome_cliente)
     df["Horário"] = df["Horário"].astype(str).str.upper().str.strip()
 
@@ -379,7 +404,7 @@ def show():
 
     # -------- 1) EMAIL --------
     st.subheader("1. Informe os dados do EMAIL")
-    st.caption("Aceita: 'COD - ATE 11:00', 'COD;ATE 11:00', 'COD\\tATE 11:00', 'COD    ATE 11:00', 'COD 11:00', 'COD - CLIENTE - ATE 11:00', 'COD - ... DAS 09:00 ATE 11:00'.")
+    st.caption("Aceita: 'COD - ATE 11:00', 'COD;ATE 11:00', 'COD\\tATE 11:00', 'COD    ATE 11:00', 'COD 11:00', 'COD - CLIENTE - ATE 11:00', 'COD - ... DAS 07:00 AS 11:00'.")
     email_text = st.text_area(
         "Cole aqui o conteúdo da planilha EMAIL (coluna A: texto ou CÓD. CLIENTE/HORÁRIO, um por linha):",
         height=200, key="email_text"
@@ -460,7 +485,7 @@ def show():
         if "Placa" in df_prior.columns:
             df_prior["Placa"] = df_prior["Placa"].astype(str).str.upper().str.strip()
         if "Cliente" in df_prior.columns:
-            # aplica a regra SUPERM. + limite 15 letras já aqui para você visualizar na grade
+            # aplica retail + 15 letras para visualização
             df_prior["Cliente"] = df_prior["Cliente"].astype(str).apply(preparar_nome_cliente)
 
         # Remove duplicados por (Cód. Cliente, Placa)
