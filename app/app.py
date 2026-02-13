@@ -19,7 +19,7 @@ from roteirizacao_page import show as show_roteirizacao
 from mapas_page import show as show_mapas
 from cnpj_page import show as show_cnpj
 from pedagios_page import show as show_pedagios
-from login_page import show as show_login, checar_login
+# Login removido: não mais importamos/checamos autenticação
 from ctrcs_page import show as show_ctrcs
 from cliente_prioridade_page import show as show_cliente_prioridade
 
@@ -572,13 +572,15 @@ else: # Tema Escuro
     ''', unsafe_allow_html=True)
 
 # --- Menu lateral minimalista com ícones ---
-menu_itens = [
-    ("Login", "🔐"),
+main_submenus = [
     ("Dashboard", "🏠"),
     ("Frota", "🚚"),
     ("Pedidos", "📦"),
     ("Roteirização", "🗺️"),
     ("Mapas", "🗾"),
+]
+
+other_items = [
     ("Busca CNPJ", "🔎"),
     ("Pedágios", "💸"),
     ("CTRCs", "📑"),
@@ -587,37 +589,39 @@ menu_itens = [
 
 with st.sidebar:
     pagina = st.session_state.get('pagina_selecionada', 'Dashboard')
-    for nome, icone in menu_itens:
-        selected = pagina == nome
+    with st.expander('Roteirização', expanded=True):
+        for nome, icone in main_submenus:
+            btn = st.button(f"{icone}  {nome}", key=f"menu_{nome}", use_container_width=True)
+            if btn:
+                st.session_state['pagina_selecionada'] = nome
+                st.rerun()
+    st.markdown("<hr class='menu-divider'>", unsafe_allow_html=True)
+    for nome, icone in other_items:
         btn = st.button(f"{icone}  {nome}", key=f"menu_{nome}", use_container_width=True)
         if btn:
             st.session_state['pagina_selecionada'] = nome
             st.rerun()
     st.markdown("<hr class='menu-divider'>", unsafe_allow_html=True)
 
-# --- Renderização das páginas ---
-pagina = st.session_state.get('pagina_selecionada', 'Login')
-if pagina == "Login":
-    show_login()
+# --- Renderização das páginas (login removido; acesso direto) ---
+pagina = st.session_state.get('pagina_selecionada', 'Dashboard')
+if pagina == "Dashboard":
+    show_dashboard()
+elif pagina == "Frota":
+    show_frota()
+elif pagina == "Pedidos":
+    show_pedidos()
+elif pagina == "Roteirização":
+    show_roteirizacao()
+elif pagina == "Mapas":
+    show_mapas()
+elif pagina == "Busca CNPJ":
+    show_cnpj()
+elif pagina == "Pedágios":
+    show_pedagios()
+elif pagina == "CTRCs":
+    show_ctrcs()
+elif pagina == "Clientes Prioridades":
+    show_cliente_prioridade()
 else:
-    checar_login()
-    if pagina == "Dashboard":
-        show_dashboard()
-    elif pagina == "Frota":
-        show_frota()
-    elif pagina == "Pedidos":
-        show_pedidos()
-    elif pagina == "Roteirização":
-        show_roteirizacao()
-    elif pagina == "Mapas":
-        show_mapas()
-    elif pagina == "Busca CNPJ":
-        show_cnpj()
-    elif pagina == "Pedágios":
-        show_pedagios()
-    elif pagina == "CTRCs":
-        show_ctrcs()
-    elif pagina == "Clientes Prioridades":
-        show_cliente_prioridade()
-    else:
-        show_dashboard()
+    show_dashboard()
