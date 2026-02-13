@@ -46,8 +46,36 @@ def horario_por_grupo(grupo):
     return ""
 
 # =========================
-# Limita nome do cliente a 15 letras (mantém espaços)
+# Regras específicas para nome do cliente
 # =========================
+def reduzir_prefixo_supermercado(nome: str) -> str:
+    """
+    Se começar com SUPERMERCADO ou SUPERMERCADOS (qualquer acento/caixa),
+    substitui o prefixo por 'SUPERM.' mantendo o restante.
+    """
+    s = str(nome or "")
+    su = _sem_acentos_upper(s)
+    if su.startswith("SUPERMERCADOS "):
+        # pega o restante da string original preservando caixa/acentos do resto
+        resto = s.strip()[len(s.split()[0]) + len(s.split()[1]) if s.upper().startswith("SUPERMERCADOS ") else len("SUPERMERCADOS "):]
+        # abordagem mais simples e robusta: corta pelo comprimento do prefixo em su, aplicado em s
+        idx = len("SUPERMERCADOS ")
+        return "SUPERM. " + s.strip()[idx:].lstrip()
+    if su.startswith("SUPERMERCADO "):
+        idx = len("SUPERMERCADO ")
+        return "SUPERM. " + s.strip()[idx:].lstrip()
+    # também cobre casos sem espaço depois (ex.: "SUPERMERCADOSFAMILIA ...")
+    if su.startswith("SUPERMERCADOS"):
+        idx = len("SUPERMERCADOS")
+        resto = s.strip()[idx:].lstrip(" -_.")
+        return "SUPERM. " + resto
+    if su.startswith("SUPERMERCADO"):
+        idx = len("SUPERMERCADO")
+        resto = s.strip()[idx:].lstrip(" -_.")
+        return "SUPERM. " + resto
+    return s
+
+# Limita nome do cliente a 15 letras (mantém espaços)
 def limitar_cliente15(s):
     s = str(s).upper().strip()
     out = ""
@@ -66,6 +94,13 @@ def limitar_cliente15(s):
                 ultima_espaco = True
         # ignora dígitos/pontuação
     return out.strip()
+
+# Pipeline de tratamento do nome do cliente
+def preparar_nome_cliente(nome: str) -> str:
+    # 1) reduzir prefixo SUPERMERCADO(S) → SUPERM.
+    reduzido = reduzir_prefixo_supermercado(nome)
+    # 2) aplicar limite de 15 letras
+    return limitar_cliente15(reduzido)
 
 # =========================
 # Extração robusta de horário de qualquer texto
@@ -263,7 +298,6 @@ def limpar_linhas_resumo(df: pd.DataFrame) -> pd.DataFrame:
             return True
         if len(vals) == 1 and re.fullmatch(r'\d{1,10}', vals[0]):
             return True
-        # qualquer célula que indique totalização
         if any(_sem_acentos_upper(v).startswith(("TOTAL", "SOMA")) for v in vals):
             return True
         return False
@@ -321,7 +355,8 @@ def gerar_bloco_por_placa(df_prior: pd.DataFrame) -> str:
     df = df_prior.copy()
     df["Placa"] = df["Placa"].astype(str).str.upper().str.strip()
     df["Cód. Cliente"] = df["Cód. Cliente"].astype(str).apply(normaliza_codigo)
-    df["Cliente"] = df["Cliente"].astype(str).str.upper().str.strip().apply(limitar_cliente15)
+    # aplica regra SUPERM. + limite 15 letras
+    df["Cliente"] = df["Cliente"].astype(str).apply(preparar_nome_cliente)
     df["Horário"] = df["Horário"].astype(str).str.upper().str.strip()
 
     blocos = []
@@ -377,7 +412,7 @@ def show():
             df_prior_clients = pd.read_excel(prior_file_clients, dtype=str)
         else:
             df_prior_clients = pd.read_csv(prior_file_clients, dtype=str)
-        # limpa linhas de resumo (ex.: a linha "24" do rodapé)
+        # limpa rodapés/resumos
         df_prior_clients = limpar_linhas_resumo(df_prior_clients)
         st.success("PRIORIDADES (Clientes) importada.")
         st.dataframe(df_prior_clients, use_container_width=True)
@@ -398,7 +433,7 @@ def show():
         if df_prior_redes   is not None: frames.append(df_prior_redes)
         df_prior = pd.concat(frames, ignore_index=True, sort=False)
 
-        # Limpa novamente pós-concat (garante remoção de qualquer rodapé residual)
+        # Limpa novamente pós-concat
         df_prior = limpar_linhas_resumo(df_prior)
 
         # Mapeia cabeçalhos comuns
@@ -425,7 +460,8 @@ def show():
         if "Placa" in df_prior.columns:
             df_prior["Placa"] = df_prior["Placa"].astype(str).str.upper().str.strip()
         if "Cliente" in df_prior.columns:
-            df_prior["Cliente"] = df_prior["Cliente"].astype(str).str.strip()
+            # aplica a regra SUPERM. + limite 15 letras já aqui para você visualizar na grade
+            df_prior["Cliente"] = df_prior["Cliente"].astype(str).apply(preparar_nome_cliente)
 
         # Remove duplicados por (Cód. Cliente, Placa)
         if "Cód. Cliente" in df_prior.columns and "Placa" in df_prior.columns:
@@ -481,4 +517,3 @@ def show():
     st.info("Dica: Você pode copiar o bloco gerado acima e colar onde desejar.")
 
 # Para integrar no app principal, basta: from seu_modulo import show; show()
-``
