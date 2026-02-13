@@ -64,18 +64,18 @@ def importar_email_cru(df_email):
     for txt in df["A"]:
         txt = txt.strip()
         if not txt:
-            cods.append("")
-            horas.append("")
             continue
         p = txt.find("-")
-        if p > 0:
+        if p >= 0:
             cod = txt[:p].strip()
             hora = txt[p+1:].strip()
         else:
             cod = txt
             hora = ""
-        cods.append(normaliza_codigo(cod))
-        horas.append(normaliza_horario(hora))
+        cod_norm = normaliza_codigo(cod)
+        if cod_norm:  # Só adiciona se o código for válido
+            cods.append(cod_norm)
+            horas.append(normaliza_horario(hora))
     return pd.DataFrame({"CÓD. CLIENTE": cods, "HORÁRIO": horas})
 
 def importar_email_cru_from_text(texto):
@@ -86,14 +86,16 @@ def importar_email_cru_from_text(texto):
         if not linha:
             continue
         p = linha.find("-")
-        if p > 0:
+        if p >= 0:
             cod = linha[:p].strip()
             hora = linha[p+1:].strip()
         else:
             cod = linha
             hora = ""
-        cods.append(normaliza_codigo(cod))
-        horas.append(normaliza_horario(hora))
+        cod_norm = normaliza_codigo(cod)
+        if cod_norm:  # Só adiciona se o código for válido
+            cods.append(cod_norm)
+            horas.append(normaliza_horario(hora))
     return pd.DataFrame({"CÓD. CLIENTE": cods, "HORÁRIO": horas})
 
 def atualizar_horarios_prioridades(df_prior, df_email):
@@ -110,7 +112,7 @@ def atualizar_horarios_prioridades(df_prior, df_email):
         if hora_grupo:
             horarios.append(hora_grupo)
             origem.append("Grupo Cliente")
-        elif cod in dict_email:
+        elif cod in dict_email and dict_email[cod].strip():  # Verifica se tem horário válido no email
             horarios.append(dict_email[cod])
             origem.append("EMAIL")
         else:
