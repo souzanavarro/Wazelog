@@ -70,25 +70,18 @@ def limitar_cliente15(s):
 # =========================
 # Extração robusta de horário de qualquer texto
 # =========================
-# Aceita 9:00, 09:00, 9h00, 09h00, 9h, 900, 1530 etc.
-_TIME_TOKEN = r'(?P<h>\d{1,2})(?:[:H](?P<m>\d{2}))?'
-
-# Intervalo: DAS 09:00 ATE 11:00 | DAS 9h AS 11h | DAS 900 AS 1100 (combinações)
+_TIME_TOKEN = r'(?P<h>\d{1,2})[:H]?(?P<m>\d{2})?'  # 9:00, 09:00, 9h00, 900 (m opcional)
 _INTERVAL_RE = re.compile(
-    rf'\bDAS\b\s*(?P<h1>\d{{1,2}})(?:[:H](?P<m1>\d{{2}}))?\s*(?:\bAS\b|\bATE\b)\s*(?P<h2>\d{{1,2}})(?:[:H](?P<m2>\d{{2}}))?\b'
+    rf'\bDAS\b\s*(?P<h1>\d{{1,2}})[:H]?(?P<m1>\d{{2}})?\s*(?:\bAS\b|\bATE\b)\s*(?P<h2>\d{{1,2}})[:H]?(?P<m2>\d{{2}})?\b'
 )
-
-# Pontuais: ATE 11:00 | AS 10:30
 _ATE_RE = re.compile(rf'\bATE\b\s*{_TIME_TOKEN}')
 _AS_RE  = re.compile(rf'\bAS\b\s*{_TIME_TOKEN}')
-
-# Apenas um horário solto: 11:00 | 9h | 900 | 1530
 _TOKEN_RE   = re.compile(_TIME_TOKEN)
 _COMPACT_RE = re.compile(r'\b(?P<d>\d{3,4})\b')
 
 def _fmt_hm(hh: str, mm: str | None) -> str:
     H = int(hh)
-    M = int(mm) if mm and mm.isdigit() else 0
+    M = int(mm) if (mm and mm.isdigit()) else (0 if mm is None else 0)
     return f"{H:02d}:{M:02d}"
 
 def _fmt_compact_to_hm(d: str) -> str:
@@ -121,7 +114,7 @@ def extrai_horario(texto: str) -> str:
         h = _fmt_hm(m.group('h'), m.group('m'))
         return f"AS {h}"
 
-    # 4) HH[:MM] ou HhMM dentro do texto → assume "ATE"
+    # 4) HH[:MM] / HhMM → assume "ATE"
     m = _TOKEN_RE.search(t)
     if m:
         h = _fmt_hm(m.group('h'), m.group('m'))
@@ -143,7 +136,7 @@ _SEP_REGEX = re.compile(r'[-–—;,\t|]')  # separadores comuns
 
 def _split_codigo_hora(linha: str):
     """
-    Aceita formatos:
+    Aceita:
       123456 - ATE 11:00
       123456;ATE 11:00
       123456<TAB>ATE 11:00
@@ -242,6 +235,41 @@ def importar_email_cru_from_text(texto: str) -> pd.DataFrame:
             cods.append(cod_norm)
             horas.append(normaliza_horario(horario))
     return pd.DataFrame({"CÓD. CLIENTE": cods, "HORÁRIO": horas})
+
+# =========================
+# Limpeza de linhas-resumo nas PRIORIDADES
+# =========================
+def _row_values_clean(row) -> list[str]:
+    vals = []
+    for v in row:
+        s = str(v).strip()
+        if s and s.lower() not in ("nan", "none"):
+            vals.append(s)
+    return vals
+
+def limpar_linhas_resumo(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Remove:
+      - linhas totalmente vazias;
+      - linhas com apenas 1 célula preenchida contendo somente dígitos (ex.: '24');
+      - linhas com célula que comece com 'TOTAL' ou 'SOMA'.
+    """
+    if df is None or df.empty:
+        return df
+
+    def is_resumo(row) -> bool:
+        vals = _row_values_clean(row)
+        if len(vals) == 0:
+            return True
+        if len(vals) == 1 and re.fullmatch(r'\d{1,10}', vals[0]):
+            return True
+        # qualquer célula que indique totalização
+        if any(_sem_acentos_upper(v).startswith(("TOTAL", "SOMA")) for v in vals):
+            return True
+        return False
+
+    mask = df.apply(is_resumo, axis=1)
+    return df.loc[~mask].reset_index(drop=True)
 
 # =========================
 # Aplicação de horários no PRIORIDADES
@@ -346,17 +374,20 @@ def show():
 
     if prior_file_clients:
         if prior_file_clients.name.lower().endswith(".xlsx"):
-            df_prior_clients = pd.read_excel(prior_file_clients)
+            df_prior_clients = pd.read_excel(prior_file_clients, dtype=str)
         else:
-            df_prior_clients = pd.read_csv(prior_file_clients)
+            df_prior_clients = pd.read_csv(prior_file_clients, dtype=str)
+        # limpa linhas de resumo (ex.: a linha "24" do rodapé)
+        df_prior_clients = limpar_linhas_resumo(df_prior_clients)
         st.success("PRIORIDADES (Clientes) importada.")
         st.dataframe(df_prior_clients, use_container_width=True)
 
     if prior_file_redes:
         if prior_file_redes.name.lower().endswith(".xlsx"):
-            df_prior_redes = pd.read_excel(prior_file_redes)
+            df_prior_redes = pd.read_excel(prior_file_redes, dtype=str)
         else:
-            df_prior_redes = pd.read_csv(prior_file_redes)
+            df_prior_redes = pd.read_csv(prior_file_redes, dtype=str)
+        df_prior_redes = limpar_linhas_resumo(df_prior_redes)
         st.success("PRIORIDADES (Redes) importada.")
         st.dataframe(df_prior_redes, use_container_width=True)
 
@@ -366,6 +397,9 @@ def show():
         if df_prior_clients is not None: frames.append(df_prior_clients)
         if df_prior_redes   is not None: frames.append(df_prior_redes)
         df_prior = pd.concat(frames, ignore_index=True, sort=False)
+
+        # Limpa novamente pós-concat (garante remoção de qualquer rodapé residual)
+        df_prior = limpar_linhas_resumo(df_prior)
 
         # Mapeia cabeçalhos comuns
         cols_map = {}
