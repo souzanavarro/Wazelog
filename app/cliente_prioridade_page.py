@@ -100,7 +100,7 @@ def atualizar_horarios_prioridades(df_prior, df_email):
     # df_prior: DataFrame com colunas: Placa, Nº Ped., Grupo Cliente, Cód. Cliente, Cliente, Horário
     # df_email: DataFrame com colunas: CÓD. CLIENTE, HORÁRIO
     dict_email = {normaliza_codigo(row["CÓD. CLIENTE"]): normaliza_horario(row["HORÁRIO"])
-                  for _, row in df_email.iterrows() if normaliza_codigo(row["CÓD. CLIENTE"]) and normaliza_horario(row["HORÁRIO"])}
+                  for _, row in df_email.iterrows() if normaliza_codigo(row["CÓD. CLIENTE"])}
     horarios = []
     origem = []
     for _, row in df_prior.iterrows():
