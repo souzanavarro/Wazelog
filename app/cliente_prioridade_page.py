@@ -24,23 +24,15 @@ def normaliza_grupo(grupo):
 
 def horario_por_grupo(grupo):
     g = normaliza_grupo(grupo)
-    if "MARCHE" in g: return "ATE 11:00"
+    if "MARCHE" in g: return "ATE 15:00"
     if "CARREFOUR" in g: return "ATE 11:00"
     if "ASP" in g: return "ATE 12:00"
     if "GIGA" in g: return "DAS 09:00 ATE 11:00"
     if "TENDA ATACADO" in g or "TENDA" in g: return "ATE 11:00"
-    if "DIVINO FOGÃO" in g or "DIVINO FOGAO" in g: return "ATE 10:00"
     if "COVABRA" in g: return "ATE 12:00"
-    if "MAMBO" in g: return "ATE 14:00"
-    if "NEGREIROS" in g: return "ATE 14:00"
-    if "IRMAOS BOA" in g or "IRMÃOS BOA" in g or "BOA" in g: return "ATE 15:00"
+    if "IRMAOS BOA" in g or "IRMÃOS BOA" in g or "BOA" in g: return "ATE 13:00"
     if "WAL-MART" in g or "WAL MART" in g or "WALMART" in g: return "ATE 11:00"
     if "BERGAMINI" in g: return "ATE 11:00"
-    if "ENXUTO" in g: return "ATE 12:00"
-    if "REDE MUFFATO" in g: return "ATE 12:00"
-    if "SENDAS" in g: return "ATE 10:00"
-    if "INFANGER" in g: return "ATE 11:00"
-    if "COOPERCICA" in g: return "ATE 11:00"
     if "TRIMAIS" in g or "SABORES TRIMAIS" in g: return "ATE 11:00"
     return ""
 
@@ -169,15 +161,62 @@ def show():
     else:
         st.info("Cole os dados do EMAIL acima.")
 
-    st.subheader("2. Upload da Planilha PRIORIDADES")
-    prior_file = st.file_uploader("Planilha PRIORIDADES", type=["xlsx", "csv"], key="prior_file")
+    st.subheader("2. Upload das Planilhas PRIORIDADES")
+    prior_file_clients = st.file_uploader("Planilha Clientes Prioridades", type=["xlsx", "csv"], key="prior_file_clients")
+    prior_file_redes = st.file_uploader("Planilha Redes Prioridades (opcional)", type=["xlsx", "csv"], key="prior_file_redes")
     df_prior = None
-    if prior_file:
-        if prior_file.name.endswith(".xlsx"):
-            df_prior = pd.read_excel(prior_file)
+    df_prior_clients = None
+    df_prior_redes = None
+    if prior_file_clients:
+        if prior_file_clients.name.endswith(".xlsx"):
+            df_prior_clients = pd.read_excel(prior_file_clients)
         else:
-            df_prior = pd.read_csv(prior_file)
-        st.success("PRIORIDADES importada.")
+            df_prior_clients = pd.read_csv(prior_file_clients)
+        st.success("PRIORIDADES (Clientes) importada.")
+        st.dataframe(df_prior_clients, use_container_width=True)
+    if prior_file_redes:
+        if prior_file_redes.name.endswith(".xlsx"):
+            df_prior_redes = pd.read_excel(prior_file_redes)
+        else:
+            df_prior_redes = pd.read_csv(prior_file_redes)
+        st.success("PRIORIDADES (Redes) importada.")
+        st.dataframe(df_prior_redes, use_container_width=True)
+
+    # Combina as duas planilhas (se existirem) e remove duplicados por Cód. Cliente + Placa
+    if df_prior_clients is not None or df_prior_redes is not None:
+        frames = []
+        if df_prior_clients is not None:
+            frames.append(df_prior_clients)
+        if df_prior_redes is not None:
+            frames.append(df_prior_redes)
+        df_prior = pd.concat(frames, ignore_index=True, sort=False)
+        # Normaliza nomes de colunas comuns (várias variações vindas das planilhas)
+        cols_map = {}
+        for c in df_prior.columns:
+            cname = str(c).strip().upper()
+            if "CÓD" in cname or "COD" in cname:
+                cols_map[c] = "Cód. Cliente"
+            elif "PLACA" in cname:
+                cols_map[c] = "Placa"
+            elif "CLIENTE" == cname or "NOME" in cname and "CLIENTE" in cname:
+                cols_map[c] = "Cliente"
+        if cols_map:
+            df_prior = df_prior.rename(columns=cols_map)
+
+        # Garante colunas mínimas e normaliza valores
+        if "Cód. Cliente" in df_prior.columns:
+            df_prior["Cód. Cliente"] = df_prior["Cód. Cliente"].astype(str).apply(normaliza_codigo)
+        if "Placa" in df_prior.columns:
+            df_prior["Placa"] = df_prior["Placa"].astype(str).str.upper().str.strip()
+
+        # Remove duplicatas pelo par (Cód. Cliente, Placa) se ambas as colunas existirem
+        if "Cód. Cliente" in df_prior.columns and "Placa" in df_prior.columns:
+            antes = len(df_prior)
+            df_prior = df_prior.drop_duplicates(subset=["Cód. Cliente", "Placa"])
+            removidos = antes - len(df_prior)
+            if removidos > 0:
+                st.success(f"Removidos {removidos} registros duplicados (mesmo Cód. Cliente + mesma Placa).")
+        st.success("Planilhas combinadas.")
         st.dataframe(df_prior, use_container_width=True)
 
     st.divider()
