@@ -1,204 +1,194 @@
 import streamlit as st
 import pandas as pd
 import re
+from io import StringIO
 
-# =========================
-# Normalizações básicas
-# =========================
+# ============================================================
+#  🔧 NORMALIZAÇÕES BÁSICAS
+# ============================================================
+
 def normaliza_codigo(cod):
-    """Mantém apenas dígitos do código."""
+    """Extrai apenas os dígitos do código."""
     return ''.join(re.findall(r'\d+', str(cod).strip()))
 
 def _sem_acentos_upper(s: str) -> str:
+    """Remove acentos, normaliza espaços e converte para UPPER."""
     s = str(s or "").upper().strip()
-    s = (s.replace("Ã", "A").replace("Á", "A").replace("Â", "A").replace("À", "A")
-           .replace("É", "E").replace("Ê", "E")
-           .replace("Í", "I")
-           .replace("Ó", "O").replace("Ô", "O").replace("Õ", "O")
-           .replace("Ú", "U")
-           .replace("Ç", "C"))
-    s = s.replace("\u00A0", " ")  # NBSP
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
+    tabela = {
+        "Ã": "A", "Á": "A", "Â": "A", "À": "A",
+        "É": "E", "Ê": "E",
+        "Í": "I",
+        "Ó": "O", "Ô": "O", "Õ": "O",
+        "Ú": "U",
+        "Ç": "C"
+    }
+    for k, v in tabela.items():
+        s = s.replace(k, v)
+    s = s.replace("\u00A0", " ")
+    return re.sub(r"\s+", " ", s).strip()
+
+def normaliza_grupo(g):
+    return _sem_acentos_upper(g)
 
 def normaliza_horario(h):
     return _sem_acentos_upper(h)
 
-def normaliza_grupo(grupo):
-    return _sem_acentos_upper(grupo)
+# ============================================================
+#  ⏰ REGRAS DE HORÁRIO POR GRUPO
+# ============================================================
 
-# =========================
-# Regras de horário por Grupo Cliente (atualizadas)
-# =========================
+REGRAS_GRUPO = {
+    "ASP": "ATE 12:00",
+    "BERGAMINI": "ATE 11:00",
+    "CARREFOUR": "ATE 11:00",
+    "COOPERCICA": "ATE 10:00",
+    "COVABRA": "ATE 12:00",
+    "DIVINO FOGAO": "ATE 10:00",
+    "GIGA": "DAS 07:00 AS 11:00",
+    "INFANGER": "ATE 11:00",
+    "IRMAOS BOA": "ATE 15:00",
+    "IRMÃOS BOA": "ATE 15:00",
+    "IRMAO BOA": "ATE 15:00",
+    "MAMBO": "ATE 15:00",
+    "NEGREIROS": "ATE 14:00",
+    "REDE MARCHE": "ATE 11:00",
+    "MARCHE": "ATE 11:00",
+    "ROSSI": "ATE 16:00",
+    "SENDAS": "ATE 11:00",
+    "TENDA": "ATE 11:00",
+    "TENDA ATACADO": "ATE 11:00",
+    "TRIMAIS": "ATE 11:00",
+    "WAL-MART": "ATE 11:00",
+    "WAL MART": "ATE 11:00",
+    "WALMART": "ATE 11:00",
+}
+
 def horario_por_grupo(grupo):
     g = normaliza_grupo(grupo)
-
-    # ---- Lista solicitada ----
-    if "ASP" in g: return "ATE 12:00"
-    if "BERGAMINI" in g: return "ATE 11:00"
-    if "CARREFOUR" in g: return "ATE 11:00"
-    if "COOPERCICA" in g: return "ATE 10:00"
-    if "COVABRA" in g: return "ATE 12:00"
-    if "DIVINO FOGAO" in g: return "ATE 10:00"
-    if "GIGA" in g: return "DAS 07:00 AS 11:00"
-    if "INFANGER" in g: return "ATE 11:00"
-    # Evita falso-positivo com "BOA" genérico
-    if "IRMAOS BOA" in g or "IRMÃOS BOA" in g or "IRMAO BOA" in g: return "ATE 15:00"
-    if "MAMBO" in g: return "ATE 15:00"
-    if "NEGREIROS" in g: return "ATE 14:00"
-    if "REDE MARCHE" in g or g.startswith("MARCHE") or " MARCHE" in g: return "ATE 11:00"
-    if "ROSSI" in g: return "ATE 16:00"
-    if "SENDAS" in g: return "ATE 11:00"
-    if "TENDA ATACADO" in g or "TENDA" in g: return "ATE 11:00"
-    if "TRIMAIS" in g: return "ATE 11:00"
-
-    # ---- Outros que seguem válidos ----
-    if "WAL-MART" in g or "WAL MART" in g or "WALMART" in g: return "ATE 11:00"
-
-    # Sem regra → cai para horário do EMAIL
+    for chave, horario in REGRAS_GRUPO.items():
+        if chave in g or g.startswith(chave):
+            return horario
     return ""
 
-# =========================
-# Abreviações do nome do cliente
-# =========================
+# ============================================================
+#  🏬 REDUÇÃO DE PREFIXOS DO NOME DO CLIENTE
+# ============================================================
+
+PREFIX_MAP = {
+    "SUPERMERCADOS": "SUP.",
+    "SUPERMERCADO": "SUP.",
+    "HIPERMERCADOS": "HIP.",
+    "HIPERMERCADO": "HIP.",
+    "ATACAREJOS": "ATAC.",
+    "ATACAREJO": "ATAC.",
+    "MINIMERCADOS": "MINIM.",
+    "MINIMERCADO": "MINIM.",
+    "ATACADISTAS": "ATAC.",
+    "ATACADISTA": "ATAC."
+}
+
 def _reduzir_prefixo(nome: str, prefixo: str, abreviado: str) -> str:
-    """
-    Reduz prefixo (SUPERMERCADO(S), HIPERMERCADO(S), ATACAREJO(S), MINIMERCADO(S), ATACADISTA(S))
-    para abreviação desejada, preservando o restante do nome com acentos/caixa originais.
-    Aceita com/sem espaço após o prefixo.
-    """
     s = str(nome or "").strip()
     su = _sem_acentos_upper(s)
 
-    # Com espaço após o prefixo (ex.: "SUPERMERCADOS FAMILIA ...")
-    pref_espaco = prefixo + " "
-    if su.startswith(pref_espaco):
-        idx = len(pref_espaco)
-        return f"{abreviado} {s[idx:].lstrip()}"
+    # Com espaço
+    if su.startswith(prefixo + " "):
+        return f"{abreviado} {s[len(prefixo)+1:].lstrip()}"
 
-    # Sem espaço (ex.: "SUPERMERCADOSFAMILIA ...")
+    # Sem espaço
     if su.startswith(prefixo):
-        idx = len(prefixo)
-        resto = s[idx:].lstrip(" -_.")
+        resto = s[len(prefixo):].lstrip(" -_.")
         return f"{abreviado} {resto}"
 
     return s
 
 def reduzir_prefixos_retail(nome: str) -> str:
-    """
-    Aplica reduções:
-      - SUPERMERCADO / SUPERMERCADOS -> SUP.
-      - HIPERMERCADO / HIPERMERCADOS -> HIP.
-      - ATACAREJO / ATACAREJOS -> ATAC.
-      - MINIMERCADO / MINIMERCADOS -> MINIM.
-      - ATACADISTA / ATACADISTAS -> ATAC.
-    """
-    s = str(nome or "")
-    s = _reduzir_prefixo(s, "SUPERMERCADOS", "SUP.")
-    s = _reduzir_prefixo(s, "SUPERMERCADO",  "SUP.")
-    s = _reduzir_prefixo(s, "HIPERMERCADOS", "HIP.")
-    s = _reduzir_prefixo(s, "HIPERMERCADO",  "HIP.")
-    s = _reduzir_prefixo(s, "ATACAREJOS",    "ATAC.")
-    s = _reduzir_prefixo(s, "ATACAREJO",     "ATAC.")
-    s = _reduzir_prefixo(s, "MINIMERCADOS",  "MINIM.")
-    s = _reduzir_prefixo(s, "MINIMERCADO",   "MINIM.")
-    s = _reduzir_prefixo(s, "ATACADISTAS",   "ATAC.")
-    s = _reduzir_prefixo(s, "ATACADISTA",    "ATAC.")
+    s = nome
+    for prefixo, abrev in PREFIX_MAP.items():
+        s = _reduzir_prefixo(s, prefixo, abrev)
     return s
 
 def limitar_cliente15(s):
-    """Limita a 15 letras (mantém espaços simples)."""
+    """Limita o nome a 15 letras, preservando espaços simples."""
     s = str(s).upper().strip()
-    out = ""
-    letras = 0
-    ultima_espaco = False
+    out, letras, last_space = "", 0, False
     for ch in s:
         if ch.isalpha():
             out += ch
             letras += 1
-            ultima_espaco = False
+            last_space = False
             if letras >= 15:
                 break
-        elif ch == " ":
-            if out and not ultima_espaco:
-                out += " "
-                ultima_espaco = True
-        # ignora dígitos/pontuação
+        elif ch == " " and out and not last_space:
+            out += " "
+            last_space = True
     return out.strip()
 
 def preparar_nome_cliente(nome: str) -> str:
-    """Reduz prefixos de varejo e aplica limite de 15 letras."""
-    reduzido = reduzir_prefixos_retail(nome)
-    return limitar_cliente15(reduzido)
+    return limitar_cliente15(reduzir_prefixos_retail(nome))
 
-# =========================
-# Extração robusta de horário de qualquer texto
-# =========================
-_TIME_TOKEN = r'(?P<h>\d{1,2})[:H]?(?P<m>\d{2})?'  # 9:00, 09:00, 9h00, 900 (minutos opcionais)
+# ============================================================
+#  🔑 CHAVE BASE DO CLIENTE (para detectar repetidos de mesma "rede")
+# ============================================================
+
+def chave_base_cliente(nome: str) -> str:
+    """
+    Gera chave base pela combinação dos 2 primeiros tokens (sem acento/upper).
+    Ex.: "MIX VALI COMERCIO", "MIX VALI COM DE PRO" => "MIX VALI"
+    """
+    su = _sem_acentos_upper(nome)
+    tokens = re.findall(r"[A-Z0-9]+", su)
+    if not tokens:
+        return ""
+    return " ".join(tokens[:2])
+
+# ============================================================
+#  ⏱ EXTRAÇÃO ROBUSTA DE HORÁRIO DE TEXTO
+# ============================================================
+
+_TOKEN = r'(?P<h>\d{1,2})[:H]?(?P<m>\d{2})?'
+
 _INTERVAL_RE = re.compile(
-    rf'\bDAS\b\s*(?P<h1>\d{{1,2}})[:H]?(?P<m1>\d{{2}})?\s*(?:\bAS\b|\bATE\b)\s*(?P<h2>\d{{1,2}})[:H]?(?P<m2>\d{{2}})?\b'
+    rf'\bDAS\b\s*(?P<h1>\d{{1,2}})[:H]?(?P<m1>\d{{2}})?\s*(?:AS|ATE)\s*(?P<h2>\d{{1,2}})[:H]?(?P<m2>\d{{2}})?'
 )
-_ATE_RE = re.compile(rf'\bATE\b\s*{_TIME_TOKEN}')
-_AS_RE  = re.compile(rf'\bAS\b\s*{_TIME_TOKEN}')
-_TOKEN_RE   = re.compile(_TIME_TOKEN)
+_ATE_RE   = re.compile(rf'\bATE\b\s*{_TOKEN}')
+_AS_RE    = re.compile(rf'\bAS\b\s*{_TOKEN}')
+_TOKEN_RE = re.compile(_TOKEN)
 _COMPACT_RE = re.compile(r'\b(?P<d>\d{3,4})\b')
 
-def _fmt_hm(hh: str, mm: str | None) -> str:
-    H = int(hh)
-    M = int(mm) if (mm and mm.isdigit()) else 0
-    return f"{H:02d}:{M:02d}"
+def _fmt_hm(hh, mm):
+    return f"{int(hh):02d}:{int(mm) if mm else 0:02d}"
 
-def _fmt_compact_to_hm(d: str) -> str:
-    d = d.strip()
-    if len(d) == 3:   # 900 -> 09:00
-        return f"0{d[0]}:{d[1:]}"
-    if len(d) == 4:   # 1530 -> 15:30
-        return f"{d[:2]}:{d[2:]}"
-    return ""
+def _fmt_compact_to_hm(d):
+    return f"{d[:-2].zfill(2)}:{d[-2:]}" if len(d) in (3, 4) else ""
 
 def extrai_horario(texto: str) -> str:
     t = normaliza_horario(texto)
 
-    # 1) Intervalo "DAS ... ATE/AS ..."
-    m = _INTERVAL_RE.search(t)
-    if m:
+    if (m := _INTERVAL_RE.search(t)):
         h1 = _fmt_hm(m.group('h1'), m.group('m1'))
         h2 = _fmt_hm(m.group('h2'), m.group('m2'))
-        if " AS " in t:
-            return f"DAS {h1} AS {h2}"
-        return f"DAS {h1} ATE {h2}"
+        return f"DAS {h1} AS {h2}"
 
-    # 2) "ATE HH[:MM]"
-    m = _ATE_RE.search(t)
-    if m:
-        h = _fmt_hm(m.group('h'), m.group('m'))
-        return f"ATE {h}"
+    if (m := _ATE_RE.search(t)):
+        return f"ATE {_fmt_hm(m.group('h'), m.group('m'))}"
 
-    # 3) "AS HH[:MM]"
-    m = _AS_RE.search(t)
-    if m:
-        h = _fmt_hm(m.group('h'), m.group('m'))
-        return f"AS {h}"
+    if (m := _AS_RE.search(t)):
+        return f"AS {_fmt_hm(m.group('h'), m.group('m'))}"
 
-    # 4) HH[:MM] / HhMM → assume "ATE"
-    m = _TOKEN_RE.search(t)
-    if m:
-        h = _fmt_hm(m.group('h'), m.group('m'))
-        return f"ATE {h}"
+    if (m := _TOKEN_RE.search(t)):
+        return f"ATE {_fmt_hm(m.group('h'), m.group('m'))}"
 
-    # 5) Compacto 900 / 1530
-    m = _COMPACT_RE.search(t)
-    if m:
-        h = _fmt_compact_to_hm(m.group('d'))
-        if h:
-            return f"ATE {h}"
+    if (m := _COMPACT_RE.search(t)):
+        return f"ATE {_fmt_compact_to_hm(m.group('d'))}"
 
     return ""
 
-# =========================
-# Parsers do EMAIL (Campo 1)
-# =========================
-_SEP_REGEX = re.compile(r'[-–—;,\t|]')  # separadores comuns
+# ============================================================
+#  📥 PARSERS DO EMAIL
+# ============================================================
+
+_SEP_REGEX = re.compile(r'[-–—;,\t|]')
 
 def _split_codigo_hora(linha: str):
     """
@@ -212,102 +202,36 @@ def _split_codigo_hora(linha: str):
     ln = ln.replace("–", "-").replace("—", "-")
 
     # Código no início da linha
-    m_cod = re.match(r'^\s*(\d{3,})\b(.*)$', ln)
-    if m_cod:
-        codigo = m_cod.group(1).strip()
-        resto = m_cod.group(2).strip()
-        if resto and _SEP_REGEX.match(resto[:1]):
-            resto = resto[1:].strip()
+    m = re.match(r'^\s*(\d{3,})\b(.*)$', ln)
+    if m:
+        codigo = m.group(1).strip()
+        resto = m.group(2).lstrip(" -")
         return codigo, resto
 
     # Fallback por separador
     if _SEP_REGEX.search(ln):
         parts = _SEP_REGEX.split(ln, maxsplit=1)
-        if len(parts) == 2:
-            return parts[0].strip(), parts[1].strip()
+        return parts[0].strip(), parts[1].strip() if len(parts) > 1 else ""
 
     # Último recurso
     return ln, ""
 
-def importar_email_cru(df_email: pd.DataFrame) -> pd.DataFrame:
-    """
-    Constrói DataFrame com colunas: CÓD. CLIENTE, HORÁRIO
-    A partir de:
-      - 1 coluna "A" com linhas de texto variadas
-      - 2+ colunas onde tenta mapear CÓD. CLIENTE e HORÁRIO
-    """
-    df = df_email.copy()
-
-    # Caso 1: apenas 1 coluna
-    if df.shape[1] == 1:
-        df.columns = ["A"]
-        cods, horas = [], []
-        for txt in df["A"].astype(str):
-            cod, resto = _split_codigo_hora(txt)
-            cod_norm = normaliza_codigo(cod)
-            if cod_norm:
-                horario = extrai_horario(resto) or extrai_horario(txt)
-                cods.append(cod_norm)
-                horas.append(normaliza_horario(horario))
-        return pd.DataFrame({"CÓD. CLIENTE": cods, "HORÁRIO": horas})
-
-    # Caso 2: 2+ colunas — tenta mapear cabeçalhos
-    cols_map = {}
-    for c in df.columns:
-        cname = _sem_acentos_upper(c)
-        if ("COD" in cname) and "CLIENTE" in cname:
-            cols_map[c] = "CÓD. CLIENTE"
-        elif "HOR" in cname or "ENTREGAR" in cname:
-            cols_map[c] = "HORÁRIO"
-        elif c in ("A", "Coluna A", "COLUNA A"):
-            cols_map[c] = "A"
-
-    if cols_map:
-        df = df.rename(columns=cols_map)
-
-    # Se não tem as duas colunas, reconstrói a partir de "A"
-    if not {"CÓD. CLIENTE", "HORÁRIO"}.issubset(df.columns):
-        if "A" in df.columns:
-            cods, horas = [], []
-            for txt in df["A"].astype(str):
-                cod, resto = _split_codigo_hora(txt)
-                cod_norm = normaliza_codigo(cod)
-                if cod_norm:
-                    horario = extrai_horario(resto) or extrai_horario(txt)
-                    cods.append(cod_norm)
-                    horas.append(normaliza_horario(horario))
-            return pd.DataFrame({"CÓD. CLIENTE": cods, "HORÁRIO": horas})
-
-    # Já tem as duas: normaliza e extrai se vier sujo
-    df["CÓD. CLIENTE"] = df["CÓD. CLIENTE"].astype(str).apply(normaliza_codigo)
-    df["HORÁRIO"] = df["HORÁRIO"].astype(str).apply(lambda x: normaliza_horario(extrai_horario(x) or x))
-    df = df[df["CÓD. CLIENTE"] != ""]
-    return df[["CÓD. CLIENTE", "HORÁRIO"]].reset_index(drop=True)
-
 def importar_email_cru_from_text(texto: str) -> pd.DataFrame:
-    linhas = (texto or "").splitlines()
     cods, horas = [], []
-    for ln in linhas:
+    for ln in (texto or "").splitlines():
         if not ln.strip():
             continue
         cod, resto = _split_codigo_hora(ln)
         cod_norm = normaliza_codigo(cod)
         if cod_norm:
-            horario = extrai_horario(resto) or extrai_horario(ln)
+            hora = extrai_horario(resto) or extrai_horario(ln)
             cods.append(cod_norm)
-            horas.append(normaliza_horario(horario))
+            horas.append(normaliza_horario(hora))
     return pd.DataFrame({"CÓD. CLIENTE": cods, "HORÁRIO": horas})
 
-# =========================
-# Limpeza de linhas-resumo nas PRIORIDADES
-# =========================
-def _row_values_clean(row) -> list[str]:
-    vals = []
-    for v in row:
-        s = str(v).strip()
-        if s and s.lower() not in ("nan", "none"):
-            vals.append(s)
-    return vals
+# ============================================================
+#  🧹 LIMPEZA DE LINHAS NAS PLANILHAS PRIORIDADES
+# ============================================================
 
 def limpar_linhas_resumo(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -320,8 +244,8 @@ def limpar_linhas_resumo(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     def is_resumo(row) -> bool:
-        vals = _row_values_clean(row)
-        if len(vals) == 0:
+        vals = [str(v).strip() for v in row if str(v).strip().lower() not in ("", "none", "nan")]
+        if not vals:
             return True
         if len(vals) == 1 and re.fullmatch(r'\d{1,10}', vals[0]):
             return True
@@ -332,9 +256,10 @@ def limpar_linhas_resumo(df: pd.DataFrame) -> pd.DataFrame:
     mask = df.apply(is_resumo, axis=1)
     return df.loc[~mask].reset_index(drop=True)
 
-# =========================
-# Aplicação de horários no PRIORIDADES
-# =========================
+# ============================================================
+#  🔄 APLICAÇÃO DE HORÁRIOS
+# ============================================================
+
 def construir_dict_email(df_email: pd.DataFrame) -> dict:
     return {
         normaliza_codigo(row["CÓD. CLIENTE"]): normaliza_horario(row["HORÁRIO"])
@@ -359,7 +284,7 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
         if gnorm in ("NENHUM", "NONE", "SEM GRUPO"):
             gnorm = ""
 
-        # >>> EMAIL primeiro
+        # EMAIL primeiro
         if cod in dict_email and dict_email[cod].strip():
             horarios.append(dict_email[cod])
             origem.append("EMAIL")
@@ -377,36 +302,65 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
     out["Origem Horário"] = origem
     return out
 
-# =========================
-# Bloco final por placa
-# =========================
+# ============================================================
+#  🧾 GERAÇÃO DO BLOCO FINAL POR PLACA
+#     Regra solicitada: se houver clientes "repetidos" de mesma base
+#     (ex.: MIX VALI ... variando o final), omitir o CÓDIGO e exibir
+#     apenas NOME + HORÁRIO nesses itens.
+# ============================================================
+
 def gerar_bloco_por_placa(df_prior: pd.DataFrame) -> str:
     df = df_prior.copy()
+
+    # Campos normalizados
     df["Placa"] = df["Placa"].astype(str).str.upper().str.strip()
     df["Cód. Cliente"] = df["Cód. Cliente"].astype(str).apply(normaliza_codigo)
-    # aplica retail + 15 letras
-    df["Cliente"] = df["Cliente"].astype(str).apply(preparar_nome_cliente)
+    df["Cliente"] = df["Cliente"].astype(str).str.strip()
     df["Horário"] = df["Horário"].astype(str).str.upper().str.strip()
 
+    # Nome para exibição (abrevia prefixos e limita a 15 letras)
+    df["_ClienteExib"] = df["Cliente"].apply(preparar_nome_cliente)
+    # Chave base para detectar "mesmos clientes" de uma mesma rede
+    df["_BaseKey"] = df["Cliente"].apply(chave_base_cliente)
+
     blocos = []
-    for placa, grupo in df.groupby("Placa"):
-        itens = []
+
+    for placa, grupo in df.groupby("Placa", sort=False):
+        # Identifica bases repetidas na mesma placa
+        counts = grupo["_BaseKey"].value_counts()
+        bases_repetidas = set(counts[counts >= 2].index)
+
+        itens_fmt = []
+        vistos = set()  # evita itens duplicados idênticos (por segurança)
         for _, row in grupo.iterrows():
             cod = row["Cód. Cliente"]
-            cliente = row["Cliente"]
+            nome = row["_ClienteExib"]
             hora = row["Horário"] if row["Horário"] else "SEM HORARIO"
-            itens.append(f"{cod} - {cliente} ENTREGAR {hora}")
-        blocos.append(f"{placa}:\n{' | '.join(itens)}\n")
+            base = row["_BaseKey"]
+
+            # Se a base é repetida, omite o código no item
+            if base in bases_repetidas:
+                item = f"{nome} ENTREGAR {hora}"
+            else:
+                item = f"{cod} - {nome} ENTREGAR {hora}"
+
+            if item not in vistos:
+                itens_fmt.append(item)
+                vistos.add(item)
+
+        blocos.append(f"{placa}:\n{' | '.join(itens_fmt)}\n")
+
     return "\n".join(blocos)
 
-# =========================
-# UI Streamlit
-# =========================
+# ============================================================
+#  🖥 INTERFACE STREAMLIT
+# ============================================================
+
 def show():
     st.header("Cliente Prioridade", divider="rainbow")
-    st.write("Automação de prioridades: importa e-mails, aplica regras de horário por grupo/cliente e gera bloco por placa.")
+    st.write("Automação para importar e-mails, aplicar regras de horário por grupo/cliente, identificar faltas de prioridade e gerar bloco de entrega por placa.")
 
-    # -------- 1) EMAIL --------
+    # ---------- 1) EMAIL ----------
     st.subheader("1. Informe os dados do EMAIL")
     st.caption("Aceita: 'COD - ATE 11:00', 'COD;ATE 11:00', 'COD\\tATE 11:00', 'COD    ATE 11:00', 'COD 11:00', 'COD - CLIENTE - ATE 11:00', 'COD - ... DAS 07:00 AS 11:00'.")
     email_text = st.text_area(
@@ -427,42 +381,31 @@ def show():
     else:
         st.info("Cole os dados do EMAIL acima.")
 
-    # -------- 2) PRIORIDADES --------
+    # ---------- 2) PRIORIDADES ----------
     st.subheader("2. Upload das Planilhas PRIORIDADES")
     prior_file_clients = st.file_uploader("Planilha Clientes Prioridades", type=["xlsx", "csv"], key="prior_file_clients")
     prior_file_redes   = st.file_uploader("Planilha Redes Prioridades (opcional)", type=["xlsx", "csv"], key="prior_file_redes")
 
     df_prior = None
-    df_prior_clients = None
-    df_prior_redes = None
+    frames = []
 
     if prior_file_clients:
-        if prior_file_clients.name.lower().endswith(".xlsx"):
-            df_prior_clients = pd.read_excel(prior_file_clients, dtype=str)
-        else:
-            df_prior_clients = pd.read_csv(prior_file_clients, dtype=str)
-        # limpa rodapés/resumos
-        df_prior_clients = limpar_linhas_resumo(df_prior_clients)
+        df1 = pd.read_excel(prior_file_clients, dtype=str) if prior_file_clients.name.lower().endswith(".xlsx") else pd.read_csv(prior_file_clients, dtype=str)
+        df1 = limpar_linhas_resumo(df1)
+        frames.append(df1)
         st.success("PRIORIDADES (Clientes) importada.")
-        st.dataframe(df_prior_clients, use_container_width=True)
+        st.dataframe(df1, use_container_width=True)
 
     if prior_file_redes:
-        if prior_file_redes.name.lower().endswith(".xlsx"):
-            df_prior_redes = pd.read_excel(prior_file_redes, dtype=str)
-        else:
-            df_prior_redes = pd.read_csv(prior_file_redes, dtype=str)
-        df_prior_redes = limpar_linhas_resumo(df_prior_redes)
+        df2 = pd.read_excel(prior_file_redes, dtype=str) if prior_file_redes.name.lower().endswith(".xlsx") else pd.read_csv(prior_file_redes, dtype=str)
+        df2 = limpar_linhas_resumo(df2)
+        frames.append(df2)
         st.success("PRIORIDADES (Redes) importada.")
-        st.dataframe(df_prior_redes, use_container_width=True)
+        st.dataframe(df2, use_container_width=True)
 
     # Combina
-    if df_prior_clients is not None or df_prior_redes is not None:
-        frames = []
-        if df_prior_clients is not None: frames.append(df_prior_clients)
-        if df_prior_redes   is not None: frames.append(df_prior_redes)
+    if frames:
         df_prior = pd.concat(frames, ignore_index=True, sort=False)
-
-        # Limpa novamente pós-concat
         df_prior = limpar_linhas_resumo(df_prior)
 
         # Mapeia cabeçalhos comuns
@@ -483,14 +426,14 @@ def show():
         if cols_map:
             df_prior = df_prior.rename(columns=cols_map)
 
-        # Normaliza campos principais
+        # Normaliza campos principais existentes
         if "Cód. Cliente" in df_prior.columns:
             df_prior["Cód. Cliente"] = df_prior["Cód. Cliente"].astype(str).apply(normaliza_codigo)
         if "Placa" in df_prior.columns:
             df_prior["Placa"] = df_prior["Placa"].astype(str).str.upper().str.strip()
         if "Cliente" in df_prior.columns:
-            # aplica retail + 15 letras para visualização
-            df_prior["Cliente"] = df_prior["Cliente"].astype(str).apply(preparar_nome_cliente)
+            # Apenas prepara para visualização (o nome original é mantido internamente)
+            df_prior["Cliente"] = df_prior["Cliente"].astype(str).str.strip()
 
         # Remove duplicados por (Cód. Cliente, Placa)
         if "Cód. Cliente" in df_prior.columns and "Placa" in df_prior.columns:
@@ -503,28 +446,48 @@ def show():
         st.success("Planilhas combinadas.")
         st.dataframe(df_prior, use_container_width=True)
 
-    # Diagnóstico de match EMAIL x PRIORIDADES
+    # ---------- 2.1) DIAGNÓSTICO: FALTAS DE PRIORIDADE (pedido)
+    # "Falar se falta uma prioridade que estiver no EMAIL com relação às planilhas enviadas"
     if df_email is not None and df_prior is not None and "Cód. Cliente" in df_prior.columns:
         dict_email = construir_dict_email(df_email)
         cods_prior = set(df_prior["Cód. Cliente"].astype(str).apply(normaliza_codigo))
         cods_email = set(dict_email.keys())
+
+        faltando_na_prioridade = sorted(cods_email - cods_prior)
         matches = len(cods_prior & cods_email)
-        with st.expander("Diagnóstico de matches EMAIL ↔ PRIORIDADES"):
+
+        with st.expander("Diagnóstico de Matches e Faltas (EMAIL ↔ PRIORIDADES)", expanded=True):
             st.write(f"Códigos distintos em PRIORIDADES: **{len(cods_prior)}**")
             st.write(f"Códigos com horário no EMAIL: **{len(cods_email)}**")
             st.write(f"Matches (interseção): **{matches}**")
-            if matches:
-                exemplos = list(cods_prior & cods_email)[:15]
-                st.write("Exemplos de códigos casados:", exemplos)
 
-    # -------- 3) Atualizar Horários --------
+            if faltando_na_prioridade:
+                st.warning(f"Faltam **{len(faltando_na_prioridade)}** prioridades: códigos presentes no EMAIL que não aparecem nas planilhas PRIORIDADES.")
+                faltas_df = pd.DataFrame({
+                    "CÓD. CLIENTE": faltando_na_prioridade,
+                    "HORÁRIO (EMAIL)": [dict_email[c] for c in faltando_na_prioridade]
+                })
+                st.dataframe(faltas_df, use_container_width=True)
+                # Download CSV das faltas
+                csv_buf = StringIO()
+                faltas_df.to_csv(csv_buf, index=False, encoding="utf-8")
+                st.download_button(
+                    "Baixar faltas (CSV)",
+                    data=csv_buf.getvalue(),
+                    file_name="faltas_prioridades_email.csv",
+                    mime="text/csv"
+                )
+            else:
+                st.success("Não há faltas: todos os códigos do EMAIL constam nas planilhas PRIORIDADES.")
+
+    # ---------- 3) Atualizar Horários ----------
     st.divider()
     if df_email is not None and df_prior is not None:
         st.subheader("3. Atualizar Horários na Prioridade")
         if st.button("Atualizar Horários"):
             df_prior_atual = atualizar_horarios_prioridades(df_prior, df_email)
-            st.dataframe(df_prior_atual, use_container_width=True)
             st.session_state["df_prior_atual"] = df_prior_atual
+            st.dataframe(df_prior_atual, use_container_width=True)
         else:
             df_prior_atual = st.session_state.get("df_prior_atual", None)
             if df_prior_atual is not None:
@@ -532,17 +495,18 @@ def show():
     else:
         df_prior_atual = None
 
-    # -------- 4) Gerar Bloco --------
+    # ---------- 4) Gerar Bloco ----------
     st.divider()
     if df_prior_atual is not None:
         st.subheader("4. Gerar Bloco por Placa")
+        st.caption("Se houver clientes repetidos da mesma base (ex.: 'MIX VALI ...'), o código será omitido nesses itens.")
         if st.button("Gerar Bloco"):
             bloco = gerar_bloco_por_placa(df_prior_atual)
-            st.text_area("Bloco Gerado", bloco, height=220)
+            st.text_area("Bloco Gerado", bloco, height=260)
             st.download_button("Baixar Bloco como TXT", bloco.encode("utf-8"), file_name="bloco_entregas.txt")
-        else:
-            _ = None
 
     st.info("Dica: Você pode copiar o bloco gerado acima e colar onde desejar.")
 
 # Para integrar no app principal, basta: from seu_modulo import show; show()
+if __name__ == "__main__":
+    show()
