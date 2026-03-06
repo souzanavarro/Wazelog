@@ -312,7 +312,7 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
 # ============================================================
 #  🧾 GERAÇÃO DO BLOCO FINAL POR PLACA
 #     Regra: se houver clientes "repetidos" de mesma base (ex.: MIX VALI ...),
-#     omitir o CÓDIGO e exibir apenas NOME + HORÁRIO nesses itens.
+#     omitir o CÓDIGO e exibir apenas 1 ocorrência (NOME + HORÁRIO) por base.
 # ============================================================
 
 def gerar_bloco_por_placa(df_prior: pd.DataFrame) -> str:
@@ -332,29 +332,42 @@ def gerar_bloco_por_placa(df_prior: pd.DataFrame) -> str:
     blocos = []
 
     for placa, grupo in df.groupby("Placa", sort=False):
-        # Identifica bases repetidas na mesma placa
-        counts = grupo["_BaseKey"].value_counts()
-        bases_repetidas = set(counts[counts >= 2].index)
-
+        # Mapa final de itens da placa:
+        # - chave: identificador único do que deve aparecer
+        # - valor: string formatada para o bloco
         itens_fmt = []
-        vistos = set()  # evita itens duplicados idênticos
-        for _, row in grupo.iterrows():
+
+        # 1) Colapsa por base (uma ocorrência por base)
+        base_groups = dict(tuple(grupo.groupby("_BaseKey", sort=False)))
+
+        for base, gbase in base_groups.items():
+            if base and len(gbase) >= 2:
+                # Bases repetidas: omite código e mantém só 1 item
+                # Escolhe o nome exibido mais curto para ficar limpo
+                row_escolhida = gbase.iloc[0]
+                nome_curto = min(gbase["_ClienteExib"], key=len)
+                # Mantém o horário do primeiro registro dessa base
+                hora = row_escolhida["Horário"] if row_escolhida["Horário"] else "SEM HORARIO"
+                itens_fmt.append(f"{nome_curto} ENTREGAR {hora}")
+
+        # 2) Itens de bases não repetidas: mantém com código
+        bases_repetidas = {b for b, gbase in base_groups.items() if b and len(gbase) >= 2}
+        unicos = grupo[~grupo["_BaseKey"].isin(bases_repetidas)]
+        for _, row in unicos.iterrows():
             cod = row["Cód. Cliente"]
             nome = row["_ClienteExib"]
             hora = row["Horário"] if row["Horário"] else "SEM HORARIO"
-            base = row["_BaseKey"]
+            itens_fmt.append(f"{cod} - {nome} ENTREGAR {hora}")
 
-            # Se a base é repetida, omite o código no item
-            if base in bases_repetidas:
-                item = f"{nome} ENTREGAR {hora}"
-            else:
-                item = f"{cod} - {nome} ENTREGAR {hora}"
+        # Remove duplicatas exatas por segurança mantendo a ordem
+        vistos = set()
+        itens_ordenados = []
+        for it in itens_fmt:
+            if it not in vistos:
+                itens_ordenados.append(it)
+                vistos.add(it)
 
-            if item not in vistos:
-                itens_fmt.append(item)
-                vistos.add(item)
-
-        blocos.append(f"{placa}:\n{' | '.join(itens_fmt)}\n")
+        blocos.append(f"{placa}:\n{' | '.join(itens_ordenados)}\n")
 
     return "\n".join(blocos)
 
@@ -503,7 +516,7 @@ def show():
     st.divider()
     if df_prior_atual is not None:
         st.subheader("4. Gerar Bloco por Placa")
-        st.caption("Se houver clientes repetidos da mesma base (ex.: 'MIX VALI ...'), o código será omitido nesses itens.")
+        st.caption("Se houver clientes repetidos da mesma base (ex.: 'MIX VALI ...'), o bloco terá apenas 1 ocorrência por base (sem código).")
         if st.button("Gerar Bloco"):
             bloco = gerar_bloco_por_placa(df_prior_atual)
             st.text_area("Bloco Gerado", bloco, height=260)
