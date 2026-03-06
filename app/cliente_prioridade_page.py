@@ -7,7 +7,7 @@ from io import StringIO
 #  🔧 NORMALIZAÇÕES BÁSICAS
 # ============================================================
 
-def normaliza_codigo(cod):
+def normaliza_codigo(cod: str) -> str:
     """Extrai apenas os dígitos do código."""
     return ''.join(re.findall(r'\d+', str(cod).strip()))
 
@@ -27,10 +27,10 @@ def _sem_acentos_upper(s: str) -> str:
     s = s.replace("\u00A0", " ")
     return re.sub(r"\s+", " ", s).strip()
 
-def normaliza_grupo(g):
+def normaliza_grupo(g: str) -> str:
     return _sem_acentos_upper(g)
 
-def normaliza_horario(h):
+def normaliza_horario(h: str) -> str:
     return _sem_acentos_upper(h)
 
 # ============================================================
@@ -63,7 +63,8 @@ REGRAS_GRUPO = {
     "WALMART": "ATE 11:00",
 }
 
-def horario_por_grupo(grupo):
+def horario_por_grupo(grupo: str) -> str:
+    """Retorna o horário padrão pelo nome do grupo normalizado."""
     g = normaliza_grupo(grupo)
     for chave, horario in REGRAS_GRUPO.items():
         if chave in g or g.startswith(chave):
@@ -88,6 +89,10 @@ PREFIX_MAP = {
 }
 
 def _reduzir_prefixo(nome: str, prefixo: str, abreviado: str) -> str:
+    """
+    Reduz prefixos de varejo preservando o restante do nome conforme digitado.
+    Aceita 'com' e 'sem' espaço logo após o prefixo.
+    """
     s = str(nome or "").strip()
     su = _sem_acentos_upper(s)
 
@@ -103,12 +108,12 @@ def _reduzir_prefixo(nome: str, prefixo: str, abreviado: str) -> str:
     return s
 
 def reduzir_prefixos_retail(nome: str) -> str:
-    s = nome
+    s = str(nome or "")
     for prefixo, abrev in PREFIX_MAP.items():
         s = _reduzir_prefixo(s, prefixo, abrev)
     return s
 
-def limitar_cliente15(s):
+def limitar_cliente15(s: str) -> str:
     """Limita o nome a 15 letras, preservando espaços simples."""
     s = str(s).upper().strip()
     out, letras, last_space = "", 0, False
@@ -125,6 +130,7 @@ def limitar_cliente15(s):
     return out.strip()
 
 def preparar_nome_cliente(nome: str) -> str:
+    """Aplica reduções de varejo e limite de 15 letras para exibição."""
     return limitar_cliente15(reduzir_prefixos_retail(nome))
 
 # ============================================================
@@ -156,13 +162,14 @@ _AS_RE    = re.compile(rf'\bAS\b\s*{_TOKEN}')
 _TOKEN_RE = re.compile(_TOKEN)
 _COMPACT_RE = re.compile(r'\b(?P<d>\d{3,4})\b')
 
-def _fmt_hm(hh, mm):
+def _fmt_hm(hh, mm) -> str:
     return f"{int(hh):02d}:{int(mm) if mm else 0:02d}"
 
-def _fmt_compact_to_hm(d):
+def _fmt_compact_to_hm(d: str) -> str:
     return f"{d[:-2].zfill(2)}:{d[-2:]}" if len(d) in (3, 4) else ""
 
 def extrai_horario(texto: str) -> str:
+    """Extrai 'ATE HH:MM', 'AS HH:MM' ou 'DAS HH:MM AS HH:MM' de texto."""
     t = normaliza_horario(texto)
 
     if (m := _INTERVAL_RE.search(t)):
@@ -217,6 +224,7 @@ def _split_codigo_hora(linha: str):
     return ln, ""
 
 def importar_email_cru_from_text(texto: str) -> pd.DataFrame:
+    """Constrói DataFrame com colunas: CÓD. CLIENTE, HORÁRIO a partir de texto livre."""
     cods, horas = [], []
     for ln in (texto or "").splitlines():
         if not ln.strip():
@@ -261,6 +269,7 @@ def limpar_linhas_resumo(df: pd.DataFrame) -> pd.DataFrame:
 # ============================================================
 
 def construir_dict_email(df_email: pd.DataFrame) -> dict:
+    """Dict {cod_cliente: horario} apenas para horários válidos."""
     return {
         normaliza_codigo(row["CÓD. CLIENTE"]): normaliza_horario(row["HORÁRIO"])
         for _, row in df_email.iterrows()
@@ -273,9 +282,8 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
     df_prior deve conter: Placa, Nº Ped., Grupo Cliente, Cód. Cliente, Cliente
     """
     dict_email = construir_dict_email(df_email)
+    horarios, origem = [], []
 
-    horarios = []
-    origem = []
     for _, row in df_prior.iterrows():
         grupo = row.get("Grupo Cliente", "") or row.get("GRUPO CLIENTE", "") or ""
         cod   = normaliza_codigo(row.get("Cód. Cliente", "") or row.get("COD CLIENTE", "") or row.get("CODIGO CLIENTE", ""))
@@ -284,7 +292,6 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
         if gnorm in ("NENHUM", "NONE", "SEM GRUPO"):
             gnorm = ""
 
-        # EMAIL primeiro
         if cod in dict_email and dict_email[cod].strip():
             horarios.append(dict_email[cod])
             origem.append("EMAIL")
@@ -304,9 +311,8 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
 
 # ============================================================
 #  🧾 GERAÇÃO DO BLOCO FINAL POR PLACA
-#     Regra solicitada: se houver clientes "repetidos" de mesma base
-#     (ex.: MIX VALI ... variando o final), omitir o CÓDIGO e exibir
-#     apenas NOME + HORÁRIO nesses itens.
+#     Regra: se houver clientes "repetidos" de mesma base (ex.: MIX VALI ...),
+#     omitir o CÓDIGO e exibir apenas NOME + HORÁRIO nesses itens.
 # ============================================================
 
 def gerar_bloco_por_placa(df_prior: pd.DataFrame) -> str:
@@ -331,7 +337,7 @@ def gerar_bloco_por_placa(df_prior: pd.DataFrame) -> str:
         bases_repetidas = set(counts[counts >= 2].index)
 
         itens_fmt = []
-        vistos = set()  # evita itens duplicados idênticos (por segurança)
+        vistos = set()  # evita itens duplicados idênticos
         for _, row in grupo.iterrows():
             cod = row["Cód. Cliente"]
             nome = row["_ClienteExib"]
@@ -357,21 +363,21 @@ def gerar_bloco_por_placa(df_prior: pd.DataFrame) -> str:
 # ============================================================
 
 def show():
-    st.header("Cliente Prioridade", divider="rainbow")
-    st.write("Automação para importar e-mails, aplicar regras de horário por grupo/cliente, identificar faltas de prioridade e gerar bloco de entrega por placa.")
+    st.header("Prioridades", divider="rainbow")
+    st.write("Importe o EMAIL e as planilhas de PRIORIDADES, aplique regras de horário e gere o bloco por placa. O app também indica faltas (códigos presentes no EMAIL que não aparecem nas planilhas).")
 
     # ---------- 1) EMAIL ----------
     st.subheader("1. Informe os dados do EMAIL")
     st.caption("Aceita: 'COD - ATE 11:00', 'COD;ATE 11:00', 'COD\\tATE 11:00', 'COD    ATE 11:00', 'COD 11:00', 'COD - CLIENTE - ATE 11:00', 'COD - ... DAS 07:00 AS 11:00'.")
     email_text = st.text_area(
-        "Cole aqui o conteúdo da planilha EMAIL (coluna A: texto ou CÓD. CLIENTE/HORÁRIO, um por linha):",
+        "Cole aqui a coluna do EMAIL (texto livre com CÓD. e HORÁRIO, um por linha):",
         height=200, key="email_text"
     )
 
     df_email = None
     if email_text.strip():
         df_email = importar_email_cru_from_text(email_text)
-        st.success("EMAIL processado da caixa de texto.")
+        st.success("EMAIL processado.")
         col1, col2 = st.columns(2)
         with col1:
             st.metric("Códigos no EMAIL", len(df_email))
@@ -432,7 +438,6 @@ def show():
         if "Placa" in df_prior.columns:
             df_prior["Placa"] = df_prior["Placa"].astype(str).str.upper().str.strip()
         if "Cliente" in df_prior.columns:
-            # Apenas prepara para visualização (o nome original é mantido internamente)
             df_prior["Cliente"] = df_prior["Cliente"].astype(str).str.strip()
 
         # Remove duplicados por (Cód. Cliente, Placa)
@@ -446,8 +451,7 @@ def show():
         st.success("Planilhas combinadas.")
         st.dataframe(df_prior, use_container_width=True)
 
-    # ---------- 2.1) DIAGNÓSTICO: FALTAS DE PRIORIDADE (pedido)
-    # "Falar se falta uma prioridade que estiver no EMAIL com relação às planilhas enviadas"
+    # ---------- 2.1) DIAGNÓSTICO: FALTAS DE PRIORIDADE
     if df_email is not None and df_prior is not None and "Cód. Cliente" in df_prior.columns:
         dict_email = construir_dict_email(df_email)
         cods_prior = set(df_prior["Cód. Cliente"].astype(str).apply(normaliza_codigo))
