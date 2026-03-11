@@ -44,7 +44,7 @@ REGRAS_GRUPO = {
     "COOPERCICA": "ATE 10:00",
     "COVABRA": "ATE 12:00",
     "DIVINO FOGAO": "ATE 10:00",
-    "GIGA": "DAS 07:00 AS 11:00",
+    "GIGA": "DAS 09:00 AS 11:00",
     "INFANGER": "ATE 11:00",
     "IRMAOS BOA": "ATE 15:00",
     "IRMÃOS BOA": "ATE 15:00",
