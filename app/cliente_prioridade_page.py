@@ -4,7 +4,7 @@ import re
 from io import StringIO
 
 # ============================================================
-#  🔧 NORMALIZAÇÕES BÁSICAS
+#  🔧 NORMALIZAÇÕES
 # ============================================================
 
 def normaliza_codigo(cod: str) -> str:
@@ -32,44 +32,7 @@ def normaliza_horario(h: str) -> str:
     return _sem_acentos_upper(h)
 
 # ============================================================
-#  ⏰ REGRAS DE HORÁRIO POR GRUPO
-# ============================================================
-
-REGRAS_GRUPO = {
-    "ASP": "ATE 12:00",
-    "BERGAMINI": "ATE 11:00",
-    "CARREFOUR": "ATE 11:00",
-    "COOPERCICA": "ATE 10:00",
-    "COVABRA": "ATE 12:00",
-    "DIVINO FOGAO": "ATE 10:00",
-    "GIGA": "DAS 09:00 AS 11:00",
-    "INFANGER": "ATE 11:00",
-    "IRMAOS BOA": "ATE 15:00",
-    "IRMÃOS BOA": "ATE 15:00",
-    "IRMAO BOA": "ATE 15:00",
-    "MAMBO": "ATE 15:00",
-    "NEGREIROS": "ATE 14:00",
-    "REDE MARCHE": "ATE 11:00",
-    "MARCHE": "ATE 11:00",
-    "ROSSI": "ATE 16:00",
-    "SENDAS": "ATE 11:00",
-    "TENDA": "ATE 11:00",
-    "TENDA ATACADO": "ATE 11:00",
-    "TRIMAIS": "ATE 11:00",
-    "WAL-MART": "ATE 11:00",
-    "WAL MART": "ATE 11:00",
-    "WALMART": "ATE 11:00",
-}
-
-def horario_por_grupo(grupo: str) -> str:
-    g = normaliza_grupo(grupo)
-    for chave, horario in REGRAS_GRUPO.items():
-        if chave in g or g.startswith(chave):
-            return horario
-    return ""
-
-# ============================================================
-#  🧠 MAPA GRUPO → CÓDIGOS (NOVO)
+#  🧠 MAPA CÓDIGO → GRUPO
 # ============================================================
 
 MAPA_GRUPO_CODIGOS = {
@@ -95,52 +58,45 @@ for grupo, codigos in MAPA_GRUPO_CODIGOS.items():
 
 def grupo_por_codigo(cod: str) -> str:
     return MAPA_CODIGO_GRUPO.get(normaliza_codigo(cod), "")
+
 # ============================================================
-#  🏬 CLIENTE
+#  ⏰ HORÁRIOS POR GRUPO
 # ============================================================
 
-PREFIX_MAP = {
-    "SUPERMERCADOS": "SUP.",
-    "SUPERMERCADO": "SUP.",
-    "HIPERMERCADOS": "HIP.",
-    "HIPERMERCADO": "HIP.",
-    "ATACAREJO": "ATAC.",
+REGRAS_GRUPO = {
+    "ASP": "ATE 12:00",
+    "BERGAMINI": "ATE 11:00",
+    "CARREFOUR": "ATE 11:00",
+    "COOPERCICA": "ATE 10:00",
+    "COVABRA": "ATE 12:00",
+    "DIVINO FOGAO": "ATE 10:00",
+    "GIGA": "DAS 09:00 AS 11:00",
+    "INFANGER": "ATE 11:00",
+    "IRMAOS BOA": "ATE 15:00",
+    "MAMBO": "ATE 15:00",
+    "NEGREIROS": "ATE 14:00",
+    "REDE MARCHE": "ATE 11:00",
+    "TRIMAIS": "ATE 11:00",
 }
 
-def reduzir_prefixos_retail(nome: str) -> str:
-    s = str(nome or "")
-    for prefixo, abrev in PREFIX_MAP.items():
-        if _sem_acentos_upper(s).startswith(prefixo):
-            return s.replace(prefixo, abrev)
-    return s
-
-def limitar_cliente15(s: str) -> str:
-    s = str(s).upper().strip()
-    return s[:15]
-
-def preparar_nome_cliente(nome: str) -> str:
-    return limitar_cliente15(reduzir_prefixos_retail(nome))
-
-def chave_base_cliente(nome: str) -> str:
-    su = _sem_acentos_upper(nome)
-    tokens = re.findall(r"[A-Z0-9]+", su)
-    return " ".join(tokens[:2])
-
-# ============================================================
-#  ⏱ EXTRAÇÃO DE HORÁRIO
-# ============================================================
-
-_TOKEN = r'(?P<h>\d{1,2})[:H]?(?P<m>\d{2})?'
-
-def extrai_horario(texto: str) -> str:
-    t = normaliza_horario(texto)
-    m = re.search(_TOKEN, t)
-    if m:
-        return f"ATE {int(m.group('h')):02d}:{int(m.group('m') or 0):02d}"
+def horario_por_grupo(grupo: str) -> str:
+    g = normaliza_grupo(grupo)
+    for k, v in REGRAS_GRUPO.items():
+        if k in g:
+            return v
     return ""
+
 # ============================================================
 #  📥 EMAIL
 # ============================================================
+
+def extrai_horario(texto: str) -> str:
+    m = re.search(r'(\d{1,2})[:H]?(\d{2})?', str(texto))
+    if m:
+        h = int(m.group(1))
+        m2 = int(m.group(2) or 0)
+        return f"ATE {h:02d}:{m2:02d}"
+    return ""
 
 def importar_email_cru_from_text(texto: str) -> pd.DataFrame:
     cods, horas = [], []
@@ -154,20 +110,22 @@ def importar_email_cru_from_text(texto: str) -> pd.DataFrame:
             horas.append(hora)
     return pd.DataFrame({"CÓD. CLIENTE": cods, "HORÁRIO": horas})
 
-# ============================================================
-#  🔄 ATUALIZAÇÃO (COM INTELIGÊNCIA)
-# ============================================================
-
 def construir_dict_email(df_email: pd.DataFrame) -> dict:
     return {
-        normaliza_codigo(row["CÓD. CLIENTE"]): normaliza_horario(row["HORÁRIO"])
-        for _, row in df_email.iterrows()
-        if row["HORÁRIO"]
+        normaliza_codigo(r["CÓD. CLIENTE"]): normaliza_horario(r["HORÁRIO"])
+        for _, r in df_email.iterrows()
+        if r["HORÁRIO"]
     }
 
-def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFrame) -> pd.DataFrame:
-    dict_email = construir_dict_email(df_email)
-    horarios, origem = [], []
+# ============================================================
+#  🔄 PROCESSAMENTO
+# ============================================================
+
+def atualizar_horarios_prioridades(df_prior, df_email=None):
+    horarios = []
+    origem = []
+
+    dict_email = construir_dict_email(df_email) if df_email is not None else {}
 
     for _, row in df_prior.iterrows():
         cod = normaliza_codigo(row.get("Cód. Cliente", ""))
@@ -193,40 +151,72 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
     df_prior["Horário"] = horarios
     df_prior["Origem Horário"] = origem
     return df_prior
+
 # ============================================================
-#  🖥 INTERFACE STREAMLIT
+#  📋 TEXTO DE PRIORIDADES (NOVO)
+# ============================================================
+
+def gerar_texto_prioridades(df: pd.DataFrame) -> str:
+    linhas = ["PRIORIDADES DO DIA\n"]
+
+    for _, row in df.iterrows():
+        cod = row.get("Cód. Cliente", "")
+        nome = row.get("Cliente", "")
+        hora = row.get("Horário", "")
+        origem = row.get("Origem Horário", "")
+
+        linhas.append(f"{cod} - {nome} ENTREGAR {hora} ({origem})")
+
+    return "\n".join(linhas)
+
+# ============================================================
+#  🖥 STREAMLIT
 # ============================================================
 
 def show():
     st.header("Prioridades", divider="rainbow")
 
-    st.subheader("1. EMAIL")
+    # EMAIL
+    st.subheader("1. EMAIL (opcional)")
     email_text = st.text_area("Cole EMAIL")
 
     df_email = None
-    if email_text:
+    if email_text.strip():
         df_email = importar_email_cru_from_text(email_text)
-        st.success("EMAIL processado")
         st.dataframe(df_email)
 
-    st.subheader("2. PLANILHA")
-    file = st.file_uploader("Upload Prioridades")
+    # PLANILHA
+    st.subheader("2. Planilha")
+    file = st.file_uploader("Upload")
 
     df_prior = None
     if file:
         df_prior = pd.read_excel(file, dtype=str)
-        st.success("Planilha carregada")
         st.dataframe(df_prior)
 
-    if df_email is not None and df_prior is not None:
-        st.subheader("3. PROCESSAR")
-
-        if st.button("Atualizar Horários"):
+    # PROCESSAR
+    if df_prior is not None:
+        if st.button("Atualizar"):
             df_final = atualizar_horarios_prioridades(df_prior, df_email)
+
+            st.success("Processado")
             st.dataframe(df_final)
 
+            # BLOCO CSV
             csv = df_final.to_csv(index=False).encode("utf-8")
             st.download_button("Baixar CSV", csv, "resultado.csv")
+
+            # TEXTO PRIORIDADES
+            st.subheader("📋 Prioridades (texto)")
+            texto = gerar_texto_prioridades(df_final)
+
+            st.text_area("Lista", texto, height=300)
+
+            st.download_button(
+                "Baixar TXT",
+                texto.encode("utf-8"),
+                "prioridades.txt"
+            )
 
 if __name__ == "__main__":
     show()
