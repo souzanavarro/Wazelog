@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import re
+import os
 from io import StringIO
 
 # ============================================================
@@ -63,12 +64,32 @@ REGRAS_GRUPO = {
     "WALMART": "ATE 11:00",
 }
 
+# Mapeamento código -> nome do grupo (pode ser preenchido em tempo de execução pela UI)
+REGRAS_CODIGO = {}
+
 def horario_por_grupo(grupo: str) -> str:
     """Retorna o horário padrão pelo nome do grupo normalizado."""
     g = normaliza_grupo(grupo)
+
+    # 1) Se o parâmetro contém um código, tente mapear para grupo via REGRAS_CODIGO
+    cod = normaliza_codigo(grupo)
+    try:
+        # se houver mapeamento salvo em sessão, prioriza
+        sess_map = st.session_state.get("REGRAS_CODIGO", {})
+    except Exception:
+        sess_map = {}
+
+    codigo_map = {**REGRAS_CODIGO, **(sess_map or {})}
+    if cod and cod in codigo_map:
+        grpname = codigo_map[cod]
+        if grpname:
+            return horario_por_grupo(grpname)
+
+    # 2) Verifica por nome de grupo nas regras existentes
     for chave, horario in REGRAS_GRUPO.items():
         if chave in g or g.startswith(chave):
             return horario
+
     return ""
 
 # ============================================================
@@ -437,6 +458,21 @@ def aplicar_grupos_por_codigo(df_prior: pd.DataFrame, code_to_group: dict, overw
     return out, atualizados
 
 
+# Tenta carregar um arquivo estático com mapeamentos (se existir)
+# O arquivo deve estar em: data/regras_codigo_static.txt (uma linha por par "GRUPO - CÓDIGO").
+try:
+    static_path = os.path.join(os.getcwd(), "data", "regras_codigo_static.txt")
+    if os.path.exists(static_path):
+        with open(static_path, encoding="utf-8") as _f:
+            _txt = _f.read()
+        _parsed = parse_group_code_list(_txt)
+        if _parsed:
+            REGRAS_CODIGO.update(_parsed)
+except Exception:
+    # Não falhar na importação se algo der errado
+    pass
+
+
 # ============================================================
 #  🖥 INTERFACE STREAMLIT
 # ============================================================
@@ -575,6 +611,9 @@ def show():
                 overwrite = st.checkbox("Sobrescrever valores existentes em 'Grupo Cliente'", value=False, key="overwrite_groups")
                 if st.button("Aplicar Grupos ao DataFrame PRIORIDADES"):
                     df_aplic, n_atual = aplicar_grupos_por_codigo(df_prior, code_to_group, overwrite=overwrite)
+                    # Salva mapeamento em sessão para que funções (ex: horario_por_grupo)
+                    # possam consultar códigos -> grupos quando precisarem determinar horário.
+                    st.session_state["REGRAS_CODIGO"] = code_to_group
                     st.session_state["df_prior"] = df_aplic
                     st.success(f"Aplicados {n_atual} atualizações em 'Grupo Cliente'.")
                     st.dataframe(df_aplic, use_container_width=True)
