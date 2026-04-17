@@ -392,8 +392,13 @@ def detectar_redes_novas(df_prior: pd.DataFrame) -> dict:
     if df_prior is None or df_prior.empty:
         return redes_novas
     
+    # Debug: mostra grupos únicos
+    grupos_unicos = df_prior["Grupo Cliente"].unique()
+    st.write(f"Debug: Grupos únicos na planilha: {list(grupos_unicos)}")
+    st.write(f"Debug: Redes conhecidas: {list(redes_conhecidas)}")
+    
     # Agrupa por Grupo Cliente e coleta códigos
-    for grupo_cliente in df_prior["Grupo Cliente"].unique():
+    for grupo_cliente in grupos_unicos:
         if not grupo_cliente or str(grupo_cliente).lower() in ("", "none", "nan"):
             continue
         
@@ -401,15 +406,20 @@ def detectar_redes_novas(df_prior: pd.DataFrame) -> dict:
         
         # Verifica se esta rede já está mapeada
         if grupo_str not in redes_conhecidas:
+            st.write(f"Debug: Rede nova detectada: {grupo_str}")
             # Coleta APENAS os códigos desta rede que NÃO estão no mapeamento
             codigos = df_prior[df_prior["Grupo Cliente"] == grupo_cliente]["Cód. Cliente"].unique()
+            st.write(f"Debug: Códigos para {grupo_str}: {list(codigos)}")
             codigos_list = [str(c).strip() for c in codigos if c and str(c).strip() not in codigos_conhecidos]
+            st.write(f"Debug: Códigos novos para {grupo_str}: {codigos_list}")
             
             # Se houver códigos novos, adiciona à lista
             if codigos_list:
                 codigos_sorted = sorted(codigos_list, key=lambda x: int(x) if x.isdigit() else 0)
                 redes_novas[grupo_str] = ",".join(codigos_sorted)
+                st.write(f"Debug: Adicionado {grupo_str}: {redes_novas[grupo_str]}")
     
+    st.write(f"Debug: Redes novas finais: {redes_novas}")
     return redes_novas
 
 # ============================================================
