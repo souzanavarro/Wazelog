@@ -566,6 +566,66 @@ def show():
         st.success("Planilhas combinadas.")
         st.dataframe(df_prior, use_container_width=True)
 
+        # Se a planilha de redes foi enviada, tentar extrair e aplicar mapeamento automaticamente
+        if prior_file_redes:
+            try:
+                # heurística para detectar colunas de grupo e código na planilha de redes
+                def _guess_col_by_keywords(df, keywords):
+                    for c in df.columns:
+                        cu = _sem_acentos_upper(c)
+                        if any(k in cu for k in keywords):
+                            return c
+                    return None
+
+                grp_col = _guess_col_by_keywords(df2, ["GRUPO", "REDE", "LOJA", "FANTASIA", "CLIENTE", "NOME"])
+                code_col = _guess_col_by_keywords(df2, ["COD", "CÓD", "CNPJ", "ID", "CODIGO"])
+
+                # se não encontramos via nome, tentar detectar coluna majoritariamente numérica
+                if code_col is None:
+                    for c in df2.columns:
+                        s = df2[c].dropna().astype(str)
+                        if len(s) == 0:
+                            continue
+                        digits_ratio = sum(bool(re.search(r"\d", v)) for v in s) / len(s)
+                        if digits_ratio > 0.6:
+                            code_col = c
+                            break
+
+                # Se achamos ao menos uma coluna de código, extraímos mapeamento
+                auto_code_map = {}
+                if code_col is not None:
+                    for _, r in df2.iterrows():
+                        code = normaliza_codigo(r.get(code_col, "") or "")
+                        grp = None
+                        if grp_col is not None:
+                            grp = str(r.get(grp_col, "") or "").strip()
+                        else:
+                            # tentar inferir grupo de outras colunas (pegar a primeira string não-nula)
+                            for c in df2.columns:
+                                if c == code_col:
+                                    continue
+                                val = str(r.get(c, "") or "").strip()
+                                if val:
+                                    grp = val
+                                    break
+                        if code:
+                            auto_code_map[code] = normaliza_grupo(grp or "")
+
+                if auto_code_map:
+                    # Atualiza REGRAS_CODIGO (memória em módulo) e sessão
+                    REGRAS_CODIGO.update(auto_code_map)
+                    st.session_state["REGRAS_CODIGO"] = {**st.session_state.get("REGRAS_CODIGO", {}), **auto_code_map}
+
+                    # Aplica ao df_prior (sem sobrescrever grupos existentes)
+                    df_prior, n_upd = aplicar_grupos_por_codigo(df_prior, auto_code_map, overwrite=False)
+                    st.session_state["df_prior"] = df_prior
+                    if n_upd > 0:
+                        st.success(f"Aplicados automaticamente {n_upd} grupos a partir da planilha de redes.")
+                        st.dataframe(df_prior, use_container_width=True)
+            except Exception:
+                # não falhar a renderização caso heurística dê errado
+                pass
+
         # ---------- 2.2) APLICAR GRUPOS POR CÓDIGO (UI) ----------
         with st.expander("Aplicar Grupos por Código (Planilha de Redes / Colar lista)", expanded=False):
             st.write("Cole a lista `GRUPO - CÓDIGO` ou escolha colunas da planilha de redes para mapear códigos ao Grupo Cliente.")
