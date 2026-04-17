@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 from io import StringIO
+from app.cliente_prioridade_page import grupo_por_codigo
 
 # ============================================================
 #  🔧 NORMALIZAÇÕES BÁSICAS
