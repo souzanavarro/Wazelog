@@ -32,7 +32,20 @@ def normaliza_grupo(g: str) -> str:
 
 def normaliza_horario(h: str) -> str:
     return _sem_acentos_upper(h)
+# ============================================================
+# ⏰ REGRAS DE HORÁRIO POR CÓDIGO (SEM GRUPO)
+# ============================================================
 
+REGRAS_CODIGO = {
+    "191873": "DAS 07:30 AS 10:00",
+    "211793": "DAS 08:00 AS 12:00",
+    "217728": "DAS 08:00 AS 12:00",
+    "217443": "DAS 08:00 AS 12:00",
+    "216263": "DAS 07:00 AS 12:00",
+    "12529":  "DAS 07:00 AS 08:00",
+    "198247": "DAS 06:00 AS 07:00",
+    "11648":  "DAS 06:00 AS 08:00",
+}
 # ============================================================
 #  🔗 MAPEAMENTO: REDES E SEUS CÓDIGOS
 # ============================================================
@@ -93,24 +106,32 @@ REGRAS_GRUPO = {
     "REDE MUFFATO": "ATE 11:00",
 }
 
-def grupo_por_codigo(cod: str) -> str:
-    """Retorna o grupo cliente ao buscar pelo código."""
-    cod_norm = normaliza_codigo(cod)
-    return _CODIGO_TO_GRUPO.get(cod_norm, "")
-
 def horario_por_grupo(grupo: str, cod_cliente: str = "") -> str:
-    """Retorna o horário padrão pelo nome do grupo normalizado ou pelo código do cliente."""
+    """
+    Prioridade:
+    1) Regra por Grupo Cliente
+    2) Regra direta por Código Cliente (exceções sem grupo)
+    3) Rede encontrada pelo código
+    """
     g = normaliza_grupo(grupo)
+
+    # 1) Regra por Grupo Cliente
     for chave, horario in REGRAS_GRUPO.items():
         if chave in g or g.startswith(chave):
             return horario
-    
-    # Se não encontrou pelo grupo, tenta pelo código do cliente
+
+    # 2) Regra direta por Código Cliente (SEM GRUPO)
     if cod_cliente:
-        grupo_encontrado = grupo_por_codigo(cod_cliente)
+        cod = normaliza_codigo(cod_cliente)
+
+        if cod in REGRAS_CODIGO:
+            return REGRAS_CODIGO[cod]
+
+        # 3) Tenta achar rede pelo código
+        grupo_encontrado = grupo_por_codigo(cod)
         if grupo_encontrado:
             return horario_por_grupo(grupo_encontrado)
-    
+
     return ""
 
 # ============================================================
