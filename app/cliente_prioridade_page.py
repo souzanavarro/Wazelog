@@ -34,6 +34,35 @@ def normaliza_horario(h: str) -> str:
     return _sem_acentos_upper(h)
 
 # ============================================================
+#  🔗 MAPEAMENTO: REDES E SEUS CÓDIGOS
+# ============================================================
+
+REDES_CODIGOS = {
+    "ASP": "193258,193263,195274,202007,204885,207498,207499,207500,207501,214169,214190,214191",
+    "Bergamini": "407,934,8991",
+    "Carrefour": "1014,1029,13733,13795,1474,1475,2973,3321,4440,8509,8666,9243,194203,200185,200203,200545,200563,200564,200566,208079,208091,208092,213506",
+    "Coopercica": "1037,1038,1044,8637,14466,185619,196986,204187,204939",
+    "Covabra": "11552,11554,11617,11618,11619,11623,11625,13168,191577,195788,195790,195791,195797,196723,205138,205692,208510,213991,215486,215487,216679,217278",
+    "Divino Fogao": "204009,204182,204210,204235,204282,204283,204309,204310,204546,204734,204736,205161,205402,205573,209210,209730,211896,212972,213671,214961,215619,216157,216158,216256,216496,216981,217399,217542,217727",
+    "GIGA": "207277,207318,207319,207320,207335,207336,207337,207338,207279,207280,207281,214011,216261",
+    "Infanger": "177924,197060",
+    "Irmaos Boa": "3731,3733,6836,8962,13006,187252,187254,187255,187257,191468,195224,195254,195312,196617,203947,203948,212074,214604,214605,214606,216116,216356,216904,217102,217139,217263",
+    "Mambo": "3655,3656,3657,9082,12680,13374,192566,195840,200883,207683,209371,209833,210533,213192,216117",
+    "Negreiros": "2751,2753,14263,14266,14267,14268,194781,197047,207890,211053",
+    "Rede Muffato": "215676,215696,215697,215698",
+    "Rede Marche": "11829,11830,11831,12791,12861,158121,158142,166781,178107,178124,197043,202031,203762,205012,211530,211581,211583,211584,211585,211595,211596,211597,211598,211599,211606,211607,211617,211632,211633,211634,211635,214865",
+    "SENDAS": "194981,207236,212931",
+    "Tenda": "196379,196397,196400,200316,200365",
+    "Trimais": "11367,202034,214289,214494,217040",
+}
+
+# Constrói dicionário inverso: código → grupo (para busca rápida)
+_CODIGO_TO_GRUPO = {}
+for rede, codigos_str in REDES_CODIGOS.items():
+    for cod in codigos_str.split(","):
+        _CODIGO_TO_GRUPO[cod.strip()] = rede
+
+# ============================================================
 #  ⏰ REGRAS DE HORÁRIO POR GRUPO
 # ============================================================
 
@@ -61,14 +90,27 @@ REGRAS_GRUPO = {
     "WAL-MART": "ATE 11:00",
     "WAL MART": "ATE 11:00",
     "WALMART": "ATE 11:00",
+    "REDE MUFFATO": "ATE 11:00",
 }
 
-def horario_por_grupo(grupo: str) -> str:
-    """Retorna o horário padrão pelo nome do grupo normalizado."""
+def grupo_por_codigo(cod: str) -> str:
+    """Retorna o grupo cliente ao buscar pelo código."""
+    cod_norm = normaliza_codigo(cod)
+    return _CODIGO_TO_GRUPO.get(cod_norm, "")
+
+def horario_por_grupo(grupo: str, cod_cliente: str = "") -> str:
+    """Retorna o horário padrão pelo nome do grupo normalizado ou pelo código do cliente."""
     g = normaliza_grupo(grupo)
     for chave, horario in REGRAS_GRUPO.items():
         if chave in g or g.startswith(chave):
             return horario
+    
+    # Se não encontrou pelo grupo, tenta pelo código do cliente
+    if cod_cliente:
+        grupo_encontrado = grupo_por_codigo(cod_cliente)
+        if grupo_encontrado:
+            return horario_por_grupo(grupo_encontrado)
+    
     return ""
 
 # ============================================================
@@ -264,6 +306,28 @@ def limpar_linhas_resumo(df: pd.DataFrame) -> pd.DataFrame:
     mask = df.apply(is_resumo, axis=1)
     return df.loc[~mask].reset_index(drop=True)
 
+def enriquecer_grupo_por_codigo(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Preenche a coluna 'Grupo Cliente' usando o mapeamento de código
+    quando o grupo está vazio mas o código existe.
+    """
+    out = df.copy()
+    if "Grupo Cliente" not in out.columns:
+        out["Grupo Cliente"] = ""
+    
+    for idx, row in out.iterrows():
+        grupo_atual = str(row.get("Grupo Cliente", "")).strip()
+        
+        # Se grupo está vazio, tenta encontrar pelo código
+        if not grupo_atual or grupo_atual.lower() in ("", "none", "nan", "sem grupo", "nenhum"):
+            cod = normaliza_codigo(row.get("Cód. Cliente", "") or row.get("COD CLIENTE", "") or row.get("CODIGO CLIENTE", ""))
+            if cod:
+                grupo_encontrado = grupo_por_codigo(cod)
+                if grupo_encontrado:
+                    out.at[idx, "Grupo Cliente"] = grupo_encontrado
+    
+    return out
+
 # ============================================================
 #  🔄 APLICAÇÃO DE HORÁRIOS
 # ============================================================
@@ -276,12 +340,13 @@ def construir_dict_email(df_email: pd.DataFrame) -> dict:
         if normaliza_codigo(row["CÓD. CLIENTE"]) and str(row["HORÁRIO"]).strip() not in ("", "SEM HORARIO")
     }
 
-def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFrame) -> pd.DataFrame:
+def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFrame = None) -> pd.DataFrame:
     """
-    PRIORIDADE INVERTIDA: EMAIL → Grupo → SEM HORARIO
+    PRIORIDADE INVERTIDA: EMAIL → Grupo → Código Cliente → SEM HORARIO
     df_prior deve conter: Placa, Nº Ped., Grupo Cliente, Cód. Cliente, Cliente
+    df_email é opcional - se None, o sistema só usa Grupo e Código
     """
-    dict_email = construir_dict_email(df_email)
+    dict_email = construir_dict_email(df_email) if df_email is not None and not df_email.empty else {}
     horarios, origem = [], []
 
     for _, row in df_prior.iterrows():
@@ -296,10 +361,11 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
             horarios.append(dict_email[cod])
             origem.append("EMAIL")
         else:
-            hora_grupo = horario_por_grupo(gnorm)
+            # Tenta encontrar horário pelo grupo, e se não achar, tenta pelo código
+            hora_grupo = horario_por_grupo(gnorm, cod)
             if hora_grupo:
                 horarios.append(hora_grupo)
-                origem.append("Grupo Cliente")
+                origem.append("Grupo Cliente" if gnorm else "Código Cliente")
             else:
                 horarios.append("SEM HORARIO")
                 origem.append("SEM HORARIO")
@@ -453,6 +519,9 @@ def show():
         if "Cliente" in df_prior.columns:
             df_prior["Cliente"] = df_prior["Cliente"].astype(str).str.strip()
 
+        # Enriquece coluna "Grupo Cliente" usando código quando vazio
+        df_prior = enriquecer_grupo_por_codigo(df_prior)
+
         # Remove duplicados por (Cód. Cliente, Placa)
         if "Cód. Cliente" in df_prior.columns and "Placa" in df_prior.columns:
             antes = len(df_prior)
@@ -499,11 +568,14 @@ def show():
 
     # ---------- 3) Atualizar Horários ----------
     st.divider()
-    if df_email is not None and df_prior is not None:
+    if df_prior is not None:
         st.subheader("3. Atualizar Horários na Prioridade")
+        if df_email is None:
+            st.info("💡 Sem EMAIL: será usado o horário padrão de cada Rede (Grupo Cliente/Código Cliente)")
         if st.button("Atualizar Horários"):
             df_prior_atual = atualizar_horarios_prioridades(df_prior, df_email)
             st.session_state["df_prior_atual"] = df_prior_atual
+            st.success("✅ Horários atualizados!")
             st.dataframe(df_prior_atual, use_container_width=True)
         else:
             df_prior_atual = st.session_state.get("df_prior_atual", None)
