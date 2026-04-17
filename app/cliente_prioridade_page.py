@@ -371,6 +371,72 @@ def gerar_bloco_por_placa(df_prior: pd.DataFrame) -> str:
 
     return "\n".join(blocos)
 
+
+# ============================================================
+#  🧭 MAPEAR GRUPOS POR CÓDIGO (entrada de texto)
+# ============================================================
+
+def parse_group_code_list(texto: str) -> dict:
+    """Parses lines like 'ASP - 207500' and returns code->grupo map.
+
+    Retorna dict onde a chave é o código (apenas dígitos como string)
+    e o valor é o nome do grupo normalizado (sem acentos, UPPER).
+    """
+    code_to_group = {}
+    if not texto:
+        return code_to_group
+
+    for ln in str(texto).splitlines():
+        ln = ln.strip()
+        if not ln:
+            continue
+        # aceita diferentes separadores: -, –, —, :
+        m = re.match(r'^\s*(?P<grp>.+?)\s*[-–—:]\s*(?P<code>\d+)\s*$', ln)
+        if not m:
+            # última tentativa: split por espaços e pegar último token como código
+            parts = ln.rsplit(None, 1)
+            if len(parts) == 2 and re.fullmatch(r'\d+', parts[1]):
+                grp, code = parts[0], parts[1]
+            else:
+                continue
+        else:
+            grp, code = m.group('grp'), m.group('code')
+
+        code_norm = normaliza_codigo(code)
+        grp_norm = normaliza_grupo(grp)
+        if code_norm:
+            code_to_group[code_norm] = grp_norm
+
+    return code_to_group
+
+
+def aplicar_grupos_por_codigo(df_prior: pd.DataFrame, code_to_group: dict, overwrite: bool = False) -> tuple:
+    """Aplica `code_to_group` em `df_prior` atualizando a coluna 'Grupo Cliente'.
+
+    Retorna (df_atualizado, n_atualizados).
+    """
+    if df_prior is None or df_prior.empty or not code_to_group:
+        return df_prior, 0
+
+    out = df_prior.copy()
+    # Garantir coluna padrão
+    if 'Grupo Cliente' not in out.columns:
+        out['Grupo Cliente'] = ''
+
+    atualizados = 0
+    for idx, row in out.iterrows():
+        cod = normaliza_codigo(row.get('Cód. Cliente', '') or row.get('COD CLIENTE', '') or '')
+        if not cod:
+            continue
+        if cod in code_to_group:
+            atual = str(row.get('Grupo Cliente', '') or '').strip()
+            if atual == '' or overwrite:
+                out.at[idx, 'Grupo Cliente'] = code_to_group[cod]
+                atualizados += 1
+
+    return out, atualizados
+
+
 # ============================================================
 #  🖥 INTERFACE STREAMLIT
 # ============================================================
