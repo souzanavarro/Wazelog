@@ -385,7 +385,7 @@ def detectar_redes_novas(df_prior: pd.DataFrame) -> dict:
     Retorna APENAS os códigos que não estão no mapeamento atual.
     Retorna dict: {rede_nao_mapeada: "cod_novo1,cod_novo2,cod_novo3,..."}
     """
-    redes_conhecidas = set(REDES_CODIGOS.keys())
+    redes_conhecidas_norm = {normaliza_grupo(rede) for rede in REDES_CODIGOS.keys()}
     codigos_conhecidos = set(_CODIGO_TO_GRUPO.keys())
     redes_novas = {}
     
@@ -395,7 +395,7 @@ def detectar_redes_novas(df_prior: pd.DataFrame) -> dict:
     # Debug: mostra grupos únicos
     grupos_unicos = df_prior["Grupo Cliente"].unique()
     st.write(f"Debug: Grupos únicos na planilha: {list(grupos_unicos)}")
-    st.write(f"Debug: Redes conhecidas: {list(redes_conhecidas)}")
+    st.write(f"Debug: Redes conhecidas normalizadas: {list(redes_conhecidas_norm)}")
     
     # Agrupa por Grupo Cliente e coleta códigos
     for grupo_cliente in grupos_unicos:
@@ -403,10 +403,11 @@ def detectar_redes_novas(df_prior: pd.DataFrame) -> dict:
             continue
         
         grupo_str = str(grupo_cliente).strip()
+        grupo_norm = normaliza_grupo(grupo_str)
         
-        # Verifica se esta rede já está mapeada
-        if grupo_str not in redes_conhecidas:
-            st.write(f"Debug: Rede nova detectada: {grupo_str}")
+        # Verifica se esta rede já está mapeada (usando normalização)
+        if grupo_norm not in redes_conhecidas_norm:
+            st.write(f"Debug: Rede nova detectada: {grupo_str} (normalizado: {grupo_norm})")
             # Coleta APENAS os códigos desta rede que NÃO estão no mapeamento
             codigos = df_prior[df_prior["Grupo Cliente"] == grupo_cliente]["Cód. Cliente"].unique()
             st.write(f"Debug: Códigos para {grupo_str}: {list(codigos)}")
