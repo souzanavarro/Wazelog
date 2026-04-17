@@ -381,47 +381,46 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
 
 def detectar_redes_novas(df_prior: pd.DataFrame) -> dict:
     """
-    Detecta grupos de clientes que NÃO estão mapeados em REDES_CODIGOS.
-    Retorna APENAS os códigos que não estão no mapeamento atual.
-    Retorna dict: {rede_nao_mapeada: "cod_novo1,cod_novo2,cod_novo3,..."}
+    Detecta códigos novos para redes existentes ou redes completamente novas.
+    Para redes conhecidas: códigos presentes na planilha mas não no mapeamento.
+    Para redes novas: todos os códigos não mapeados.
+    Retorna dict: {rede: "cod_novo1,cod_novo2,..."}
     """
-    redes_conhecidas_norm = {normaliza_grupo(rede) for rede in REDES_CODIGOS.keys()}
+    redes_conhecidas_norm = {normaliza_grupo(rede): rede for rede in REDES_CODIGOS.keys()}
+    codigos_por_rede_norm = {normaliza_grupo(rede): set(codigos_str.split(",")) for rede, codigos_str in REDES_CODIGOS.items()}
     codigos_conhecidos = set(_CODIGO_TO_GRUPO.keys())
-    redes_novas = {}
+    redes_atualizacoes = {}
     
     if df_prior is None or df_prior.empty:
-        return redes_novas
-    
-    # Debug: mostra grupos únicos
-    grupos_unicos = df_prior["Grupo Cliente"].unique()
-    st.write(f"Debug: Grupos únicos na planilha: {list(grupos_unicos)}")
-    st.write(f"Debug: Redes conhecidas normalizadas: {list(redes_conhecidas_norm)}")
+        return redes_atualizacoes
     
     # Agrupa por Grupo Cliente e coleta códigos
-    for grupo_cliente in grupos_unicos:
+    for grupo_cliente in df_prior["Grupo Cliente"].unique():
         if not grupo_cliente or str(grupo_cliente).lower() in ("", "none", "nan"):
             continue
         
         grupo_str = str(grupo_cliente).strip()
         grupo_norm = normaliza_grupo(grupo_str)
         
-        # Verifica se esta rede já está mapeada (usando normalização)
-        if grupo_norm not in redes_conhecidas_norm:
-            st.write(f"Debug: Rede nova detectada: {grupo_str} (normalizado: {grupo_norm})")
-            # Coleta APENAS os códigos desta rede que NÃO estão no mapeamento
-            codigos = df_prior[df_prior["Grupo Cliente"] == grupo_cliente]["Cód. Cliente"].unique()
-            st.write(f"Debug: Códigos para {grupo_str}: {list(codigos)}")
-            codigos_list = [str(c).strip() for c in codigos if c and str(c).strip() not in codigos_conhecidos]
-            st.write(f"Debug: Códigos novos para {grupo_str}: {codigos_list}")
-            
-            # Se houver códigos novos, adiciona à lista
-            if codigos_list:
-                codigos_sorted = sorted(codigos_list, key=lambda x: int(x) if x.isdigit() else 0)
-                redes_novas[grupo_str] = ",".join(codigos_sorted)
-                st.write(f"Debug: Adicionado {grupo_str}: {redes_novas[grupo_str]}")
+        # Coleta códigos desta rede na planilha
+        codigos_planilha = set(df_prior[df_prior["Grupo Cliente"] == grupo_cliente]["Cód. Cliente"].unique())
+        codigos_planilha.discard("")  # Remove vazios
+        
+        if grupo_norm in redes_conhecidas_norm:
+            # Rede conhecida: encontra códigos novos (na planilha mas não no mapeamento)
+            codigos_conhecidos_rede = codigos_por_rede_norm[grupo_norm]
+            codigos_novos = codigos_planilha - codigos_conhecidos_rede
+            if codigos_novos:
+                codigos_sorted = sorted(codigos_novos, key=lambda x: int(x) if x.isdigit() else 0)
+                redes_atualizacoes[grupo_str] = ",".join(codigos_sorted)
+        else:
+            # Rede nova: todos os códigos não mapeados em nenhuma rede
+            codigos_novos = codigos_planilha - codigos_conhecidos
+            if codigos_novos:
+                codigos_sorted = sorted(codigos_novos, key=lambda x: int(x) if x.isdigit() else 0)
+                redes_atualizacoes[grupo_str] = ",".join(codigos_sorted)
     
-    st.write(f"Debug: Redes novas finais: {redes_novas}")
-    return redes_novas
+    return redes_atualizacoes
 
 # ============================================================
 #  🧾 GERAÇÃO DO BLOCO FINAL POR PLACA
@@ -612,22 +611,22 @@ def show():
         st.success("Planilhas combinadas.")
         st.dataframe(df_prior, use_container_width=True)
 
-    # ---------- 2.0) DETECÇÃO DE REDES NOVAS
+    # ---------- 2.0) DETECÇÃO DE REDES NOVAS / CÓDIGOS NOVOS
     if df_prior is not None and "Grupo Cliente" in df_prior.columns:
-        redes_novas = detectar_redes_novas(df_prior)
+        redes_atualizacoes = detectar_redes_novas(df_prior)
         
-        if redes_novas:
-            with st.expander("🔍 REDES NOVAS DETECTADAS - Copie e adicione ao REDES_CODIGOS", expanded=True):
-                st.warning(f"Encontradas **{len(redes_novas)}** rede(s) não mapeada(s):")
+        if redes_atualizacoes:
+            with st.expander("🔍 CÓDIGOS NOVOS DETECTADOS - Copie e adicione/atualize no REDES_CODIGOS", expanded=True):
+                st.warning(f"Encontrados códigos novos para **{len(redes_atualizacoes)}** rede(s):")
                 
-                # Exibe cada rede nova no formato exato para copiar
-                for rede_nome, codigos in redes_novas.items():
+                # Exibe cada rede com códigos novos no formato exato para copiar
+                for rede_nome, codigos in redes_atualizacoes.items():
                     st.code(f'"{rede_nome}": "{codigos}",', language="python")
                 
                 # Opcionalmente, exibe uma visão em tabela
                 redes_df = pd.DataFrame([
-                    {"REDE": rede, "CÓDIGOS": codigos}
-                    for rede, codigos in redes_novas.items()
+                    {"REDE": rede, "CÓDIGOS NOVOS": codigos}
+                    for rede, codigos in redes_atualizacoes.items()
                 ])
                 st.dataframe(redes_df, use_container_width=True)
 
