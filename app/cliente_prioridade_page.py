@@ -376,10 +376,64 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
     return out
 
 # ============================================================
+#  🔍 DETECÇÃO DE NOVAS REDES
+# ============================================================
+
+def detectar_redes_novas(df_prior: pd.DataFrame) -> dict:
+    """
+    Detecta grupos de clientes que NÃO estão mapeados em REDES_CODIGOS.
+    Retorna dict: {rede_nao_mapeada: "cod1,cod2,cod3,..."}
+    """
+    redes_conhecidas = set(REDES_CODIGOS.keys())
+    redes_novas = {}
+    
+    if df_prior is None or df_prior.empty:
+        return redes_novas
+    
+    # Agrupa por Grupo Cliente e coleta códigos
+    for grupo_cliente in df_prior["Grupo Cliente"].unique():
+        if not grupo_cliente or str(grupo_cliente).lower() in ("", "none", "nan"):
+            continue
+        
+        grupo_str = str(grupo_cliente).strip()
+        
+        # Verifica se esta rede já está mapeada
+        if grupo_str not in redes_conhecidas:
+            # Coleta todos os códigos desta rede
+            codigos = df_prior[df_prior["Grupo Cliente"] == grupo_cliente]["Cód. Cliente"].unique()
+            codigos_list = [str(c).strip() for c in codigos if c]
+            codigos_sorted = sorted(codigos_list, key=lambda x: int(x) if x.isdigit() else 0)
+            
+            redes_novas[grupo_str] = ",".join(codigos_sorted)
+    
+    return redes_novas
+
+# ============================================================
 #  🧾 GERAÇÃO DO BLOCO FINAL POR PLACA
 #     Regra: se houver clientes "repetidos" de mesma base (ex.: MIX VALI ...),
 #     omitir o CÓDIGO e exibir apenas 1 ocorrência (NOME + HORÁRIO) por base.
+#     Ordena por horário: mais cedo → mais tarde
 # ============================================================
+
+def _extrair_hora_para_ordenacao(horario_str: str) -> tuple:
+    """
+    Extrai a hora inicial do horário para ordenação.
+    Ex: "ATE 11:00" → (11, 0)
+        "DAS 09:00 AS 11:00" → (9, 0)
+        "SEM HORARIO" → (24, 0)  # vai por último
+    """
+    h_upper = str(horario_str).upper().strip()
+    
+    if "SEM HORARIO" in h_upper or not h_upper:
+        return (24, 0)  # Coloca no final
+    
+    # Extrai horário com regex
+    m = re.search(r'(\d{1,2}):(\d{2})', h_upper)
+    if m:
+        h, m_val = int(m.group(1)), int(m.group(2))
+        return (h, m_val)
+    
+    return (24, 0)
 
 def gerar_bloco_por_placa(df_prior: pd.DataFrame) -> str:
     df = df_prior.copy()
@@ -400,7 +454,7 @@ def gerar_bloco_por_placa(df_prior: pd.DataFrame) -> str:
     for placa, grupo in df.groupby("Placa", sort=False):
         # Mapa final de itens da placa:
         # - chave: identificador único do que deve aparecer
-        # - valor: string formatada para o bloco
+        # - valor: (string formatada, hora_para_ordenacao)
         itens_fmt = []
 
         # 1) Colapsa por base (uma ocorrência por base)
@@ -414,7 +468,9 @@ def gerar_bloco_por_placa(df_prior: pd.DataFrame) -> str:
                 nome_curto = min(gbase["_ClienteExib"], key=len)
                 # Mantém o horário do primeiro registro dessa base
                 hora = row_escolhida["Horário"] if row_escolhida["Horário"] else "SEM HORARIO"
-                itens_fmt.append(f"{nome_curto} ENTREGAR {hora}")
+                item_str = f"{nome_curto} ENTREGAR {hora}"
+                hora_order = _extrair_hora_para_ordenacao(hora)
+                itens_fmt.append((item_str, hora_order))
 
         # 2) Itens de bases não repetidas: mantém com código
         bases_repetidas = {b for b, gbase in base_groups.items() if b and len(gbase) >= 2}
@@ -423,15 +479,23 @@ def gerar_bloco_por_placa(df_prior: pd.DataFrame) -> str:
             cod = row["Cód. Cliente"]
             nome = row["_ClienteExib"]
             hora = row["Horário"] if row["Horário"] else "SEM HORARIO"
-            itens_fmt.append(f"{cod} - {nome} ENTREGAR {hora}")
+            item_str = f"{cod} - {nome} ENTREGAR {hora}"
+            hora_order = _extrair_hora_para_ordenacao(hora)
+            itens_fmt.append((item_str, hora_order))
 
         # Remove duplicatas exatas por segurança mantendo a ordem
         vistos = set()
-        itens_ordenados = []
-        for it in itens_fmt:
+        itens_unicos = []
+        for it, hora_ord in itens_fmt:
             if it not in vistos:
-                itens_ordenados.append(it)
+                itens_unicos.append((it, hora_ord))
                 vistos.add(it)
+
+        # Ordena por horário (mais cedo primeiro)
+        itens_unicos.sort(key=lambda x: x[1])
+
+        # Extrai apenas a string após ordenação
+        itens_ordenados = [it for it, _ in itens_unicos]
 
         blocos.append(f"{placa}:\n{' | '.join(itens_ordenados)}\n")
 
@@ -532,6 +596,25 @@ def show():
 
         st.success("Planilhas combinadas.")
         st.dataframe(df_prior, use_container_width=True)
+
+    # ---------- 2.0) DETECÇÃO DE REDES NOVAS
+    if df_prior is not None and "Grupo Cliente" in df_prior.columns:
+        redes_novas = detectar_redes_novas(df_prior)
+        
+        if redes_novas:
+            with st.expander("🔍 REDES NOVAS DETECTADAS - Copie e adicione ao REDES_CODIGOS", expanded=True):
+                st.warning(f"Encontradas **{len(redes_novas)}** rede(s) não mapeada(s):")
+                
+                # Exibe cada rede nova no formato exato para copiar
+                for rede_nome, codigos in redes_novas.items():
+                    st.code(f'"{rede_nome}": "{codigos}",', language="python")
+                
+                # Opcionalmente, exibe uma visão em tabela
+                redes_df = pd.DataFrame([
+                    {"REDE": rede, "CÓDIGOS": codigos}
+                    for rede, codigos in redes_novas.items()
+                ])
+                st.dataframe(redes_df, use_container_width=True)
 
     # ---------- 2.1) DIAGNÓSTICO: FALTAS DE PRIORIDADE
     if df_email is not None and df_prior is not None and "Cód. Cliente" in df_prior.columns:
