@@ -530,6 +530,57 @@ def show():
         st.success("Planilhas combinadas.")
         st.dataframe(df_prior, use_container_width=True)
 
+        # ---------- 2.2) APLICAR GRUPOS POR CÓDIGO (UI) ----------
+        with st.expander("Aplicar Grupos por Código (Planilha de Redes / Colar lista)", expanded=False):
+            st.write("Cole a lista `GRUPO - CÓDIGO` ou escolha colunas da planilha de redes para mapear códigos ao Grupo Cliente.")
+
+            # 1) Área para colar texto livre (lista grupo - código)
+            redes_text = st.text_area(
+                "Cole aqui a lista (ex: ASP - 207500), uma linha por registro:",
+                height=200,
+                key="redes_text"
+            )
+
+            # 2) Se a planilha de redes foi enviada, ofereça opções de formatação
+            code_to_group = {}
+            if prior_file_redes:
+                st.markdown("**Formato detectado da planilha de redes:**")
+                st.write("Selecione as colunas que correspondem ao Grupo e ao Código (caso a planilha já tenha essas informações).")
+                cols = list(df2.columns)
+                col_grp = st.selectbox("Coluna do Grupo", options=cols, index=0, key="col_grp_redes")
+                col_code = st.selectbox("Coluna do Código", options=cols, index=0, key="col_code_redes")
+
+                if st.button("Extrair mapeamento da planilha de redes"):
+                    # Construir mapa a partir das colunas selecionadas
+                    n = 0
+                    for _, r in df2.iterrows():
+                        grp = str(r.get(col_grp, "") or "").strip()
+                        code = normaliza_codigo(r.get(col_code, "") or "")
+                        if code:
+                            code_to_group[code] = normaliza_grupo(grp)
+                            n += 1
+                    st.success(f"Extraídos {n} mapeamentos da planilha de redes.")
+
+            # 3) Se colou texto, parseie usando o parser existente
+            if redes_text and redes_text.strip():
+                parsed = parse_group_code_list(redes_text)
+                if parsed:
+                    # Merge parsed into code_to_group (parsed takes precedence)
+                    code_to_group.update(parsed)
+                    st.success(f"Parseado {len(parsed)} mapeamentos da lista colada.")
+
+            # 4) Mostrar resumo do mapeamento e opção de aplicar
+            if code_to_group:
+                st.write(f"Mapeamentos prontos: **{len(code_to_group)}** códigos → grupos.")
+                overwrite = st.checkbox("Sobrescrever valores existentes em 'Grupo Cliente'", value=False, key="overwrite_groups")
+                if st.button("Aplicar Grupos ao DataFrame PRIORIDADES"):
+                    df_aplic, n_atual = aplicar_grupos_por_codigo(df_prior, code_to_group, overwrite=overwrite)
+                    st.session_state["df_prior"] = df_aplic
+                    st.success(f"Aplicados {n_atual} atualizações em 'Grupo Cliente'.")
+                    st.dataframe(df_aplic, use_container_width=True)
+            else:
+                st.info("Nenhum mapeamento disponível — cole uma lista ou extraia da planilha de redes acima.")
+
     # ---------- 2.1) DIAGNÓSTICO: FALTAS DE PRIORIDADE
     if df_email is not None and df_prior is not None and "Cód. Cliente" in df_prior.columns:
         dict_email = construir_dict_email(df_email)
