@@ -382,9 +382,11 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
 def detectar_redes_novas(df_prior: pd.DataFrame) -> dict:
     """
     Detecta grupos de clientes que NÃO estão mapeados em REDES_CODIGOS.
-    Retorna dict: {rede_nao_mapeada: "cod1,cod2,cod3,..."}
+    Retorna APENAS os códigos que não estão no mapeamento atual.
+    Retorna dict: {rede_nao_mapeada: "cod_novo1,cod_novo2,cod_novo3,..."}
     """
     redes_conhecidas = set(REDES_CODIGOS.keys())
+    codigos_conhecidos = set(_CODIGO_TO_GRUPO.keys())
     redes_novas = {}
     
     if df_prior is None or df_prior.empty:
@@ -399,12 +401,14 @@ def detectar_redes_novas(df_prior: pd.DataFrame) -> dict:
         
         # Verifica se esta rede já está mapeada
         if grupo_str not in redes_conhecidas:
-            # Coleta todos os códigos desta rede
+            # Coleta APENAS os códigos desta rede que NÃO estão no mapeamento
             codigos = df_prior[df_prior["Grupo Cliente"] == grupo_cliente]["Cód. Cliente"].unique()
-            codigos_list = [str(c).strip() for c in codigos if c]
-            codigos_sorted = sorted(codigos_list, key=lambda x: int(x) if x.isdigit() else 0)
+            codigos_list = [str(c).strip() for c in codigos if c and str(c).strip() not in codigos_conhecidos]
             
-            redes_novas[grupo_str] = ",".join(codigos_sorted)
+            # Se houver códigos novos, adiciona à lista
+            if codigos_list:
+                codigos_sorted = sorted(codigos_list, key=lambda x: int(x) if x.isdigit() else 0)
+                redes_novas[grupo_str] = ",".join(codigos_sorted)
     
     return redes_novas
 
