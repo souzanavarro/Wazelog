@@ -610,7 +610,7 @@ def show():
     st.markdown("""
     <style>
     .cp-hero{display:flex;align-items:center;gap:1rem;margin-bottom:0.6rem}
-    .cp-hero-icon{font-size:2.4rem;padding:0.6rem;border-radius:12px;background:linear-gradient(135deg,#FF6B6B,#FF8E53);color:white}
+    .cp-hero-icon{font-size:2.8rem;padding:0;margin:0;border-radius:0;background:none;color:#FFB800}
     .cp-hero-title{font-size:1.6rem;font-weight:700}
     .cp-sub{color:#666;margin-top:-6px}
     .cp-card{background:var(--bg-card,#ffffff);border-radius:12px;padding:1rem;margin-bottom:1rem;box-shadow:0 6px 18px rgba(32,33,36,0.06)}
@@ -627,7 +627,7 @@ def show():
         st.markdown("<div class='cp-hero-icon'>⭐</div>", unsafe_allow_html=True)
     with col1:
         st.markdown("<div class='cp-hero-title'>Prioridades — Cliente & Horários</div>", unsafe_allow_html=True)
-        st.markdown("<div class='cp-sub'>Importe o EMAIL e planilhas, aplique regras e gere o bloco por placa — experiência rápida e agradável.</div>", unsafe_allow_html=True)
+        st.markdown("<div class='cp-sub'>Importe o EMAIL e planilhas, aplique regras e gere o bloco por placa.</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='cp-card'>", unsafe_allow_html=True)
 
