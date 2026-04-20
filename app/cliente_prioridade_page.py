@@ -93,6 +93,22 @@ REGRAS_GRUPO = {
     "REDE MUFFATO": "ATE 11:00",
 }
 
+# ============================================================
+#  ⚠️ EXCEÇÕES DE HORÁRIO (mapeamento direto em Python)
+#  Liste aqui os códigos que devem sempre receber um horário específico
+#  mesmo quando o 'Grupo Cliente' for 'Nenhum'. Formato: 'codigo': 'HORARIO'
+# ============================================================
+HORARIOS_EXCECAO = {
+    "12529": "AS 08:00",
+    "191873": "AS 10:00",
+    "217728": "AS 08:00",
+    "217443": "AS 12:00",
+    "216263": "AS 08:00",
+    "11648": "AS 08:00",
+    "211793": "AS 08:00",
+    "198247": "AS 08:00",
+}
+
 def grupo_por_codigo(cod: str) -> str:
     """Retorna o grupo cliente ao buscar pelo código."""
     cod_norm = normaliza_codigo(cod)
@@ -374,6 +390,45 @@ def construir_dict_email(df_email: pd.DataFrame) -> dict:
         if normaliza_codigo(row["CÓD. CLIENTE"]) and str(row["HORÁRIO"]).strip() not in ("", "SEM HORARIO")
     }
 
+
+def carregar_horarios_excecao(path: str = "data/horarios_clientes_nenhum.csv") -> dict:
+    """
+    Carrega um arquivo CSV com horários específicos por código de cliente.
+    Retorna dict {cod_normalizado: horario_normalizado}.
+    """
+    # Primeiro, usa o mapeamento direto em Python (toma prioridade)
+    in_code = {normaliza_codigo(k): normaliza_horario(v) for k, v in HORARIOS_EXCECAO.items()}
+
+    # Em seguida, tenta carregar um CSV de fallback, mas os valores em código têm prioridade
+    try:
+        df = pd.read_csv(path, dtype=str)
+    except Exception:
+        return in_code
+
+    out = {}
+    possible_cols = ["Cód. Cliente", "COD CLIENTE", "CODIGO CLIENTE", "CÓD. CLIENTE", "Cód Cliente", "CÓD_CLIENTE"]
+    horario_cols = ["Horário de Entrega", "Horario de Entrega", "HORARIO", "Horário", "Horario", "HORÁRIO"]
+
+    # Detecta colunas
+    cod_col = next((c for c in df.columns if _sem_acentos_upper(c) in [ _sem_acentos_upper(x) for x in possible_cols ]), None)
+    hor_col = next((c for c in df.columns if _sem_acentos_upper(c) in [ _sem_acentos_upper(x) for x in horario_cols ]), None)
+
+    if cod_col is None:
+        # Retorna apenas o mapeamento em código
+        return in_code
+
+    for _, r in df.iterrows():
+        cod = normaliza_codigo(r.get(cod_col, ""))
+        horario_raw = (r.get(hor_col, "") if hor_col else "") or r.get("Horário", "") or r.get("HORÁRIO", "")
+        horario = normaliza_horario(extrai_horario(str(horario_raw)) or horario_raw)
+        if cod and horario:
+            out[cod] = horario
+
+    # Merge: valores embutidos no código (in_code) têm prioridade sobre CSV
+    merged = out.copy()
+    merged.update(in_code)
+    return merged
+
 def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFrame = None) -> pd.DataFrame:
     """
     PRIORIDADE INVERTIDA: EMAIL → Grupo → Código Cliente → SEM HORARIO
@@ -381,6 +436,8 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
     df_email é opcional - se None, o sistema só usa Grupo e Código
     """
     dict_email = construir_dict_email(df_email) if df_email is not None and not df_email.empty else {}
+    # Carrega exceções/registro de horários por código (ex.: casos 'Nenhum')
+    dict_excecoes = carregar_horarios_excecao()
     horarios, origem = [], []
 
     # Detecta se a planilha já traz uma coluna de horário (qualquer variação de nome)
@@ -405,6 +462,12 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
                 horarios.append(hora_planilha)
                 origem.append("Planilha")
                 continue
+
+        # 0.5) Se existe exceção registrada para este código, aplica ela
+        if cod and cod in dict_excecoes:
+            horarios.append(dict_excecoes[cod])
+            origem.append("Registro")
+            continue
 
         # 1) Prioriza o horário vindo do EMAIL (se existir)
         if cod in dict_email and dict_email[cod].strip():
