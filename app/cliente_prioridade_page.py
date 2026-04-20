@@ -66,7 +66,7 @@ for rede, codigos_str in REDES_CODIGOS.items():
 #  ⏰ REGRAS DE HORÁRIO POR GRUPO
 # ============================================================
 
-_ORIG_REGRAS_GRUPO = {
+REGRAS_GRUPO = {
     "ASP": "ATE 12:00",
     "BERGAMINI": "ATE 11:00",
     "CARREFOUR": "ATE 11:00",
@@ -93,39 +93,6 @@ _ORIG_REGRAS_GRUPO = {
     "REDE MUFFATO": "ATE 11:00",
 }
 
-# Cria uma versão com chaves normalizadas (remove duplicatas e variantes).
-def _normalize_rule_key(s: str) -> str:
-    k = normaliza_grupo(s)
-    # Remove caracteres não alfanuméricos deixando espaços
-    k = re.sub(r'[^A-Z0-9 ]+', ' ', k)
-    k = re.sub(r'\s+', ' ', k).strip()
-    return k
-
-REGRAS_GRUPO = {}
-for k, v in _ORIG_REGRAS_GRUPO.items():
-    nk = _normalize_rule_key(k)
-    if nk not in REGRAS_GRUPO:
-        REGRAS_GRUPO[nk] = v
-
-# Normaliza as chaves de REGRAS_GRUPO para busca robusta (sem acentos, UPPER)
-REGRAS_GRUPO_NORM = {k: v for k, v in REGRAS_GRUPO.items()}
-
-# ============================================================
-#  ⚠️ EXCEÇÕES DE HORÁRIO (mapeamento direto em Python)
-#  Liste aqui os códigos que devem sempre receber um horário específico
-#  mesmo quando o 'Grupo Cliente' for 'Nenhum'. Formato: 'codigo': 'HORARIO'
-# ============================================================
-HORARIOS_EXCECAO = {
-    "12529": "AS 08:00",
-    "191873": "AS 10:00",
-    "217728": "AS 08:00",
-    "217443": "AS 12:00",
-    "216263": "AS 08:00",
-    "11648": "AS 08:00",
-    "211793": "AS 08:00",
-    "198247": "AS 08:00",
-}
-
 def grupo_por_codigo(cod: str) -> str:
     """Retorna o grupo cliente ao buscar pelo código."""
     cod_norm = normaliza_codigo(cod)
@@ -134,26 +101,16 @@ def grupo_por_codigo(cod: str) -> str:
 def horario_por_grupo(grupo: str, cod_cliente: str = "") -> str:
     """Retorna o horário padrão pelo nome do grupo normalizado ou pelo código do cliente."""
     g = normaliza_grupo(grupo)
-
-    # Trata valores vazios / 'Nenhum'
-    if not g or g in ("NENHUM", "NONE", "SEM GRUPO"):
-        g = ""
-
-    if g:
-        # Primeiro tenta match exato/começo, depois substring mais genérico
-        for chave, horario in REGRAS_GRUPO_NORM.items():
-            if g == chave or g.startswith(chave):
-                return horario
-        for chave, horario in REGRAS_GRUPO_NORM.items():
-            if chave in g:
-                return horario
-
+    for chave, horario in REGRAS_GRUPO.items():
+        if chave in g or g.startswith(chave):
+            return horario
+    
     # Se não encontrou pelo grupo, tenta pelo código do cliente
     if cod_cliente:
         grupo_encontrado = grupo_por_codigo(cod_cliente)
         if grupo_encontrado:
             return horario_por_grupo(grupo_encontrado)
-
+    
     return ""
 
 # ============================================================
@@ -262,7 +219,6 @@ def _fmt_hm(hh, mm) -> str:
     return f"{h:02d}:{m:02d}"
 
 def _fmt_compact_to_hm(d: str) -> str:
-    """Interpreta compactos 3-4 dígitos como HHMM. Retorna vazio se inválido."""
     if len(d) not in (3, 4):
         return ""
     hh = int(d[:-2].zfill(2))
@@ -274,6 +230,7 @@ def _fmt_compact_to_hm(d: str) -> str:
 def extrai_horario(texto: str) -> str:
     """Extrai 'ATE HH:MM', 'AS HH:MM' ou 'DAS HH:MM AS HH:MM' de texto."""
     t = normaliza_horario(texto)
+
     if (m := _INTERVAL_RE.search(t)):
         h1 = _fmt_hm(m.group('h1'), m.group('m1'))
         h2 = _fmt_hm(m.group('h2'), m.group('m2'))
@@ -348,40 +305,6 @@ def importar_email_cru_from_text(texto: str) -> pd.DataFrame:
             horas.append(normaliza_horario(hora))
     return pd.DataFrame({"CÓD. CLIENTE": cods, "HORÁRIO": horas})
 
-
-def extrair_horario_da_coluna_codigo(df: pd.DataFrame, codigo_col: str = "Cód. Cliente") -> pd.DataFrame:
-    """
-    Procura por casos em que a célula de código contenha também o horário,
-    ex: '12529 - AS 08:00' ou '12529 AS 08:00'.
-    Se encontrar, extrai o horário para a coluna 'Horário' (criando-a se necessário)
-    e substitui o valor em `codigo_col` apenas pelo código numérico.
-    """
-    if df is None or codigo_col not in df.columns:
-        return df
-
-    df = df.copy()
-    # Garante coluna de horário existente
-    if "Horário" not in df.columns:
-        df["Horário"] = ""
-
-    for idx, val in df[codigo_col].astype(str).items():
-        if not val or str(val).strip() == "":
-            continue
-        cod_part, resto = _split_codigo_hora(val)
-        cod_norm = normaliza_codigo(cod_part)
-        # Se extraiu algo que parece ser um horário no resto, tenta extrair
-        hora_extraida = extrai_horario(resto) or extrai_horario(val)
-        if hora_extraida:
-            # Se já houver horário na planilha, não sobreescreve
-            atual = str(df.at[idx, "Horário"]).strip()
-            if not atual or atual.upper() in ("", "SEM HORARIO"):
-                df.at[idx, "Horário"] = hora_extraida
-        # Atualiza a coluna de código com apenas dígitos
-        if cod_norm:
-            df.at[idx, codigo_col] = cod_norm
-
-    return df
-
 # ============================================================
 #  🧹 LIMPEZA DE LINHAS NAS PLANILHAS PRIORIDADES
 # ============================================================
@@ -443,45 +366,6 @@ def construir_dict_email(df_email: pd.DataFrame) -> dict:
         if normaliza_codigo(row["CÓD. CLIENTE"]) and str(row["HORÁRIO"]).strip() not in ("", "SEM HORARIO")
     }
 
-
-def carregar_horarios_excecao(path: str = "data/horarios_clientes_nenhum.csv") -> dict:
-    """
-    Carrega um arquivo CSV com horários específicos por código de cliente.
-    Retorna dict {cod_normalizado: horario_normalizado}.
-    """
-    # Primeiro, usa o mapeamento direto em Python (toma prioridade)
-    in_code = {normaliza_codigo(k): normaliza_horario(v) for k, v in HORARIOS_EXCECAO.items()}
-
-    # Em seguida, tenta carregar um CSV de fallback, mas os valores em código têm prioridade
-    try:
-        df = pd.read_csv(path, dtype=str)
-    except Exception:
-        return in_code
-
-    out = {}
-    possible_cols = ["Cód. Cliente", "COD CLIENTE", "CODIGO CLIENTE", "CÓD. CLIENTE", "Cód Cliente", "CÓD_CLIENTE"]
-    horario_cols = ["Horário de Entrega", "Horario de Entrega", "HORARIO", "Horário", "Horario", "HORÁRIO"]
-
-    # Detecta colunas
-    cod_col = next((c for c in df.columns if _sem_acentos_upper(c) in [ _sem_acentos_upper(x) for x in possible_cols ]), None)
-    hor_col = next((c for c in df.columns if _sem_acentos_upper(c) in [ _sem_acentos_upper(x) for x in horario_cols ]), None)
-
-    if cod_col is None:
-        # Retorna apenas o mapeamento em código
-        return in_code
-
-    for _, r in df.iterrows():
-        cod = normaliza_codigo(r.get(cod_col, ""))
-        horario_raw = (r.get(hor_col, "") if hor_col else "") or r.get("Horário", "") or r.get("HORÁRIO", "")
-        horario = normaliza_horario(extrai_horario(str(horario_raw)) or horario_raw)
-        if cod and horario:
-            out[cod] = horario
-
-    # Merge: valores embutidos no código (in_code) têm prioridade sobre CSV
-    merged = out.copy()
-    merged.update(in_code)
-    return merged
-
 def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFrame = None) -> pd.DataFrame:
     """
     PRIORIDADE INVERTIDA: EMAIL → Grupo → Código Cliente → SEM HORARIO
@@ -489,17 +373,7 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
     df_email é opcional - se None, o sistema só usa Grupo e Código
     """
     dict_email = construir_dict_email(df_email) if df_email is not None and not df_email.empty else {}
-    # Carrega exceções/registro de horários por código (ex.: casos 'Nenhum')
-    dict_excecoes = carregar_horarios_excecao()
     horarios, origem = [], []
-
-    # Detecta se a planilha já traz uma coluna de horário (qualquer variação de nome)
-    horario_col = None
-    if df_prior is not None:
-        for c in df_prior.columns:
-            if "HORARIO" in _sem_acentos_upper(c):
-                horario_col = c
-                break
 
     for _, row in df_prior.iterrows():
         grupo = row.get("Grupo Cliente", "") or row.get("GRUPO CLIENTE", "") or ""
@@ -508,45 +382,19 @@ def atualizar_horarios_prioridades(df_prior: pd.DataFrame, df_email: pd.DataFram
         gnorm = normaliza_grupo(grupo)
         if gnorm in ("NENHUM", "NONE", "SEM GRUPO"):
             gnorm = ""
-        # 0) Se a planilha já trouxe um horário válido por linha, preserva ele
-        if horario_col:
-            hora_planilha = normaliza_horario(row.get(horario_col, "") or "")
-            if hora_planilha and hora_planilha.upper().strip() not in ("", "SEM HORARIO"):
-                horarios.append(hora_planilha)
-                origem.append("Planilha")
-                continue
 
-        # 0.5) Se existe exceção registrada para este código, aplica ela
-        if cod and cod in dict_excecoes:
-            horarios.append(dict_excecoes[cod])
-            origem.append("Registro")
-            continue
-
-        # 1) Prioriza o horário vindo do EMAIL (se existir)
         if cod in dict_email and dict_email[cod].strip():
             horarios.append(dict_email[cod])
             origem.append("EMAIL")
-            continue
-
-        # 2) Tenta encontrar horário pelo grupo, e se não achar, tenta pelo código
-        hora_grupo = horario_por_grupo(gnorm, cod)
-        if hora_grupo:
-            origem_label = "Grupo Cliente" if gnorm else "Código Cliente"
-            horarios.append(hora_grupo)
-            origem.append(origem_label)
         else:
-            # Se não encontrou pelo nome do grupo, tenta diretamente pelo código do cliente
-            if cod:
-                grupo_via_codigo = grupo_por_codigo(cod)
-                if grupo_via_codigo:
-                    hora_via_codigo = horario_por_grupo(grupo_via_codigo)
-                    if hora_via_codigo:
-                        horarios.append(hora_via_codigo)
-                        origem.append("Código Cliente")
-                        continue
-
-            horarios.append("SEM HORARIO")
-            origem.append("SEM HORARIO")
+            # Tenta encontrar horário pelo grupo, e se não achar, tenta pelo código
+            hora_grupo = horario_por_grupo(gnorm, cod)
+            if hora_grupo:
+                horarios.append(hora_grupo)
+                origem.append("Grupo Cliente" if gnorm else "Código Cliente")
+            else:
+                horarios.append("SEM HORARIO")
+                origem.append("SEM HORARIO")
 
     out = df_prior.copy()
     out["Horário"] = horarios
@@ -767,9 +615,6 @@ def show():
         if cols_map:
             df_prior = df_prior.rename(columns=cols_map)
 
-        # Extrai horários que vieram junto na coluna 'Cód. Cliente' (ex: '12529 - AS 08:00')
-        df_prior = extrair_horario_da_coluna_codigo(df_prior, codigo_col="Cód. Cliente")
-
         # Normaliza campos principais existentes
         if "Cód. Cliente" in df_prior.columns:
             df_prior["Cód. Cliente"] = df_prior["Cód. Cliente"].astype(str).apply(normaliza_codigo)
@@ -854,15 +699,6 @@ def show():
             df_prior_atual = atualizar_horarios_prioridades(df_prior, df_email)
             st.session_state["df_prior_atual"] = df_prior_atual
             st.success("✅ Horários atualizados!")
-            # Expander com diagnóstico de origem de horários
-            with st.expander("🔎 Diagnóstico: origem dos horários", expanded=False):
-                cnts = df_prior_atual['Origem Horário'].value_counts(dropna=False)
-                st.write(cnts.to_frame(name='Contagem'))
-                # Exibe até 3 amostras por origem
-                for origem in cnts.index:
-                    st.markdown(f"**{origem}**")
-                    exemplos = df_prior_atual[df_prior_atual['Origem Horário'] == origem].head(3)
-                    st.dataframe(exemplos[["Placa","Cód. Cliente","Cliente","Horário"]], use_container_width=True)
             st.dataframe(df_prior_atual, use_container_width=True)
         else:
             df_prior_atual = st.session_state.get("df_prior_atual", None)
