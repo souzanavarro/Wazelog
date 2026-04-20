@@ -66,7 +66,7 @@ for rede, codigos_str in REDES_CODIGOS.items():
 #  ⏰ REGRAS DE HORÁRIO POR GRUPO
 # ============================================================
 
-REGRAS_GRUPO = {
+_ORIG_REGRAS_GRUPO = {
     "ASP": "ATE 12:00",
     "BERGAMINI": "ATE 11:00",
     "CARREFOUR": "ATE 11:00",
@@ -93,6 +93,23 @@ REGRAS_GRUPO = {
     "REDE MUFFATO": "ATE 11:00",
 }
 
+# Cria uma versão com chaves normalizadas (remove duplicatas e variantes).
+def _normalize_rule_key(s: str) -> str:
+    k = normaliza_grupo(s)
+    # Remove caracteres não alfanuméricos deixando espaços
+    k = re.sub(r'[^A-Z0-9 ]+', ' ', k)
+    k = re.sub(r'\s+', ' ', k).strip()
+    return k
+
+REGRAS_GRUPO = {}
+for k, v in _ORIG_REGRAS_GRUPO.items():
+    nk = _normalize_rule_key(k)
+    if nk not in REGRAS_GRUPO:
+        REGRAS_GRUPO[nk] = v
+
+# Normaliza as chaves de REGRAS_GRUPO para busca robusta (sem acentos, UPPER)
+REGRAS_GRUPO_NORM = {k: v for k, v in REGRAS_GRUPO.items()}
+
 # ============================================================
 #  ⚠️ EXCEÇÕES DE HORÁRIO (mapeamento direto em Python)
 #  Liste aqui os códigos que devem sempre receber um horário específico
@@ -117,16 +134,26 @@ def grupo_por_codigo(cod: str) -> str:
 def horario_por_grupo(grupo: str, cod_cliente: str = "") -> str:
     """Retorna o horário padrão pelo nome do grupo normalizado ou pelo código do cliente."""
     g = normaliza_grupo(grupo)
-    for chave, horario in REGRAS_GRUPO.items():
-        if chave in g or g.startswith(chave):
-            return horario
-    
+
+    # Trata valores vazios / 'Nenhum'
+    if not g or g in ("NENHUM", "NONE", "SEM GRUPO"):
+        g = ""
+
+    if g:
+        # Primeiro tenta match exato/começo, depois substring mais genérico
+        for chave, horario in REGRAS_GRUPO_NORM.items():
+            if g == chave or g.startswith(chave):
+                return horario
+        for chave, horario in REGRAS_GRUPO_NORM.items():
+            if chave in g:
+                return horario
+
     # Se não encontrou pelo grupo, tenta pelo código do cliente
     if cod_cliente:
         grupo_encontrado = grupo_por_codigo(cod_cliente)
         if grupo_encontrado:
             return horario_por_grupo(grupo_encontrado)
-    
+
     return ""
 
 # ============================================================
@@ -224,41 +251,54 @@ def _fmt_hm(hh, mm) -> str:
     try:
         h = int(hh)
     except Exception:
-        h = 0
+        return ""
     try:
         m = int(mm) if mm is not None and str(mm).strip() != "" else 0
     except Exception:
-        m = 0
-    # Garante minutos entre 0 e 59
-    if m < 0:
-        m = 0
-    if m > 59:
-        m = m % 60
+        return ""
+    # Valida intervalo de horas e minutos
+    if not (0 <= h <= 23 and 0 <= m <= 59):
+        return ""
     return f"{h:02d}:{m:02d}"
 
 def _fmt_compact_to_hm(d: str) -> str:
-    return f"{d[:-2].zfill(2)}:{d[-2:]}" if len(d) in (3, 4) else ""
+    """Interpreta compactos 3-4 dígitos como HHMM. Retorna vazio se inválido."""
+    if len(d) not in (3, 4):
+        return ""
+    hh = int(d[:-2].zfill(2))
+    mm = int(d[-2:])
+    if 0 <= hh <= 23 and 0 <= mm <= 59:
+        return f"{hh:02d}:{mm:02d}"
+    return ""
 
 def extrai_horario(texto: str) -> str:
     """Extrai 'ATE HH:MM', 'AS HH:MM' ou 'DAS HH:MM AS HH:MM' de texto."""
     t = normaliza_horario(texto)
-
     if (m := _INTERVAL_RE.search(t)):
         h1 = _fmt_hm(m.group('h1'), m.group('m1'))
         h2 = _fmt_hm(m.group('h2'), m.group('m2'))
-        return f"DAS {h1} AS {h2}"
+        if h1 and h2:
+            return f"DAS {h1} AS {h2}"
 
     if (m := _ATE_RE.search(t)):
-        return f"ATE {_fmt_hm(m.group('h'), m.group('m'))}"
+        h = _fmt_hm(m.group('h'), m.group('m'))
+        if h:
+            return f"ATE {h}"
 
     if (m := _AS_RE.search(t)):
-        return f"AS {_fmt_hm(m.group('h'), m.group('m'))}"
+        h = _fmt_hm(m.group('h'), m.group('m'))
+        if h:
+            return f"AS {h}"
 
     if (m := _TOKEN_RE.search(t)):
-        return f"ATE {_fmt_hm(m.group('h'), m.group('m'))}"
+        h = _fmt_hm(m.group('h'), m.group('m'))
+        if h:
+            return f"ATE {h}"
 
     if (m := _COMPACT_RE.search(t)):
-        return f"ATE {_fmt_compact_to_hm(m.group('d'))}"
+        h = _fmt_compact_to_hm(m.group('d'))
+        if h:
+            return f"ATE {h}"
 
     return ""
 
@@ -814,6 +854,15 @@ def show():
             df_prior_atual = atualizar_horarios_prioridades(df_prior, df_email)
             st.session_state["df_prior_atual"] = df_prior_atual
             st.success("✅ Horários atualizados!")
+            # Expander com diagnóstico de origem de horários
+            with st.expander("🔎 Diagnóstico: origem dos horários", expanded=False):
+                cnts = df_prior_atual['Origem Horário'].value_counts(dropna=False)
+                st.write(cnts.to_frame(name='Contagem'))
+                # Exibe até 3 amostras por origem
+                for origem in cnts.index:
+                    st.markdown(f"**{origem}**")
+                    exemplos = df_prior_atual[df_prior_atual['Origem Horário'] == origem].head(3)
+                    st.dataframe(exemplos[["Placa","Cód. Cliente","Cliente","Horário"]], use_container_width=True)
             st.dataframe(df_prior_atual, use_container_width=True)
         else:
             df_prior_atual = st.session_state.get("df_prior_atual", None)
