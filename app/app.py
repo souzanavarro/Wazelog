@@ -5,7 +5,7 @@ import pandas as pd
 import requests
 sys.dont_write_bytecode = True
 
-st.set_page_config(page_title="Wazelog", layout="wide")
+st.set_page_config(page_title="Wazelog", layout="wide", initial_sidebar_state="collapsed")
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -60,7 +60,7 @@ other_items = [
 
 with st.sidebar:
     pagina = st.session_state.get('pagina_selecionada', 'Dashboard')
-    with st.expander('Roteirização', expanded=True):
+    with st.expander('Roteirização', expanded=False):
         for nome, icone in main_submenus:
             btn = st.button(f"{icone}  {nome}", key=f"menu_{nome}", use_container_width=True)
             if btn:
