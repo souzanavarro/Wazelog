@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^python - <<'PY'\nimport runpy\nimport pandas as pd\ng = runpy\\.run_path\\('app/cliente_prioridade_page\\.py'\\)\nextrair = g\\['extrair_horario_da_coluna_codigo'\\]\natualizar = g\\['atualizar_horarios_prioridades'\\]\n# sample\nrows = \\['12529 - AS 08:00','191873 - AS 08:00','217728 - AS 08:00','217443 - AS 08:00','216263 - AS 08:00','11648 - AS 08:00','211793 - AS 08:00','198247 - AS 08:00'\\]\ndf = pd\\.DataFrame\\(\\{'Cód\\. Cliente':rows,'Grupo Cliente':\\['Nenhum'\\]\\*len\\(rows\\),'Cliente':\\['X'\\]\\*len\\(rows\\),'Placa':\\['ABC123'\\]\\*len\\(rows\\)\\}\\)\nprint\\('before'\\)\nprint\\(df\\)\ndf2 = extrair\\(df,'Cód\\. Cliente'\\)\nprint\\('\\\\nafter extrair_horario_da_coluna_codigo'\\)\nprint\\(df2\\)\nprint\\('\\\\nafter atualizar_horarios_prioridades'\\)\ndf3 = atualizar\\(df2,None\\)\nprint\\(df3\\[\\['Cód\\. Cliente','Grupo Cliente','Horário','Origem Horário'\\]\\]\\)\nPY$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
