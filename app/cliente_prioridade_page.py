@@ -221,7 +221,20 @@ _TOKEN_RE = re.compile(_TOKEN)
 _COMPACT_RE = re.compile(r'\b(?P<d>\d{3,4})\b')
 
 def _fmt_hm(hh, mm) -> str:
-    return f"{int(hh):02d}:{int(mm) if mm else 0:02d}"
+    try:
+        h = int(hh)
+    except Exception:
+        h = 0
+    try:
+        m = int(mm) if mm is not None and str(mm).strip() != "" else 0
+    except Exception:
+        m = 0
+    # Garante minutos entre 0 e 59
+    if m < 0:
+        m = 0
+    if m > 59:
+        m = m % 60
+    return f"{h:02d}:{m:02d}"
 
 def _fmt_compact_to_hm(d: str) -> str:
     return f"{d[:-2].zfill(2)}:{d[-2:]}" if len(d) in (3, 4) else ""
